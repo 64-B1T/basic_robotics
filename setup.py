@@ -16,7 +16,7 @@ setup(name='basic_robotics',
       license='MIT',
       packages=find_packages(),
       install_requires=[
-          'numpy',
+          'numpy <= 1.21.5',
           'pyserial',
           'scipy',
           'numba',
