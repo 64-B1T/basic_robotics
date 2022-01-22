@@ -1,6 +1,7 @@
-from basic_robotics.faser_math import tm, fsr, fmr
+from basic_robotics.interfaces import Communications
+from basic_robotics.general import tm, fsr, fmr
 from basic_robotics.faser_robot_kinematics import *
-from basic_robotics.faser_plotting.Draw.Draw import *
+from basic_robotics.plotting.Draw import *
 
 meld_platform = loadSP('../../z_MELD/meld_sp_definition.json', '')
 fig = plt.figure()

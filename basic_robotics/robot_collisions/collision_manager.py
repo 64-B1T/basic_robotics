@@ -1,8 +1,8 @@
 import trimesh
 from trimesh.collision import CollisionManager
-from basic_robotics.faser_math import tm, fsr
-from basic_robotics.faser_robot_kinematics import Arm
-from basic_robotics.faser_plotting.Draw.Draw import drawMesh
+from ..general import tm, fsr
+from ..kinematics import Arm
+from ..plotting.Draw import drawMesh
 from itertools import combinations
 import numpy as np
 
