@@ -8,7 +8,9 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='basic_robotics',
-      version='0.1.26',
+      version='0.2.2',
+      long_description=README,
+      long_description_content_type='text/markdown',
       description='Basic Robotics Toolbox Developed in FASER Lab',
       url='https://github.com/64-B1T/basic_robotics',
       author='William Chapin',
@@ -16,7 +18,7 @@ setup(name='basic_robotics',
       license='MIT',
       packages=find_packages(),
       install_requires=[
-          'numpy <= 1.21.5',
+          'numpy <= 1.21.5, >= 1.19',
           'pyserial',
           'scipy',
           'numba',
@@ -25,5 +27,6 @@ setup(name='basic_robotics',
           'descartes',
           'alphashape',
           'trimesh',
+          'rtree',
       ],
       zip_safe=False)
