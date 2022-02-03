@@ -97,7 +97,7 @@ def planePointsFromTransform(ref_point_1):
     Returns:
         a, b, c: Plane basis points
     """
-    a, b, c = ref_point_1.TripleUnit()
+    a, b, c = ref_point_1.tripleUnit()
     return ref_point_1, b, c
 
 def mirror(origin, mirror_plane):
@@ -109,8 +109,8 @@ def mirror(origin, mirror_plane):
     Returns:
         mirrored Point
     """
-    t1, t2, t3 = PlaneTMSFromOne(origin)
-    a, b, c, d = PlaneFrom3Tms(t1, t2, t3)
+    t1, t2, t3 = planePointsFromTransform(origin)
+    a, b, c, d = planeFromThreePoints(t1, t2, t3)
     x1 = mirror_plane[0]
     y1 = mirror_plane[1]
     z1 = mirror_plane[2]

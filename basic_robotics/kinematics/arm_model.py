@@ -35,6 +35,7 @@ class Arm:
         #Configure the arm given the base screws, the base transform.
         self.cameras = []
         self.num_dof = np.shape(screw_list)[1]
+        self._theta = np.zeros(self.num_dof)
         self.vis_props = None
         self.col_props = None
         self.link_names = []
