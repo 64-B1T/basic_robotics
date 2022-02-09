@@ -43,6 +43,7 @@ class Arm:
             self.link_names.append('link' + str(i))
         self.link_names.append('end_effector')
         self.link_home_positions = None
+        self.joint_origins = self.link_home_positions
         self.initialize(base_pos_global, screw_list, end_effector_home, joint_poses_home)
         self.link_mass_transforms = 0
         self.box_spatial_links = 0
@@ -1831,12 +1832,14 @@ def loadArmFromURDF(file_name):
     joint_maxs = []
     joint_vel_limits = []
     joint_effort_limits = []
+    joint_origins = []
     while temp_element.num_children > 0:
         #temp_element.display()
         if temp_element.type == 'link' or temp_element.sub_type == 'fixed':
             if temp_element.type == 'link':
-                masses.append(temp_element.mass)
-                masses_cg.append(temp_element.xyz_origin)
+                if temp_element.mass is not None:
+                    masses.append(temp_element.mass)
+                    masses_cg.append(temp_element.xyz_origin)
                 link_names.append(temp_element.name)
                 vis_props.append([temp_element.vis_type,
                         temp_element.vis_origin, temp_element.vis_properties])
@@ -1844,9 +1847,10 @@ def loadArmFromURDF(file_name):
                         temp_element.col_origin, temp_element.col_properties])
             if temp_element.sub_type == 'fixed':
                 joint_poses[-1] = joint_poses[-1] @ temp_element.xyz_origin
-                #joint_homes[0:3, arrind] = joint_poses[-1][0:3].flatten()
+                joint_origins.append(temp_element.xyz_origin) # Fixed Joints are still origins
             temp_element = mostChildren(temp_element)
             continue
+        joint_origins.append(temp_element.xyz_origin)
         joint_poses.append(joint_poses[-1] @ temp_element.xyz_origin)
         joint_names.append(temp_element.name)
         joint_mins.append(temp_element.joint_limits[0])
@@ -1879,6 +1883,7 @@ def loadArmFromURDF(file_name):
     arm.max_effort = np.array(joint_effort_limits)
     arm.vis_props = vis_props
     arm.col_props = col_props
+    arm.joint_origins = joint_origins
     #disp(joint_poses[1:], 'intended')
 
     #Placeholder Dimensions
