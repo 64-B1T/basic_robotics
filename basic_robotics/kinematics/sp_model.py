@@ -320,12 +320,12 @@ class SP:
         if type == 'b':
             #return fsr.adjustRotationToMidpoint(bottom_act_joint, bottom_act_joint,
             #   top_act_joint, mode = 1) @ tm([0, 0, self.act_motor_grav_center, 0, 0, 0])
-            return self.fsr.getUnitVec(bottom_act_joint,
+            return fsr.getUnitVec(bottom_act_joint,
                 top_act_joint, self.act_motor_grav_center)
         if type == 't':
             #return fsr.adjustRotationToMidpoint(top_act_joint, top_act_joint, bottom_act_joint,
             #   mode = 1) @ tm([0, 0, self.act_shaft_grav_center, 0, 0, 0])
-            return self.fsr.getUnitVec(top_act_joint,
+            return fsr.getUnitVec(top_act_joint,
                 bottom_act_joint, self.act_shaft_grav_center)
         new_position = tm([pos[0], pos[1], pos[2], 0, 0, 0])
         return new_position
@@ -1558,7 +1558,7 @@ class SP:
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("GetActuatorUnit", "fsr.getUnitVec")
-        return self.fsr.getUnitVec(p1, p2, dist)
+        return fsr.getUnitVec(p1, p2, dist)
     def SpinCustom(self, rot):
         """
         Deprecated. Don't Use

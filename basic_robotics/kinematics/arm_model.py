@@ -42,6 +42,7 @@ class Arm:
         for i in range(self.num_dof):
             self.link_names.append('link' + str(i))
         self.link_names.append('end_effector')
+        self.eef_transform = None
         self.link_home_positions = None
         self.joint_origins = self.link_home_positions
         self.initialize(base_pos_global, screw_list, end_effector_home, joint_poses_home)
@@ -935,6 +936,8 @@ class Arm:
             #Fix handling of dims
             #print(fsr.TAAtoTM(np.array([0.0, 0.0, self.link_dimensions[-1, 2], 0.0 , 0.0, 0.0])))
             joint_pose_list[len(joint_pose_list) - 1] = self.FK(self._theta)
+        if self.eef_transform is not None:
+            joint_pose_list.append(joint_pose_list[-1] @ self.eef_transform)
         return joint_pose_list
 
     def setArbitraryHome(self, theta,T):
@@ -962,6 +965,8 @@ class Arm:
         """
         Gets End Effector Position
         """
+        if self.eef_transform is not None:
+            return self.end_effector_pos_global.copy() @ self.eef_transform
         return self.end_effector_pos_global.copy()
 
     def getScrewList(self):
@@ -1833,9 +1838,10 @@ def loadArmFromURDF(file_name):
     joint_vel_limits = []
     joint_effort_limits = []
     joint_origins = []
+    eef_transform = tm()
     while temp_element.num_children > 0:
         #temp_element.display()
-        if temp_element.type == 'link' or temp_element.sub_type == 'fixed':
+        if temp_element.type == 'link' or temp_element.sub_type == 'fixed': #If a Link or a Fixed Joint
             if temp_element.type == 'link':
                 if temp_element.mass is not None:
                     masses.append(temp_element.mass)
@@ -1845,8 +1851,8 @@ def loadArmFromURDF(file_name):
                         temp_element.vis_origin, temp_element.vis_properties])
                 col_props.append([temp_element.col_type,
                         temp_element.col_origin, temp_element.col_properties])
-            if temp_element.sub_type == 'fixed':
-                joint_poses[-1] = joint_poses[-1] @ temp_element.xyz_origin
+            if temp_element.sub_type == 'fixed': #If it's a fixed joint, it's a pseudo link
+                eef_transform = eef_transform @ temp_element.xyz_origin
                 joint_origins.append(temp_element.xyz_origin) # Fixed Joints are still origins
             temp_element = mostChildren(temp_element)
             continue
@@ -1881,6 +1887,7 @@ def loadArmFromURDF(file_name):
     arm.joint_maxs = np.array(joint_maxs)
     arm.max_vels = np.array(joint_vel_limits)
     arm.max_effort = np.array(joint_effort_limits)
+    arm.eef_transform = eef_transform
     arm.vis_props = vis_props
     arm.col_props = col_props
     arm.joint_origins = joint_origins

@@ -180,6 +180,20 @@ def tmInterpMidpoint(ref_point_1, ref_point_2):
     taar[3:6] = mr.so3ToVec(mr.MatrixLog3((rmid))).reshape((3, 1))
     return tm(taar)
 
+def get_surface_normal(tri):
+    u = tri[1] - tri[0]
+    v = tri[2] - tri[0]
+    x = u[1] * v[2] - u[2] * v[1]
+    y = u[2] * v[0] - u[0] * v[2]
+    z = u[0] * v[1] - u[1] * v[0]
+    center = tm([(tri[0][0] + tri[1][0] + tri[2][0])/3,
+        (tri[0][1] + tri[1][1] + tri[2][1])/3,
+        (tri[0][2] + tri[1][2] + tri[2][2])/3, 0, 0, 0])
+    nvec = np.array([x, y, z])
+    unit_vec = nvec/np.linalg.norm(nvec)/2
+    unit_out = tm([unit_vec[0], unit_vec[1], unit_vec[2], 0, 0, 0])
+    return center, unit_out
+
 #Rotations/Viewers
 def rotationFromVector(ref_point_1, ref_point_2):
     """
@@ -192,7 +206,7 @@ def rotationFromVector(ref_point_1, ref_point_2):
         tm: ref_point_1 where z points to position 2
     """
     d = math.sqrt((ref_point_2[0] - ref_point_1[0])**2 + (ref_point_2[1] - ref_point_1[1])**2 + (ref_point_2[2] - ref_point_1[2])**2)
-    res = lambda x : Distance(tm([ref_point_1[0], ref_point_1[1], ref_point_1[2], x[0], x[1], ref_point_1[5]]) @ tm([0, 0, d, 0, 0, 0]), ref_point_2)
+    res = lambda x : distance(tm([ref_point_1[0], ref_point_1[1], ref_point_1[2], x[0], x[1], ref_point_1[5]]) @ tm([0, 0, d, 0, 0, 0]), ref_point_2)
     x0 = np.array([ref_point_1[3], ref_point_1[4]])
     xs = sci.optimize.fmin(res, x0, disp=False)
     ref_point_1[3:5] = xs.reshape((2))
