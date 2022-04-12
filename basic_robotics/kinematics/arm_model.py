@@ -936,8 +936,8 @@ class Arm:
             #Fix handling of dims
             #print(fsr.TAAtoTM(np.array([0.0, 0.0, self.link_dimensions[-1, 2], 0.0 , 0.0, 0.0])))
             joint_pose_list[len(joint_pose_list) - 1] = self.FK(self._theta)
-        if self.eef_transform is not None:
-            joint_pose_list.append(joint_pose_list[-1] @ self.eef_transform)
+        #if self.eef_transform is not None:
+        #    joint_pose_list.append(joint_pose_list[-1] @ self.eef_transform)
         return joint_pose_list
 
     def setArbitraryHome(self, theta,T):
@@ -965,8 +965,8 @@ class Arm:
         """
         Gets End Effector Position
         """
-        if self.eef_transform is not None:
-            return self.end_effector_pos_global.copy() @ self.eef_transform
+        #if self.eef_transform is not None:
+        #    return self.end_effector_pos_global.copy() @ self.eef_transform
         return self.end_effector_pos_global.copy()
 
     def getScrewList(self):
@@ -1712,7 +1712,13 @@ def loadArmFromURDF(file_name):
                 cg_origin_rpy = np.array(cg_rpy_raw, dtype=float)
 
                 cg_origin_tm = tm([cg_origin_xyz[0], cg_origin_xyz[1], cg_origin_xyz[2],
-                        cg_origin_rpy[0], cg_origin_rpy[1], cg_origin_rpy[2]])
+                        0, 0, 0])
+                cg_origin_tm = cg_origin_tm @ tm([0, 0, 0, 0, 0, cg_origin_rpy[2]])
+                cg_origin_tm = cg_origin_tm @ tm([0, 0, 0, 0, cg_origin_rpy[1], 0])
+                #cg_origin_rpy[0], cg_origin_rpy[1], cg_origin_rpy[2]
+                cg_origin_tm = cg_origin_tm @ tm([0, 0, 0, cg_origin_rpy[0], 0, 0])
+
+
 
                 new_element.xyz_origin = cg_origin_tm
             if child.tag == 'limit':

@@ -8,15 +8,19 @@ class tm:
     Class to represent and manipulate 3d transformations easily.
     Utilizes Euler Angles and 4x4 Transformation Matrices
     """
-    def __init__(self, initializer_array = np.eye((4))):
+    def __init__(self, initializer_array = np.eye((4)), rpy=False):
         """
         Initializes a new Transformation object
         If no initializer_array is supplied, an identity transform is returned
         initializer_array can be of the following types, with different behaviors
             1) tm: a copy of the tm object is returned
             2) len(3) list: a tm object representing an XYZ rotation is returned
+            3) len(3) list with rpy True: a tm representing a ZYX(RPY) rotation is returned
             3) len(6) list: a tm object representing an XYZ translation and XYZ rotation is returned
-            4) 4x4 transformation matrix: a tm object representing the given transform is returned
+            4) len(6) list with rpy True: a tm object representing an XYZ translation and ZYX(RPY) rotation is returned
+            4) len(7) list: a tm object representing an XYZ translation and a quaternion is returned
+            5) 4x4 transformation matrix: a tm object representing the given transform is returned
+
         Args:
             initializer_array: Optional - data to generate new transformation
         """
@@ -29,38 +33,33 @@ class tm:
         if isinstance(initializer_array, list):
             #Generates tm from list
             if init_arr_len == 3:
-                self.TAA = np.array([0, 0, 0,
-                        initializer_array[0],
-                        initializer_array[1],
-                        initializer_array[2]])
-                self.TAAtoTM()
-                return
+                # Generate rotation from 3DOF list
+                return self.generateFrom3DOF(initializer_array, rpy)
             elif init_arr_len == 6:
-                self.TAA = np.array([initializer_array[0],
-                        initializer_array[1],
-                        initializer_array[2],
-                        initializer_array[3],
-                        initializer_array[4],
-                        initializer_array[5]])
-                self.TAAtoTM()
-                return
+                # Generate rotation and translation from 6dof list
+                return self.generateFrom6DOF(initializer_array, rpy)
             else:
+                # Generate Rotation and translation from 7dof list (quaternion)
                 self.TAA = np.array([initializer_array[0],
                         initializer_array[1],
                         initializer_array[2],
                         0,
                         0,
                         0])
+                self.TM = np.eye(4)
                 self.setQuat(initializer_array[3:7])
                 return
         else:
-            if init_arr_len == 6:
-                #Generates tm from numpy array
-                self.TAA = initializer_array.reshape((6, 1)).copy()
-                self.TAAtoTM()
-                return
+            if init_arr_len == 3:
+                # Generate rotation from 3dof array
+                return self.generateFrom3DOF(initializer_array.flatten(), rpy)
+            elif init_arr_len == 6:
+                # Generate rotation adn translation from 6dof array
+                return self.generateFrom6DOF(initializer_array.flatten(), rpy)
             elif init_arr_len == 7:
+                # Generate rotation and translation from 7dof array (quaternion)
                 self.TAA = initializer_array.reshape((6, 1)).copy()
+                self.TM = np.eye(4)
                 self.setQuat(initializer_array[3:])
                 return
             elif (len(initializer_array) == 1):
@@ -73,6 +72,61 @@ class tm:
                 self.transformSqueezedCopy(initializer_array)
                 self.TMtoTAA()
                 return
+
+    @classmethod
+    def from3DOF(self, initializer_array, rpy):
+        """Short summary.
+
+        Args:
+            initializer_array (type): Description of parameter `initializer_array`.
+            rpy (type): Description of parameter `rpy`.
+
+        Returns:
+            type: Description of returned object.
+
+        """
+        if rpy == False:
+            self.TAA = np.array([0, 0, 0,
+                    initializer_array[0],
+                    initializer_array[1],
+                    initializer_array[2]])
+        else:
+            temp_init = tm([0, 0, 0, 0, 0, initializer_array[2]])
+            temp_init = temp_init @ tm([0, 0, 0, 0, initializer_array[1], 0])
+            self.TAA = (temp_init @ tm([0, 0, 0, initializer_array[0],0, 0])).gTAA()
+        self.TAAtoTM()
+
+    @classmethod
+    def from6DOF(self, initializer_array, rpy):
+        """Short summary.
+
+        Args:
+            initializer_array (type): Description of parameter `initializer_array`.
+            rpy (type): Description of parameter `rpy`.
+
+        Returns:
+            type: Description of returned object.
+
+        """
+        if rpy == False:
+            self.TAA = np.array([initializer_array[0],
+                    initializer_array[1],
+                    initializer_array[2],
+                    initializer_array[3],
+                    initializer_array[4],
+                    initializer_array[5]])
+        else:
+            temp_init = tm([0, 0, 0, 0, 0, initializer_array[2]])
+            temp_init = temp_init @ tm([0, 0, 0, 0, initializer_array[1], 0])
+            temp_init = temp_init @ tm([0, 0, 0, initializer_array[0],0, 0])
+            self.TAA = np.array([initializer_array[0],
+                    initializer_array[1],
+                    initializer_array[2],
+                    temp_init[3],
+                    temp_init[4],
+                    temp_init[5]])
+        self.TAAtoTM()
+        return
 
     def spawnNew(self, init):
         """
