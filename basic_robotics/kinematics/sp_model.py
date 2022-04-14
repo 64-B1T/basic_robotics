@@ -788,6 +788,7 @@ class SP:
                 self.continuousTranslationCorrectiveAction()
                 valid = self.validate(True, 2)
         return valid
+
     def validateInteriorAngles(self, valid = True, donothing = False):
         """
         Ensures that interior angles do not violate angular limits
@@ -936,6 +937,7 @@ class SP:
         #    (current_leg_max - self.leg_ext_max + self.leg_ext_safety)])
         self.lengths -= ((current_leg_max - self.leg_ext_max)+self.leg_ext_safety)
         #print(self.lengths)
+        
     def lengthCorrectiveAction(self):
         """
         Make an attempt to correct leg lengths that are out of bounds.
@@ -1741,8 +1743,8 @@ def loadSP(fname, file_directory = "../robot_definitions/", baseloc = None, altR
         SP: SP object
 
     """
-    print(fname)
-    print(file_directory)
+    #print(fname)
+    #print(file_directory)
     total_name = file_directory + fname
     print(total_name)
     with open(total_name, "r") as sp_file:
