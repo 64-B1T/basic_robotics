@@ -59,14 +59,6 @@ class SP:
         self.nominal_height = fsr.distance(bT, tT)
         self.nominal_plate_transform = tm([0, 0, self.nominal_height, 0, 0, 0])
 
-        self.aux_inits = [
-            self.nominal_plate_transform,
-            self.nominal_plate_transform @ tm([np.pi/8, 0, 0]),
-            self.nominal_plate_transform @ tm([0, -np.pi/8, 0]),
-            self.nominal_plate_transform @ tm([-np.pi/8, 0, np.pi/8]),
-            self.nominal_plate_transform @ tm([.25, .25, -.25, np.pi/10, 0, .001])
-        ]
-
         #Drawing Characteristics
         self.outer_top_radius = 0
         self.outer_bottom_radius = 0
@@ -469,6 +461,72 @@ class SP:
             valid = self.validate()
         return top, valid
 
+    def FKSciRaphson(self, L, bottom_plate_pos=None, reverse=False, protect=False):
+        """
+        Use Python's Scipy module to calculate forward kinematics. Takes in length list,
+        optionally bottom position, reverse parameter, and protection
+        Args:
+            L (ndarray(Float)): Goal leg lengths
+            bottom_plate_pos (tm): bottom plate transformation in space frame
+            reverse (Bool): Boolean to reverse action. If true, treat the top plate as stationary.
+            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
+
+        Returns:
+            tm: bottom plate transform
+            tm: top plate transform
+
+        """
+        L = L.reshape((6, 1))
+        mag = lambda x : abs(x[0]) + abs(x[1])+ abs(x[2]) + abs(x[3]) + abs(x[4]) + abs(x[5])
+        fk = lambda x : mag(self.IKHelper(bottom_plate_pos, tm(x), protect = True)[0] - L).flatten()
+        jac = lambda x : (self.inverseJacobianSpace(bottom_plate_pos, tm(x)))
+        x0 = (self.getBottomT() @ self.nominal_plate_transform).TAA.flatten()
+
+        root = sci.optimize.minimize(fk, x0).x
+        #disp(root, "ROOT")
+        self.IK(bottom_plate_pos, tm(root), protect = True)
+        return bottom_plate_pos, tm(root)
+
+    def simplifiedRaphson(self, L, bottom_plate_pos=None, reverse=False, protect=False):
+        """
+        Follow the method in the Parallel Robotics Textbook
+
+        Args:
+            L (ndarray(Float)): Goal leg lengths
+            bottom_plate_pos (tm): bottom plate transformation in space frame
+            reverse (Bool): Boolean to reverse action. If true, treat the top plate as stationary.
+            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
+
+        Returns:
+            tm: top plate transform
+        """
+        tol_f = 1e-4;
+        tol_a = 1e-4;
+        #iteration limits
+        max_iterations = 1e4
+
+        if bottom_plate_pos == None:
+            bottom_plate_pos = self.bottom_plate_pos
+
+        x = self.getTopT().copy()
+        iter = 0
+        success = False
+        while not success and iter < max_iterations:
+            x = x + self.inverseJacobianSpace(bottom_plate_pos, x ) @ (L -
+                self.IK(top_plate_pos = x, protect = protect))
+            x.angleMod()
+            #disp(x)
+            if np.all(abs(x[0:3]) < tol_f) and np.all(abs(x[3:6]) < tol_a):
+                success = True
+            iter+=1
+
+        if iter == max_iterations:
+            print("Failed to Converge")
+
+        return tm(x)
+
+
+
     def FKSolve(self, L, bottom_plate_pos=None, reverse=False, protect=False):
         """
         Older version of python solver, no jacobian used. Takes in length list,
@@ -507,19 +565,9 @@ class SP:
             #Find top pose that produces the desired leg lengths.
             fk = lambda x : (self.IKHelper(bottom_plate_pos, tm(x),
                 protect = True)[0] - L).reshape((6))
+            sol = tm(sci.optimize.fsolve(fk, self.getTopT().TAA))
+            #self.bottom_plate_pos = bottom_plate_pos
 
-            #solres = sci.optimize.fmin(fkprime, self.getTopT().TAA, disp=True)
-            init = self.getTopT().TAA
-            found_sol = True
-            solres = sci.optimize.fsolve(fk, init)
-            sol = tm(solres)
-            sol.angleMod()
-            sol.TMtoTAA()
-            self.IK(bottom_plate_pos, sol, True)
-            nLens = self.getLens()
-            for j in range(6):
-                if abs(abs(L[j]) - abs(nLens[j])) > 0.00001 or not self.validate(True):
-                    return self.FKRaphson(L, bottom_plate_pos, reverse, protect)
         #If not "Protected" from recursion, call IK.
         if not protect:
             self.IK(protect = True)
@@ -548,10 +596,14 @@ class SP:
             bottom_plate_pos = self.getBottomT()
         success = True
         L = L.reshape((6))
-        self.lengths = L.copy()
+        self.lengths = L.reshape((6, 1)).copy()
 
         bottom_plate_pos_backup = bottom_plate_pos.copy()
+            # @ tm([0, 0, self.bottom_plate_thickness, 0, 0, 0])
         bottom_plate_pos = np.eye(4)
+        #bottom_plate_pos = bottom_plate_pos_backup.copy()
+        #newton-raphson tolerances
+        #iteration limits
         iteration = 0
 
         #Initial Guess Position
@@ -561,39 +613,36 @@ class SP:
         try:
             #ap = (fsr.localToGlobal(tm([0, 0, self.nominal_height, 0, 0, 0]), tm()))
             ap = (fsr.localToGlobal(self.current_plate_transform_local, tm())).gTAA().reshape((6))
-            attempt = np.zeros((6), dtype=float)
+            a = np.zeros((6))
             for i in range(6):
-                attempt[i] = ap[i]
+                a[i] = ap[i]
 
             #Call the actual algorithm from the high performance faser library
             #Pass in initial lengths, guess, bottom and top plate positions,
             #max iterations, tolerances, and minimum leg lengths
-            attempt, iteration = fmr.SPFKinSpaceR(bottom_plate_pos, L, attempt,
+            a, iteration = fmr.SPFKinSpaceR(bottom_plate_pos, L, a,
                 self.bottom_joints_init, self.top_joints_init,
                 self.max_iterations, self.tol_f, self.tol_a, self.leg_ext_min)
 
             #If the algorithm failed, try again, but this time set initial position to neutral
             if iteration == self.max_iterations:
-                for i in range(6):
-                    attempt = self.aux_inits[i].TAA.flatten()
-                    #attempt[2] = self.nominal_height
-                    attempt, iteration = fmr.SPFKinSpaceR(bottom_plate_pos, L, attempt,
-                        self.bottom_joints_init, self.top_joints_init,
-                        self.max_iterations, self.tol_f, self.tol_a, self.leg_ext_min)
-                    if iteration == self.max_iterations:
-                        if self.debug:
-                            print("Raphson Failed to Converge")
-                        self.fail_count += 1
-                        self.IK(bottom_plate_pos_backup,
-                            bottom_plate_pos_backup @ self.nominal_plate_transform, protect = True)
-                        return self.getBottomT(), self.getTopT()
-                    else:
-                        break
+
+                a = np.zeros((6))
+                a[2] = self.nominal_height
+                a, iteration = fmr.SPFKinSpaceR(bottom_plate_pos, L, a,
+                    self.bottom_joints_init, self.top_joints_init,
+                    self.max_iterations, self.tol_f, self.tol_a, self.leg_ext_min)
+                if iteration == self.max_iterations:
+                    if self.debug:
+                        print("Raphson Failed to Converge")
+                    self.fail_count += .1
+                    self.IK(bottom_plate_pos_backup,
+                        bottom_plate_pos_backup @ self.nominal_plate_transform, protect = True)
+                    return self.getBottomT(), self.getTopT()
 
             #Otherwise return the calculated end effector position
             #coords =tm(bottom_plate_pos_backup @ fsr.TAAtoTM(a.reshape((6, 1))))
-            coords = bottom_plate_pos_backup @ tm(attempt)
-
+            coords = bottom_plate_pos_backup @ tm(a)
             # @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
 
             #Disabling these cause unknown issues so far.
@@ -613,7 +662,7 @@ class SP:
             if self.debug:
                 disp("Raphson FK Failed due to: " + str(e))
             self.fail_count+=1
-            return self.FKSolve(L, bottom_plate_pos_backup, reverse, protect)
+            return self.FKSciRaphson(L, bottom_plate_pos_backup, reverse, protect)
 
 
     def lambdaTopPlateReorientation(self, stopt):
@@ -667,8 +716,6 @@ class SP:
         the bottom plate, yet lengths are valid,
         This function can be used to mirror all the joint locations and "fix" the resultant problem
         """
-        #print(self.getTopT())
-        #print('fixing upside down!')
         for num in range(6):
             #reversable = fsr.globalToLocal(tm([self.top_joints_space[0, num],
             #    self.top_joints_space[1, num], self.top_joints_space[2, num], 0, 0, 0]),
@@ -745,7 +792,7 @@ class SP:
     def validateInteriorAngles(self, valid = True, donothing = False):
         """
         Ensures that interior angles do not violate angular limits
-        Args:f
+        Args:
             valid (Bool): whether to start the validator with an assumption of prior validity
             donothing (Bool): If set to true, even if an invalid configuration is detected,
                 will not attempt to correct it
@@ -890,7 +937,7 @@ class SP:
         #    (current_leg_max - self.leg_ext_max + self.leg_ext_safety)])
         self.lengths -= ((current_leg_max - self.leg_ext_max)+self.leg_ext_safety)
         #print(self.lengths)
-
+        
     def lengthCorrectiveAction(self):
         """
         Make an attempt to correct leg lengths that are out of bounds.
@@ -901,8 +948,8 @@ class SP:
             disp(self.lengths[np.where(self.lengths > self.leg_ext_max)], "over max")
             disp(self.lengths[np.where(self.lengths < self.leg_ext_min)], "below min")
 
-        current_leg_min = min(self.lengths)
-        current_leg_max = max(self.lengths)
+        current_leg_min = min(self.lengths.flatten())
+        current_leg_max = max(self.lengths.flatten())
 
         #for i in range(6):
         #    self.lengths[i] = ((self.lengths[i]-current_leg_min)/
@@ -1520,6 +1567,12 @@ class SP:
         """
         self.printOutOfDateFunction("SpinCustom", "spinCustom")
         return self.spinCustom(rot)
+    def SimplifiedRaphson(self, L, bottomT = None, reverse = False, protect = False):
+        """
+        Deprecated. Don't Use
+        """
+        self.printOutOfDateFunction("SimplifiedRaphson", "simplifiedRaphson")
+        return self.simplifiedRaphson(L, bottomT, reverse, protect)
     def LambdaRTP(self, stopt):
         """
         Deprecated. Don't Use
@@ -1693,7 +1746,7 @@ def loadSP(fname, file_directory = "../robot_definitions/", baseloc = None, altR
     #print(fname)
     #print(file_directory)
     total_name = file_directory + fname
-    #print(total_name)
+    print(total_name)
     with open(total_name, "r") as sp_file:
         sp_data = json.load(sp_file)
     bot_radius = sp_data["BottomPlate"]["JointRadius"] #Radius of Ball Joint Circle in Meters

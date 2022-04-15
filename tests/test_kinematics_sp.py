@@ -1,307 +1,175 @@
 import unittest
 import numpy as np
 from basic_robotics.general import tm, fsr, fmr
-import json
-import os
-from basic_robotics.kinematics import loadSP
+
 class TestSP(unittest.TestCase):
 
-    def setUp(self):
-        basic_sp = {
-           "Name":"Basic SP",
-           "Type":"SP",
-           "BottomPlate":{
-              "Thickness":0.1,
-              "JointRadius":0.9,
-              "JointSpacing":9,
-              "Mass": 6
-           },
-           "TopPlate":{
-              "Thickness":0.16,
-              "JointRadius":0.3,
-              "JointSpacing":25,
-              "Mass": 1
-           },
-           "Actuators":{
-              "MinExtension":0.75,
-              "MaxExtension":1.5,
-              "MotorMass":0.5,
-              "ShaftMass":0.9,
-              "ForceLimit": 800,
-              "MotorCOGD":0.2,
-              "ShaftCOGD":0.2
-           },
-           "Drawing":{
-             "TopRadius":1,
-             "BottomRadius":1,
-             "ShaftRadius": 0.1,
-             "MotorRadius": 0.2
-           },
-           "Settings":{
-              "MaxAngleDev":55,
-              "GenerateActuators":0,
-              "IgnoreRestHeight":1,
-              "UseSpin":0,
-              "AssignMasses":1,
-              "InferActuatorCOG":1
-           },
-           "Params":{
-              "RestHeight":1.2,
-              "Spin":30
-           }
-        }
-
-        basic_sp_string = json.dumps(basic_sp)
-        with open ('sp_test_data.json', 'w') as outfile:
-            outfile.write(basic_sp_string)
-
-        self.sp = loadSP('sp_test_data.json', '')
-        self.sp.IK(top_plate_pos = tm([0, 0, 1.2, 0, 0, 0]))
-        #Delete file
-        os.remove('sp_test_data.json')
-
-    def test_kinematics_sp_setMasses(self):
+    def setUP(self):
         pass #TODO
 
-    def test_kinematics_sp_setGrav(self):
+    def test_setMasses(self):
         pass #TODO
 
-    def test_kinematics_sp_setCOG(self):
+    def test_setGrav(self):
         pass #TODO
 
-    def test_kinematics_sp_setMaxAngleDev(self):
+    def test_setCOG(self):
         pass #TODO
 
-    def test_kinematics_sp_setMaxPlateRotation(self):
+    def test_setMaxAngleDev(self):
         pass #TODO
 
-    def test_kinematics_sp_setDrawingDimensions(self):
+    def test_setMaxPlateRotation(self):
         pass #TODO
 
-    def test_kinematics_sp_setPlatePos(self):
+    def test_setDrawingDimensions(self):
         pass #TODO
 
-    def test_kinematics_sp_getBottomJoints(self):
+    def test_setPlatePos(self):
         pass #TODO
 
-    def test_kinematics_sp_getTopJoints(self):
+    def test_getBottomJoints(self):
         pass #TODO
 
-    def test_kinematics_sp_getCurrentLocalTransform(self):
+    def test_getTopJoints(self):
         pass #TODO
 
-    def test_kinematics_sp_getLegForces(self):
+    def test_getCurrentLocalTransform(self):
         pass #TODO
 
-    def test_kinematics_sp_getLens(self):
+    def test_getLegForces(self):
         pass #TODO
 
-    def test_kinematics_sp_getTopT(self):
+    def test_getLens(self):
         pass #TODO
 
-    def test_kinematics_sp_getBottomT(self):
+    def test_getTopT(self):
         pass #TODO
 
-    def test_kinematics_sp_getActuatorLoc(self):
+    def test_getBottomT(self):
         pass #TODO
 
-    def test_kinematics_sp_spinCustom(self):
+    def test_getActuatorLoc(self):
         pass #TODO
 
-    def test_kinematics_sp_IK(self):
+    def test_spinCustom(self):
         pass #TODO
 
-    def test_kinematics_sp_IKHelper(self):
+    def test_IK(self):
         pass #TODO
 
-    def test_kinematics_sp_FKDefault(self):
-        goals = [
-            tm([0.25, 0.25, 1.1, np.pi/8, 0, 0]),
-            tm([0.2, 0.3, 1.2, 0, np.pi/8, 0]),
-            tm([0, .1, 1.2, 0, 0, np.pi/5]),
-            tm([0, -.2, 1.3, 0, -np.pi/8, 0]),
-            tm([-.2, -.2, 1.15, 0, 0, 0]),
-            tm([-.3, 0, 1.1, 0, 0, 0]),
-            tm([-.1, .1, 1.1, np.pi/8, np.pi/8, 0]),
-            tm([.1, .2, 1.1, np.pi/16, np.pi/16, np.pi/16]),
-            tm([-.1, -.1, 1.2, -np.pi/10, 0, np.pi/10]),
-            tm([.05, .05, 1.2, 0, 0, np.pi/6])
-        ]
-        for j in range(10):
-            goal = goals[j]
-            self.sp.IK(top_plate_pos = goal)
-            lens = self.sp.getLens().flatten()
-            result_top = self.sp.getTopT()
-            for i in range(6):
-                self.assertAlmostEqual(result_top[i], goal[i], 3)
-            self.sp.IK(top_plate_pos = tm([0, 0, 1.2, 0, 0, 0]))
-            self.assertTrue(self.sp.validate(True))
-            self.sp.FK(lens)
-            #print(result_top)
-            result_lens = self.sp.getLens().flatten()
-            for i in range(6):
-                self.assertAlmostEqual(lens[i], result_lens[i], 2)
-            result_top = self.sp.getTopT()
-            for i in range(6):
-                self.assertAlmostEqual(result_top[i], goal[i], 3)
-
-
-    def test_kinematics_sp_FKSolve(self):
-        goals = [
-            tm([0.25, 0.25, 1.1, np.pi/8, 0, 0]),
-            tm([0.2, 0.3, 1.2, 0, np.pi/8, 0]),
-            tm([0, .1, 1.2, 0, 0, np.pi/5]),
-            tm([0, -.2, 1.3, 0, -np.pi/8, 0]),
-            tm([-.2, -.2, 1.15, 0, 0, 0]),
-            tm([-.3, 0, 1.1, 0, 0, 0]),
-            tm([-.1, .1, 1.1, np.pi/8, np.pi/8, 0]),
-            tm([.1, .2, 1.1, np.pi/16, np.pi/16, np.pi/16]),
-            tm([-.1, -.1, 1.2, -np.pi/10, 0, np.pi/10]),
-            tm([.05, .05, 1.2, 0, 0, np.pi/6])
-        ]
-        for j in range(10):
-            goal = goals[j]
-            self.sp.IK(top_plate_pos = goal)
-            lens = self.sp.getLens().flatten()
-            result_top = self.sp.getTopT()
-            for i in range(6):
-                self.assertAlmostEqual(result_top[i], goal[i], 3)
-            self.sp.IK(top_plate_pos = tm([0, 0, 1.2, 0, 0, 0]))
-            self.assertTrue(self.sp.validate(True))
-            self.sp.FKSolve(lens)
-            #print(result_top)
-            result_lens = self.sp.getLens().flatten()
-            for i in range(6):
-                self.assertAlmostEqual(lens[i], result_lens[i], 2)
-            result_top = self.sp.getTopT()
-            for i in range(6):
-                self.assertAlmostEqual(result_top[i], goal[i], 3)
-
-    def test_kinematics_sp_FKRaphson(self):
-        goals = [
-            tm([0.25, 0.25, 1.1, np.pi/8, 0, 0]),
-            tm([0.2, 0.3, 1.2, 0, np.pi/8, 0]),
-            tm([0, .1, 1.2, 0, 0, np.pi/5]),
-            tm([0, -.2, 1.3, 0, -np.pi/8, 0]),
-            tm([-.2, -.2, 1.15, 0, 0, 0]),
-            tm([-.3, 0, 1.1, 0, 0, 0]),
-            tm([-.1, .1, 1.1, np.pi/8, np.pi/8, 0]),
-            tm([.1, .2, 1.1, np.pi/16, np.pi/16, np.pi/16]),
-            tm([-.1, -.1, 1.2, -np.pi/10, 0, np.pi/10]),
-            tm([.05, .05, 1.2, 0, 0, np.pi/6])
-        ]
-        for j in range(10):
-            goal = goals[j]
-            self.sp.IK(top_plate_pos = goal)
-            lens = self.sp.getLens().flatten()
-            result_top = self.sp.getTopT()
-            for i in range(6):
-                self.assertAlmostEqual(result_top[i], goal[i], 3)
-            self.sp.IK(top_plate_pos = tm([0, 0, 1.2, 0, 0, 0]))
-            self.assertTrue(self.sp.validate(True))
-            self.sp.FKRaphson(lens)
-            #print(result_top)
-            result_lens = self.sp.getLens().flatten()
-            for i in range(6):
-                self.assertAlmostEqual(lens[i], result_lens[i], 2)
-            result_top = self.sp.getTopT()
-            for i in range(6):
-                self.assertAlmostEqual(result_top[i], goal[i], 3)
-
-    def test_kinematics_sp_lambdaTopPlateReorientation(self):
+    def test_IKHelper(self):
         pass #TODO
 
-    def test_kinematics_sp_reorientTopPlate(self):
+    def test_FK(self):
         pass #TODO
 
-    def test_kinematics_sp_fixUpsideDown(self):
+    def test_FKSciRaphson(self):
         pass #TODO
 
-    def test_kinematics_sp_validateLegs(self):
+    def test_simplifiedRaphson(self):
         pass #TODO
 
-    def test_kinematics_sp_validateContinuousTranslation(self):
+    def test_FKSolve(self):
         pass #TODO
 
-    def test_kinematics_sp_validateInteriorAngles(self):
+    def test_FKRaphson(self):
         pass #TODO
 
-    def test_kinematics_sp_validatePlateRotation(self):
+    def test_lambdaTopPlateReorientation(self):
         pass #TODO
 
-    def test_kinematics_sp_validate(self):
+    def test_reorientTopPlate(self):
         pass #TODO
 
-    def test_kinematics_sp_plateRotationConstraint(self):
+    def test_fixUpsideDown(self):
         pass #TODO
 
-    def test_kinematics_sp_legLengthConstraint(self):
+    def test_validateLegs(self):
         pass #TODO
 
-    def test_kinematics_sp_rescaleLegLengths(self):
+    def test_validateContinuousTranslation(self):
         pass #TODO
 
-    def test_kinematics_sp_addLegsToMinimum(self):
+    def test_validateInteriorAngles(self):
         pass #TODO
 
-    def test_kinematics_sp_subLegsToMaximum(self):
+    def test_validatePlateRotation(self):
         pass #TODO
 
-    def test_kinematics_sp_lengthCorrectiveAction(self):
+    def test_validate(self):
         pass #TODO
 
-    def test_kinematics_sp_continuousTranslationConstraint(self):
+    def test_plateRotationConstraint(self):
         pass #TODO
 
-    def test_kinematics_sp_continuousTranslationCorrectiveAction(self):
+    def test_legLengthConstraint(self):
         pass #TODO
 
-    def test_kinematics_sp_getJointAnglesFromNorm(self):
+    def test_rescaleLegLengths(self):
         pass #TODO
 
-    def test_kinematics_sp_getJointAnglesFromVertical(self):
+    def test_addLegsToMinimum(self):
         pass #TODO
 
-    def test_kinematics_sp_componentForces(self):
+    def test_subLegsToMaximum(self):
         pass #TODO
 
-    def test_kinematics_sp_bottomTopCheck(self):
+    def test_lengthCorrectiveAction(self):
         pass #TODO
 
-    def test_kinematics_sp_jacobianSpace(self):
+    def test_continuousTranslationConstraint(self):
         pass #TODO
 
-    def test_kinematics_sp_inverseJacobianSpace(self):
+    def test_continuousTranslationCorrectiveAction(self):
         pass #TODO
 
-    def test_kinematics_sp_altInverseJacobianSpace(self):
+    def test_getJointAnglesFromNorm(self):
         pass #TODO
 
-    def test_kinematics_sp_carryMassCalc(self):
+    def test_getJointAnglesFromVertical(self):
         pass #TODO
 
-    def test_kinematics_sp_carryMassCalcLocal(self):
+    def test_componentForces(self):
         pass #TODO
 
-    def test_kinematics_sp_measureForcesAtEENew(self):
+    def test_bottomTopCheck(self):
         pass #TODO
 
-    def test_kinematics_sp_carryMassCalcUp(self):
+    def test_jacobianSpace(self):
         pass #TODO
 
-    def test_kinematics_sp_measureForcesFromWrenchEE(self):
+    def test_inverseJacobianSpace(self):
         pass #TODO
 
-    def test_kinematics_sp_measureForcesFromBottomEE(self):
+    def test_altInverseJacobianSpace(self):
         pass #TODO
 
-    def test_kinematics_sp_wrenchBottomFromMeasuredForces(self):
+    def test_carryMassCalc(self):
         pass #TODO
 
-    def test_kinematics_sp_sumActuatorWrenches(self):
+    def test_carryMassCalcLocal(self):
         pass #TODO
 
-    def test_kinematics_sp_move(self):
+    def test_measureForcesAtEENew(self):
+        pass #TODO
+
+    def test_carryMassCalcUp(self):
+        pass #TODO
+
+    def test_measureForcesFromWrenchEE(self):
+        pass #TODO
+
+    def test_measureForcesFromBottomEE(self):
+        pass #TODO
+
+    def test_wrenchBottomFromMeasuredForces(self):
+        pass #TODO
+
+    def test_sumActuatorWrenches(self):
+        pass #TODO
+
+    def test_move(self):
         pass #TODO
 
 if __name__ == '__main__':

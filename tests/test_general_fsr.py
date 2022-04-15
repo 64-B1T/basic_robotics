@@ -6,10 +6,10 @@ class TestFSR(unittest.TestCase):
     def test_TAAtoTM(self):
         pass #TODO
 
-    def test_general_fsr_TMtoTAA(self):
+    def test_TMtoTAA(self):
         pass #TODO
 
-    def test_general_fsr_localToGlobal(self):
+    def test_localToGlobal(self):
         tma = tm([1, 2, 3, 0, 0, 0])
         tmb = tm([3, 2, 1, 0, 0, 0])
         tmc = fsr.localToGlobal(tma, tmb)
@@ -17,7 +17,7 @@ class TestFSR(unittest.TestCase):
         self.assertEqual(tmc[1], 4)
         self.assertEqual(tmc[2], 4)
 
-    def test_general_fsr_globalToLocal(self):
+    def test_globalToLocal(self):
         tma = tm([1, 2, 3, 0, 0, 0])
         tmb = tm([3, 2, 1, 0, 0, 0])
         tmc = fsr.globalToLocal(tma, tmb)
@@ -25,7 +25,7 @@ class TestFSR(unittest.TestCase):
         self.assertEqual(tmc[1], 0)
         self.assertEqual(tmc[2], -2)
 
-    def test_general_fsr_planeFromThreePoints(self):
+    def test_planeFromThreePoints(self):
         tma = tm([1, -2, -0, 0, 0, 0])
         tmb = tm([3, 1, 4, 0, 0, 0])
         tmc = tm([0, -1, 2, 0, 0, 0])
@@ -43,7 +43,7 @@ class TestFSR(unittest.TestCase):
         self.assertEqual(c, -2)
         self.assertEqual(d, -5)
 
-    def test_general_fsr_planePointsFromTransform(self):
+    def test_planePointsFromTransform(self):
         tmb = tm()
         tm1, tm2, tm3 = fsr.planePointsFromTransform(tmb)
         self.assertEqual(tm2[0], 1)
@@ -52,7 +52,7 @@ class TestFSR(unittest.TestCase):
         self.assertEqual(tm2[0], 1)
         self.assertEqual(tm3[2], 1)
 
-    def test_general_fsr_mirror(self):
+    def test_mirror(self):
         mirror_plane = tm()
         mirror_point = tm([1, 2, 3, 0, 0, 0])
         mirrored_point = fsr.mirror(mirror_plane, mirror_point)
@@ -61,7 +61,7 @@ class TestFSR(unittest.TestCase):
         self.assertEqual(mirrored_point[1], 2)
         self.assertEqual(mirrored_point[2], -3)
 
-    def test_general_fsr_adjustRotationToMidpoint(self):
+    def test_adjustRotationToMidpoint(self):
         active = tm()
         ref1 = tm([0, 0, -1, 0, 0, 0])
         ref2 = tm([0, 0, 1, 0, 0, 0])
@@ -77,7 +77,7 @@ class TestFSR(unittest.TestCase):
         for i in range(6):
             self.assertEqual(mod0[i], 0)
 
-    def test_general_fsr_tmAvgMidpoint(self):
+    def test_tmAvgMidpoint(self):
         tma = tm([2, 4, 6, 0, np.pi, 0])
         tmb = tm()
         tmc = fsr.tmAvgMidpoint(tma, tmb)
@@ -86,7 +86,7 @@ class TestFSR(unittest.TestCase):
         self.assertEqual(tmc[2], 3)
         self.assertAlmostEqual(tmc[4], np.pi/2, 3)
 
-    def test_general_fsr_tmInterpMidpoint(self):
+    def test_tmInterpMidpoint(self):
         tma = tm([2, 4, 6, 0, np.pi/2, 0])
         tmb = tm()
         tmc = fsr.tmInterpMidpoint(tma, tmb)
@@ -95,7 +95,7 @@ class TestFSR(unittest.TestCase):
         self.assertEqual(tmc[2], 3)
         #TODO
 
-    def test_general_fsr_getSurfaceNormal(self):
+    def test_getSurfaceNormal(self):
         tma = tm()
         tmb = tm([0, 1, 0, 0, np.pi/2, 0])
         tmc = tm([1, 0, 0, 0, 0, 0])
@@ -111,7 +111,7 @@ class TestFSR(unittest.TestCase):
         self.assertAlmostEqual(tmd[2], 0, 2)
         self.assertAlmostEqual(unit[2], -1, 5)
 
-    def test_general_fsr_rotationFromVector(self):
+    def test_rotationFromVector(self):
         ref1 = tm([-1, 0, 0, 0, 0, 0])
         ref2 = tm([1, 0, 0, 0, 0, 0])
         ref1p = fsr.rotationFromVector(ref1, ref2)
@@ -120,78 +120,84 @@ class TestFSR(unittest.TestCase):
         ref2 = tm([1, 5, 7, 0, 0, 0])
         ref1p = fsr.rotationFromVector(ref1, ref2)
         self.assertAlmostEqual(fsr.distance(ref1p @ tm([0, 0, fsr.distance(ref1, ref2), 0, 0, 0]), ref2), 0, 3)
+        #pass #TODO
 
-    def test_general_fsr_lookAt(self):
-        ref1 = tm([-1, 0, 0, 0, 0, 0])
-        ref2 = tm([1, 0, 0, 0, 0, 0])
-        ref1p = fsr.lookAt(ref1, ref2)
-        self.assertAlmostEqual(fsr.distance(ref1p @ tm([0, 0, fsr.distance(ref1, ref2), 0, 0, 0]), ref2), 0, 4)
-        ref1 = tm([-1, 0, 0, 0, 0, 0])
-        ref2 = tm([1, 5, 7, 0, 0, 0])
-        ref1p = fsr.lookAt(ref1, ref2)
-        self.assertAlmostEqual(fsr.distance(ref1p @ tm([0, 0, fsr.distance(ref1, ref2), 0, 0, 0]), ref2), 0, 3)
-
-    def test_general_fsr_arcDistance(self):
+    def test_lookAt(self):
         pass #TODO
 
-    def test_general_fsr_closeLinearGap(self):
+    def test_poseError(self):
         pass #TODO
 
-    def test_general_fsr_closeArcGap(self):
+    def test_geometricError(self):
         pass #TODO
 
-    def test_general_fsr_IKPath(self):
+    def test_distance(self):
         pass #TODO
 
-    def test_general_fsr_angleMod(self):
+    def test_arcDistance(self):
         pass #TODO
 
-    def test_general_fsr_angleBetween(self):
+    def test_closeLinearGap(self):
         pass #TODO
 
-    def test_general_fsr_makeWrench(self):
+    def test_closeArcGap(self):
         pass #TODO
 
-    def test_general_fsr_transformWrenchFrame(self):
+    def test_IKPath(self):
         pass #TODO
 
-    def test_general_fsr_twistToScrew(self):
+    def test_rad2Deg(self):
         pass #TODO
 
-    def test_general_fsr_normalizeTwist(self):
+    def test_angleMod(self):
         pass #TODO
 
-    def test_general_fsr_twistFromTransform(self):
+    def test_angleBetween(self):
         pass #TODO
 
-    def test_general_fsr_transformFromTwist(self):
+    def test_makeWrench(self):
         pass #TODO
 
-    def test_general_fsr_transformByVector(self):
+    def test_transformWrenchFrame(self):
         pass #TODO
 
-    def test_general_fsr_fiboSphere(self):
+    def test_twistToScrew(self):
         pass #TODO
 
-    def test_general_fsr_unitSphere(self):
+    def test_normalizeTwist(self):
         pass #TODO
 
-    def test_general_fsr_getUnitVec(self):
+    def test_twistFromTransform(self):
         pass #TODO
 
-    def test_general_fsr_chainJacobian(self):
+    def test_transformFromTwist(self):
         pass #TODO
 
-    def test_general_fsr_numericalJacobian(self):
+    def test_transformByVector(self):
         pass #TODO
 
-    def test_general_fsr_boxSpatialInertia(self):
+    def test_fiboSphere(self):
         pass #TODO
 
-    def test_general_fsr_delMini(self):
+    def test_unitSphere(self):
         pass #TODO
 
-    def test_general_fsr_setElements(self):
+    def test_getUnitVec(self):
+        pass #TODO
+
+    def test_chainJacobian(self):
+        pass #TODO
+
+    def test_numericalJacobian(self):
+        pass #TODO
+
+    def test_boxSpatialInertia(self):
+        pass #TODO
+
+    def test_delMini(self):
+        pass #TODO
+
+    def test_setElements(self):
         pass #TODO
 
 
