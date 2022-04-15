@@ -97,23 +97,23 @@ def planePointsFromTransform(ref_point_1):
     Returns:
         a, b, c: Plane basis points
     """
-    a, b, _ = ref_point_1.tripleUnit()
-    return ref_point_1, a, b
+    a, b, c = ref_point_1.tripleUnit()
+    return ref_point_1, b, c
 
-def mirror(origin, mirror_point):
+def mirror(origin, mirror_plane):
     """
     Mirrors a point about a plane
     Args:
-        origin: mirror plane (XY local to that tm)
-        mirror_point: tm describing point to be mirrored over plane
+        origin: point to be mirrored
+        mirror_plane: tm describing plane to mirror over
     Returns:
         mirrored Point
     """
     t1, t2, t3 = planePointsFromTransform(origin)
     a, b, c, d = planeFromThreePoints(t1, t2, t3)
-    x1 = mirror_point[0]
-    y1 = mirror_point[1]
-    z1 = mirror_point[2]
+    x1 = mirror_plane[0]
+    y1 = mirror_plane[1]
+    z1 = mirror_plane[2]
     k = (-a * x1 - b * y1 - c * z1 - d) / float((a * a + b * b + c * c))
     x2 = a * k + x1
     y2 = b * k + y1
@@ -139,10 +139,10 @@ def adjustRotationToMidpoint(active_point, ref_point_1, ref_point_2, mode = 0):
     """
     modified_point = active_point.copy()
     if mode != 1:
-        t_mid = tmInterpMidpoint(ref_point_1, ref_point_2)
+        t_mid = TMMidPoint(ref_point_1, ref_point_2)
         modified_point[3:6] = t_mid[3:6]
     else:
-        modified_point[3:6] = rotationFromVector(ref_point_1, ref_point_2)[3:6]
+        modified_point[3:6] = RotFromVec(ref_point_1, ref_point_2)[3:6]
     return modified_point
 
 def tmAvgMidpoint(ref_point_1, ref_point_2):
@@ -180,7 +180,7 @@ def tmInterpMidpoint(ref_point_1, ref_point_2):
     taar[3:6] = mr.so3ToVec(mr.MatrixLog3((rmid))).reshape((3, 1))
     return tm(taar)
 
-def getSurfaceNormal(tri, object_center = None):
+def get_surface_normal(tri):
     u = tri[1] - tri[0]
     v = tri[2] - tri[0]
     x = u[1] * v[2] - u[2] * v[1]
@@ -190,14 +190,8 @@ def getSurfaceNormal(tri, object_center = None):
         (tri[0][1] + tri[1][1] + tri[2][1])/3,
         (tri[0][2] + tri[1][2] + tri[2][2])/3, 0, 0, 0])
     nvec = np.array([x, y, z])
-    unit_vec = nvec/np.linalg.norm(nvec)
+    unit_vec = nvec/np.linalg.norm(nvec)/2
     unit_out = tm([unit_vec[0], unit_vec[1], unit_vec[2], 0, 0, 0])
-
-    if object_center is not None:
-        d1 = distance(center @ unit_out, object_center)
-        d2 = distance(center @ (-1 * (unit_out.copy())), object_center)
-        if d2 > d1:
-            unit_out = -1 * unit_out
     return center, unit_out
 
 #Rotations/Viewers
@@ -211,14 +205,11 @@ def rotationFromVector(ref_point_1, ref_point_2):
     Returns:
         tm: ref_point_1 where z points to position 2
     """
-    d = distance(ref_point_1, ref_point_2)
-    res = lambda x : distance(
-        tm([ref_point_1[0], ref_point_1[1], ref_point_1[2], x[0], x[1], ref_point_1[5]]) @ tm([0, 0, d, 0, 0, 0]),
-        ref_point_2)
+    d = math.sqrt((ref_point_2[0] - ref_point_1[0])**2 + (ref_point_2[1] - ref_point_1[1])**2 + (ref_point_2[2] - ref_point_1[2])**2)
+    res = lambda x : distance(tm([ref_point_1[0], ref_point_1[1], ref_point_1[2], x[0], x[1], ref_point_1[5]]) @ tm([0, 0, d, 0, 0, 0]), ref_point_2)
     x0 = np.array([ref_point_1[3], ref_point_1[4]])
     xs = sci.optimize.fmin(res, x0, disp=False)
-    ref_point_1[3] = xs[0]
-    ref_point_1[4] = xs[1]
+    ref_point_1[3:5] = xs.reshape((2))
     return ref_point_1
 
 def lookAt(ref_point_1, ref_point_2):
@@ -236,8 +227,8 @@ def lookAt(ref_point_1, ref_point_2):
     up = upa[0:3].flatten()
     va = ref_point_1[0:3].flatten()
     vb = ref_point_2[0:3].flatten()
-    zax = mr.Normalize(vb-va)
-    xax = mr.Normalize(np.cross(up, zax))
+    zax = mr.mr.Normalize(vb-va)
+    xax = mr.mr.Normalize(np.cross(up, zax))
     yax = np.cross(zax, xax)
     R2 = np.eye(4)
     R2[0:3, 0:3] = np.array([xax, yax, zax]).T
