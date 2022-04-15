@@ -117,65 +117,66 @@ def SPFKinSpaceR(bottom_transform, leg_lengths,
     #a[2] = h
     top_plate_guess = top_plate_init
     while current_iteration < max_iterations:
-            current_iteration += 1
-            angs = np.zeros((6))
-            j = 0
-            top_plate_guess[3:6] = AngleMod(a[3:6])
-            for i in range(3, 6):
-                angs[j] = (np.cos(top_plate_guess[i]))
-                angs[j+1] = (np.sin(top_plate_guess[i]))
-                j+=2
+        current_iteration += 1
 
-            t = top_plate_guess[2]
-            if t < leg_ext_min/2:
-                top_plate_guess[2] = leg_ext_min/2.0
-            #angs[5] = np.clip(angs[5], -np.pi/3.85, np.pi/3.85)
-            #Must translate platform coordinates into base coordinate system
-            #Calculate rotation matrix elements
-            Rzyx = (MatrixExp3(VecToso3(top_plate_guess[3:6])))
+        angs = np.zeros((6))
+        j = 0
+        #top_plate_guess[3:6] = AngleMod(top_plate_init[3:6])
+        for i in range(3, 6):
+            angs[j] = (np.cos(top_plate_guess[i]))
+            angs[j+1] = (np.sin(top_plate_guess[i]))
+            j+=2
 
-            #disp(Rzyx, "Rzyx")
-            #Hence platform sensor points with respect to the base coordinate system
-            xbar = top_plate_guess[0:3] - bottom_joints_init
+        t = top_plate_guess[2]
+        if t < leg_ext_min/2:
+            top_plate_guess[2] = leg_ext_min/2.0
+        #angs[5] = np.clip(angs[5], -np.pi/3.85, np.pi/3.85)
+        #Must translate platform coordinates into base coordinate system
+        #Calculate rotation matrix elements
+        Rzyx = (MatrixExp3(VecToso3(top_plate_guess[3:6])))
 
-            #Hence orientation of platform wrt base
-            uvw = np.zeros(top_joints_init.shape)
-            for i in range(6):
-                uvw[i, :] = np.dot(Rzyx, top_joints_init[i, :])
+        #disp(Rzyx, "Rzyx")
+        #Hence platform sensor points with respect to the base coordinate system
+        xbar = top_plate_guess[0:3] - bottom_joints_init
 
-            iteration_length_guess = np.sum(np.square(xbar + uvw), 1)
-            #Hence find value of objective function
-            #The calculated lengths minus the actual length
-            f = -1 * (iteration_length_guess - np.square(leg_lengths))
-            sum_f = np.sum(np.abs(f))
-            if sum_f < tol_f:
-                #success!
-                #print("Converged!")
-                break
+        #Hence orientation of platform wrt base
+        uvw = np.zeros(top_joints_init.shape)
+        for i in range(6):
+            uvw[i, :] = np.dot(Rzyx, top_joints_init[i, :])
 
-            #As using the newton-raphson matrix, need the jacobian (/hessian?) matrix
-            #Using paper linked
-            #https://jak-o-shadows.github.io/electronics/stewart-gough/kinematics-stewart-gough-platform.pdf
-            dfda = np.zeros((6, 6))
-            dfda[:, 0:3] = 2*(xbar + uvw)
-            for i in range(6):
-                #dfda4 is swapped with dfda6 for magic reasons!
-                dfda[i, 5] = 2*(-xbar[i, 0] * uvw[i, 1] + xbar[i, 1] * uvw[i, 0]) #dfda4
-                dfda[i, 4] = 2 * ((-xbar[i, 0] * angs[4] +
-                        xbar[i, 1] * angs[5]) * uvw[i, 2] -
-                        (top_joints_init[i, 0] * angs[2] +
-                        top_joints_init[i, 1] * angs[3] * angs[1]) * xbar[i, 2]) #dfda5
-                dfda[i, 3] = 2 * top_joints_init[i, 1] * (np.dot(xbar[i,:], Rzyx[:, 2])) #dfda
-            #disp(dfda, "Dfda")
-            #disp(np.linalg.inv(
-            #       self.InverseJacobianSpace(self.gbottom_transform(), self.gtop_transform())))
-            #Hence solve system for delta_{a} - The change in lengths
-            top_plate_delta = np.linalg.solve(dfda, f)
+        iteration_length_guess = np.sum(np.square(xbar + uvw), 1)
+        #Hence find value of objective function
+        #The calculated lengths minus the actual length
+        f = -1 * (iteration_length_guess - np.square(leg_lengths))
+        sum_f = np.sum(np.abs(f))
+        if sum_f < tol_f:
+            #success!
+            #print("Converged!")
+            break
 
-            if abs(np.sum(top_plate_delta)) < tol_a:
-                #print ("Small change in lengths -- converged?")
-                break
-            top_plate_guess = top_plate_guess + top_plate_delta
+        #As using the newton-raphson matrix, need the jacobian (/hessian?) matrix
+        #Using paper linked
+        #https://jak-o-shadows.github.io/electronics/stewart-gough/kinematics-stewart-gough-platform.pdf
+        dfda = np.zeros((6, 6))
+        dfda[:, 0:3] = 2*(xbar + uvw)
+        for i in range(6):
+            #dfda4 is swapped with dfda6 for magic reasons!
+            dfda[i, 5] = 2*(-xbar[i, 0] * uvw[i, 1] + xbar[i, 1] * uvw[i, 0]) #dfda4
+            dfda[i, 4] = 2 * ((-xbar[i, 0] * angs[4] +
+                    xbar[i, 1] * angs[5]) * uvw[i, 2] -
+                    (top_joints_init[i, 0] * angs[2] +
+                    top_joints_init[i, 1] * angs[3] * angs[1]) * xbar[i, 2]) #dfda5
+            dfda[i, 3] = 2 * top_joints_init[i, 1] * (np.dot(xbar[i,:], Rzyx[:, 2])) #dfda
+        #disp(dfda, "Dfda")
+        #disp(np.linalg.inv(
+        #       self.InverseJacobianSpace(self.gbottom_transform(), self.gtop_transform())))
+        #Hence solve system for delta_{a} - The change in lengths
+        top_plate_delta = np.linalg.solve(dfda, f)
+
+        if abs(np.sum(top_plate_delta)) < tol_a:
+            #print ("Small change in lengths -- converged?")
+            break
+        top_plate_guess = top_plate_guess + top_plate_delta
     return top_plate_guess, current_iteration
 
 #Performs tv = transformation_matrix*vec and removes the 1

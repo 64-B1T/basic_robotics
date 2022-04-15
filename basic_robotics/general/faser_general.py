@@ -204,7 +204,7 @@ def getSurfaceNormal(tri, object_center = None):
 def rotationFromVector(ref_point_1, ref_point_2):
     """
     Reorients ref_point_1 such that its z axis is pointing towards ref_point_2
-
+    looAt is faster and probably better except in colinear global Z cases.
     Args:
         ref_point_1 (tm): position 1
         ref_point_2 (tm): position 2
@@ -232,7 +232,7 @@ def lookAt(ref_point_1, ref_point_2):
     Returns:
         tm: point at ref_point_1 where z points to position 2
     """
-    upa = (ref_point_1 @ tm([-1, 0, 0, 0, 0, 0]))
+    upa = tm([0, 0, 1, 0, 0, 0])
     up = upa[0:3].flatten()
     va = ref_point_1[0:3].flatten()
     vb = ref_point_2[0:3].flatten()

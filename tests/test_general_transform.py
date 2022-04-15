@@ -3,7 +3,7 @@ import numpy as np
 from basic_robotics.general import tm, fsr, fmr
 
 class TestTM(unittest.TestCase):
-    def test_translation_initialization(self):
+    def test_general_tm_translation_initialization(self):
         tmDOF6List = tm([1, 2, 3, 0, 0, 0], True)
         tmDOF7List = tm([1, 2, 3, 0, 0, 0, 1])
         tmDOF6Array = tm(np.array([1, 2, 3, 0, 0, 0]))
@@ -24,7 +24,7 @@ class TestTM(unittest.TestCase):
         for i in range(len(tm_list) - 1):
             self.assertEqual(tm_list[i][0], tm_list[i+1][0])
 
-    def test_rotation_initialization(self):
+    def test_general_tm_rotation_initialization(self):
         #Test cases generated with https://www.andre-gaschler.com/rotationconverter/
         #Axis Angle
         tmDOF3List = tm([1, 2, 3])
@@ -69,7 +69,7 @@ class TestTM(unittest.TestCase):
                 for jj in range(3):
                     self.assertAlmostEqual(tm_list[i].TM[ii,jj], tm_list[i+1].TM[ii,jj], 3)
 
-    def test_copy_independence(self):
+    def test_general_tm_copy_independence(self):
         tma = tm([1, 2, 3, 4, 5, 6])
         tmb = tma.spawnNew([2, 3, 4, 5, 6, 7])
 
@@ -84,7 +84,7 @@ class TestTM(unittest.TestCase):
         tme[1] = 6
         self.assertNotEqual(tma[1], tme[1])
 
-    def test_getSetQuat(self):
+    def test_general_tm_getSetQuat(self):
         tma = tm([1,2,3])
         quat = tma.getQuat()
         self.assertAlmostEqual(quat[0], 0.25532186)
@@ -98,7 +98,7 @@ class TestTM(unittest.TestCase):
             for jj in range(3):
                 self.assertAlmostEqual(tmxx.TM[ii,jj], tma.TM[ii,jj], 3)
 
-    def test_setTMIndex(self):
+    def test_general_tm_setTMIndex(self):
         tma = tm([0, 1, 2, 0, 0, 0])
         tma[3] = np.pi/2
         self.assertAlmostEqual(tma[3], np.pi/2, 5)
