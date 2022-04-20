@@ -446,7 +446,7 @@ def angleBetween(ref_point_1, ref_point_2, ref_point_3):
     v2n = np.linalg.norm(v2)
     res = np.clip(np.dot(v1, v2)/(v1n*v2n), -1, 1)
     #res = np.clip(np.dot(np.squeeze(v1n), np.squeeze(v2n)), -1, 1)
-    res = AngleMod(math.acos(res))
+    res = angleMod(math.acos(res))
     return res
 
 #Wrench Operations
@@ -488,18 +488,18 @@ def twistToScrew(input_twist):
         ndarray: Screw representing twist
     """
     if (mr.Norm(input_twist[0:3])) == 0:
-        w = mr.Normalize(input_twist[0:6])
-        th = mr.Norm(input_twist[3:6])
+        w = mr.Normalize(input_twist[3:6])
+        th = mr.Norm(input_twist[3:6])[0]
         q = np.array([0, 0, 0]).reshape((3, 1))
         h = np.inf
     else:
         unit_twist = input_twist/mr.Norm(input_twist[0:3])
         w = unit_twist[0:3].reshape((3))
         v = unit_twist[3:6].reshape((3))
-        th = mr.Norm(input_twist[0:3])
+        th = mr.Norm(input_twist[0:3])[0]
         q = np.cross(w, v)
-        h = (v.reshape((3, 1)) @ w.reshape((1, 3)))
-    return (w, th, q, h)
+        h = v.T @ w
+    return (w.reshape((3,1)), th, q.reshape((3,1)), h)
 
 def normalizeTwist(twist):
     """

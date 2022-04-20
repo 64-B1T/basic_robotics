@@ -4,9 +4,21 @@ from basic_robotics.general import tm, fsr, fmr
 import json
 import os
 from basic_robotics.kinematics import loadSP
-class TestSP(unittest.TestCase):
+class test_kinematics_sp(unittest.TestCase):
 
     def setUp(self):
+        self.goals = [
+            tm([0.25, 0.25, 1.1, np.pi/8, 0, 0]),
+            tm([0.2, 0.3, 1.2, 0, np.pi/8, 0]),
+            tm([0, .1, 1.2, 0, 0, np.pi/5]),
+            tm([0, -.2, 1.3, 0, -np.pi/8, 0]),
+            tm([-.2, -.2, 1.15, 0, 0, 0]),
+            tm([-.3, 0, 1.1, 0, 0, 0]),
+            tm([-.1, .1, 1.1, np.pi/8, np.pi/8, 0]),
+            tm([.1, .2, 1.1, np.pi/16, np.pi/16, np.pi/16]),
+            tm([-.1, -.1, 1.2, -np.pi/10, 0, np.pi/10]),
+            tm([.05, .05, 1.2, 0, 0, np.pi/6])
+        ]
         basic_sp = {
            "Name":"Basic SP",
            "Type":"SP",
@@ -60,48 +72,6 @@ class TestSP(unittest.TestCase):
         #Delete file
         os.remove('sp_test_data.json')
 
-    def test_kinematics_sp_setMasses(self):
-        pass #TODO
-
-    def test_kinematics_sp_setGrav(self):
-        pass #TODO
-
-    def test_kinematics_sp_setCOG(self):
-        pass #TODO
-
-    def test_kinematics_sp_setMaxAngleDev(self):
-        pass #TODO
-
-    def test_kinematics_sp_setMaxPlateRotation(self):
-        pass #TODO
-
-    def test_kinematics_sp_setDrawingDimensions(self):
-        pass #TODO
-
-    def test_kinematics_sp_setPlatePos(self):
-        pass #TODO
-
-    def test_kinematics_sp_getBottomJoints(self):
-        pass #TODO
-
-    def test_kinematics_sp_getTopJoints(self):
-        pass #TODO
-
-    def test_kinematics_sp_getCurrentLocalTransform(self):
-        pass #TODO
-
-    def test_kinematics_sp_getLegForces(self):
-        pass #TODO
-
-    def test_kinematics_sp_getLens(self):
-        pass #TODO
-
-    def test_kinematics_sp_getTopT(self):
-        pass #TODO
-
-    def test_kinematics_sp_getBottomT(self):
-        pass #TODO
-
     def test_kinematics_sp_getActuatorLoc(self):
         pass #TODO
 
@@ -109,26 +79,19 @@ class TestSP(unittest.TestCase):
         pass #TODO
 
     def test_kinematics_sp_IK(self):
-        pass #TODO
+        for goal in self.goals:
+            self.sp.IK(top_plate_pos = goal)
+            result_top = self.sp.getTopT()
+            for i in range(6):
+                self.assertAlmostEqual(result_top[i], goal[i], 3)
+            self.assertTrue(self.sp.validate(True))
 
     def test_kinematics_sp_IKHelper(self):
         pass #TODO
 
     def test_kinematics_sp_FKDefault(self):
-        goals = [
-            tm([0.25, 0.25, 1.1, np.pi/8, 0, 0]),
-            tm([0.2, 0.3, 1.2, 0, np.pi/8, 0]),
-            tm([0, .1, 1.2, 0, 0, np.pi/5]),
-            tm([0, -.2, 1.3, 0, -np.pi/8, 0]),
-            tm([-.2, -.2, 1.15, 0, 0, 0]),
-            tm([-.3, 0, 1.1, 0, 0, 0]),
-            tm([-.1, .1, 1.1, np.pi/8, np.pi/8, 0]),
-            tm([.1, .2, 1.1, np.pi/16, np.pi/16, np.pi/16]),
-            tm([-.1, -.1, 1.2, -np.pi/10, 0, np.pi/10]),
-            tm([.05, .05, 1.2, 0, 0, np.pi/6])
-        ]
         for j in range(10):
-            goal = goals[j]
+            goal = self.goals[j]
             self.sp.IK(top_plate_pos = goal)
             lens = self.sp.getLens().flatten()
             result_top = self.sp.getTopT()
@@ -147,20 +110,8 @@ class TestSP(unittest.TestCase):
 
 
     def test_kinematics_sp_FKSolve(self):
-        goals = [
-            tm([0.25, 0.25, 1.1, np.pi/8, 0, 0]),
-            tm([0.2, 0.3, 1.2, 0, np.pi/8, 0]),
-            tm([0, .1, 1.2, 0, 0, np.pi/5]),
-            tm([0, -.2, 1.3, 0, -np.pi/8, 0]),
-            tm([-.2, -.2, 1.15, 0, 0, 0]),
-            tm([-.3, 0, 1.1, 0, 0, 0]),
-            tm([-.1, .1, 1.1, np.pi/8, np.pi/8, 0]),
-            tm([.1, .2, 1.1, np.pi/16, np.pi/16, np.pi/16]),
-            tm([-.1, -.1, 1.2, -np.pi/10, 0, np.pi/10]),
-            tm([.05, .05, 1.2, 0, 0, np.pi/6])
-        ]
         for j in range(10):
-            goal = goals[j]
+            goal = self.goals[j]
             self.sp.IK(top_plate_pos = goal)
             lens = self.sp.getLens().flatten()
             result_top = self.sp.getTopT()
@@ -178,20 +129,8 @@ class TestSP(unittest.TestCase):
                 self.assertAlmostEqual(result_top[i], goal[i], 3)
 
     def test_kinematics_sp_FKRaphson(self):
-        goals = [
-            tm([0.25, 0.25, 1.1, np.pi/8, 0, 0]),
-            tm([0.2, 0.3, 1.2, 0, np.pi/8, 0]),
-            tm([0, .1, 1.2, 0, 0, np.pi/5]),
-            tm([0, -.2, 1.3, 0, -np.pi/8, 0]),
-            tm([-.2, -.2, 1.15, 0, 0, 0]),
-            tm([-.3, 0, 1.1, 0, 0, 0]),
-            tm([-.1, .1, 1.1, np.pi/8, np.pi/8, 0]),
-            tm([.1, .2, 1.1, np.pi/16, np.pi/16, np.pi/16]),
-            tm([-.1, -.1, 1.2, -np.pi/10, 0, np.pi/10]),
-            tm([.05, .05, 1.2, 0, 0, np.pi/6])
-        ]
         for j in range(10):
-            goal = goals[j]
+            goal = self.goals[j]
             self.sp.IK(top_plate_pos = goal)
             lens = self.sp.getLens().flatten()
             result_top = self.sp.getTopT()

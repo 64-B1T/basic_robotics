@@ -179,17 +179,6 @@ class tm:
         self.TM[0:3, 0:3] = R.from_quat(quaternion).as_matrix()
         self.TMtoTAA()
 
-    def update(self):
-        """
-        Updates the tm object
-        """
-        if not np.all(self.TM == self._transform_matrix_old):
-            self.TMtoTAA()
-            self._transform_matrix_old = np.copy(self.TM)
-        elif not np.all(self.TAA == self._transform_taa_old):
-            self.TAAtoTM()
-            self._transform_taa_old = np.copy(self.TAA)
-
     def angleMod(self):
         """
         Truncates excessive rotations
@@ -225,28 +214,6 @@ class tm:
         vec3 = tm(self.TAA + zvec*lv)
 
         return vec1, vec2, vec3
-
-    #Murray Quaternion Definitions
-    def getTheta(self):
-        """
-        Get Trace thetas
-        Returns:
-            thetas
-        """
-        trace_r = mr.SafeTrace(self.TM[0:3, 0:3])
-        theta = np.arccos((trace_r- 1)/2)
-        return theta
-
-    def getOmega(self):
-        """
-        gets Omega
-        Returns:
-            Omega
-        """
-        return (1/(2*np.sin(self.getTheta())) *
-            np.array([self.TM[2, 1]-self.TM[1, 2], self.TM[0, 2]
-            -self.TM[2, 0], self.TM[1, 0] -self.TM[0, 1]]))
-
 
     def TAAtoTM(self):
         """
@@ -396,13 +363,13 @@ class tm:
         self.TAAtoTM()
         return self
 
-    def approx(self):
+    def approx(self, nplaces=10):
         """
         Rounds self to 10 decimal places
         Returns:
             rounded TAA representation
         """
-        return np.around(self.TAA, 10)
+        return np.around(self.TAA, nplaces)
 
     #FLOOR DIVIDE IS OVERRIDDEN TO PERFORM MATRIX RIGHT DIVISION
 
@@ -443,9 +410,10 @@ class tm:
             floor (or matrix right division) result
         """
         if isinstance(a, tm):
-            return tm(np.linalg.lstsq(a.T(), self.T())[0].T)
+            return tm(np.linalg.lstsq(a.gTM().T,
+                self.gTM().T, rcond=None)[0].T)
         elif isinstance(a, np.ndarray):
-            return tm(np.linalg.lstsq(a.T, self.T())[0].T)
+            return tm(np.linalg.lstsq(a.T, self.gTM().T, rcond=None)[0].T)
         else:
             return tm(self.TAA // a)
 
@@ -481,11 +449,11 @@ class tm:
         else:
             if isinstance(a, np.ndarray):
                 if len(a) == 6:
-                    return tm(self.TAA + a)
+                    return tm(self.TAA + a.reshape((6,1)))
                 else:
                     return self.TAA + a
             else:
-                return self.TAA + a
+                return tm(self.TAA + a)
 
     def __sub__(self, a):
         """
@@ -507,7 +475,7 @@ class tm:
                 else:
                     return self.TAA - a
             else:
-                return self.TAA - a
+                return tm(self.TAA - a)
 
     def __matmul__(self, a):
         """
