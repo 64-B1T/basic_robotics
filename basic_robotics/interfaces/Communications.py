@@ -288,6 +288,18 @@ class Communications:
                 newObj = SerialObject(name)
         self.commsObjects.append(newObj)
 
+    def openComm(self, name):
+        for i in range(len(self.commsObjects)):
+            if self.commsObjects[i].name == name:
+                self.commsObjects[i].openCom()
+                return
+
+    def closeComm(self, name):
+        for i in range(len(self.commsObjects)):
+            if self.commsObjects[i].name == name:
+                self.commsObjects[i].closeCom()
+                return
+
     def sendMessage(self, name, message):
         """
         Send a message from a comm port with a specific name

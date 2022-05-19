@@ -224,5 +224,15 @@ class test_general_tm(unittest.TestCase):
         self.assertEqual(tmc[0], -2)
         self.assertEqual(tmc[2], 0)
 
+    def test_general_tm_rmatmul(self):
+        tma = tm([0, 1, 2, 0, 0, 1])
+        tmb = tm([2, 0, 1, 0, 1, 0])
+
+        tmc = tma * tmb
+        #TODO Add more
+
+
+
+
 if __name__ == '__main__':
     unittest.main()

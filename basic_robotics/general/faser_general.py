@@ -232,8 +232,7 @@ def lookAt(ref_point_1, ref_point_2):
     Returns:
         tm: point at ref_point_1 where z points to position 2
     """
-    upa = tm([0, 0, 1, 0, 0, 0])
-    up = upa[0:3].flatten()
+    up = np.array([0, 0, 1])
     va = ref_point_1[0:3].flatten()
     vb = ref_point_2[0:3].flatten()
     zax = mr.Normalize(vb-va)
@@ -242,7 +241,17 @@ def lookAt(ref_point_1, ref_point_2):
     R2 = np.eye(4)
     R2[0:3, 0:3] = np.array([xax, yax, zax]).T
     R2[0:3, 3] = va
-    ttm = tm(R2)
+    try:
+        ttm = tm(R2)
+    except:
+        vb += np.array([0.00001, .0000001, 0.0])
+        zax = mr.Normalize(vb-va)
+        xax = mr.Normalize(np.cross(up, zax))
+        yax = np.cross(zax, xax)
+        R2 = np.eye(4)
+        R2[0:3, 0:3] = np.array([xax, yax, zax]).T
+        R2[0:3, 3] = va
+        ttm = tm(R2)
     return ttm
 
     #Error and Distance Functions
@@ -615,7 +624,7 @@ def unitSphere(num_points):
     return xyzcoords, azel
 
 
-def getUnitVec(ref_point_1, ref_point_2, distance = 1.0):
+def getUnitVec(ref_point_1, ref_point_2, distance = 1.0, return_dist = False):
     """
     Returns a vector of a given length pointed from point 1 to point 2
     Args:
@@ -627,8 +636,11 @@ def getUnitVec(ref_point_1, ref_point_2, distance = 1.0):
     """
     v1 = np.array([ref_point_1[0], ref_point_1[1], ref_point_1[2]])
     unit_b = (np.array([ref_point_2[0], ref_point_2[1], ref_point_2[2]]) - v1)
-    unit = unit_b / ling.norm(unit_b)
+    true_dist = ling.norm(unit_b)
+    unit = unit_b / true_dist
     pos = v1 + (unit * distance)
+    if return_dist:
+        return tm([pos[0], pos[1], pos[2], 0, 0, 0]), true_dist
     return tm([pos[0], pos[1], pos[2], 0, 0, 0])
 
 #Jacobians

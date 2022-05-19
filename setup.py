@@ -8,7 +8,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='basic_robotics',
-      version='0.2.14',
+      version='0.3.05',
       long_description=README,
       long_description_content_type='text/markdown',
       description='Basic Robotics Toolbox Developed in FASER Lab',

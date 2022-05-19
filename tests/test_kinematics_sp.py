@@ -154,13 +154,48 @@ class test_kinematics_sp(unittest.TestCase):
         pass #TODO
 
     def test_kinematics_sp_fixUpsideDown(self):
-        pass #TODO
+        test_tm = tm([0, .1, -.5, 0, np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        l_old = lens.copy()
+        self.assertFalse(self.sp.continuousTranslationConstraint())
+        self.sp.fixUpsideDown()
+        lens2 = self.sp.getLens()
+        for i in range(6):
+            self.assertEqual(l_old[i], lens2[i])
+        self.assertTrue(self.sp.continuousTranslationConstraint())
+
+        test_tm = tm([-.1, -.1, -.6, np.pi/8, -np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        l_old = lens.copy()
+        self.assertFalse(self.sp.continuousTranslationConstraint())
+        self.sp.fixUpsideDown()
+        lens2 = self.sp.getLens()
+        for i in range(6):
+            self.assertEqual(l_old[i], lens2[i])
+        self.assertTrue(self.sp.continuousTranslationConstraint())
+        #print(self.sp.getTopT())
 
     def test_kinematics_sp_validateLegs(self):
-        pass #TODO
+        test_tm = tm([0, .1, -.5, 0, np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        self.assertTrue(self.sp.validateLegs(donothing=True))
+
+        test_tm = tm([0, .1, -1.5, 0, np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        self.assertFalse(self.sp.validateLegs(donothing=True))
+        self.assertTrue(self.sp.validateLegs())
 
     def test_kinematics_sp_validateContinuousTranslation(self):
-        pass #TODO
+        test_tm = tm([-.1, -.1, -.6, np.pi/8, -np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        self.assertFalse(self.sp.continuousTranslationConstraint())
+        test_tm = tm([-.1, -.1, .6, np.pi/8, -np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        self.assertTrue(self.sp.continuousTranslationConstraint())
+        test_tm = tm([-.1, -.1, .6, np.pi/8, -np.pi/8, np.pi/2])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        #Even though it's upside down, it's still in front of the prior plate
+        self.assertTrue(self.sp.continuousTranslationConstraint())
 
     def test_kinematics_sp_validateInteriorAngles(self):
         pass #TODO
@@ -172,7 +207,15 @@ class test_kinematics_sp(unittest.TestCase):
         pass #TODO
 
     def test_kinematics_sp_plateRotationConstraint(self):
-        pass #TODO
+        test_tm = tm([-.1, -.1, .6, np.pi/8, -np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        self.assertTrue(self.sp.plateRotationConstraint())
+        test_tm = tm([-.1, -.1, .6, 0, 0, np.arccos(self.sp.plate_rotation_limit)+.01])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        self.assertFalse(self.sp.plateRotationConstraint())
+        test_tm = tm([-.1, -.1, .6, 0, 0, np.arccos(self.sp.plate_rotation_limit)-.01])
+        lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
+        self.assertTrue(self.sp.plateRotationConstraint())
 
     def test_kinematics_sp_legLengthConstraint(self):
         pass #TODO
