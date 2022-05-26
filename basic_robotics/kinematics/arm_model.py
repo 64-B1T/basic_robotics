@@ -44,6 +44,7 @@ class Arm:
             self.link_names.append('link' + str(i))
         self.link_names.append('end_effector')
         self.eef_transform = None
+        self.end_effector_pos_global = end_effector_home.copy()
         self.link_home_positions = None
         self.joint_home_positions = None # Home Positions of Joints in GLobal Space
         self.joint_origins = self.link_home_positions # Origins of Joints Relative to Previous Joint
@@ -117,165 +118,189 @@ class Arm:
     """
     Compatibility, for those to be deprecated
     """
-    def printOutOfDateFunction(self, old_name, use_name):
+    def printOutOfDateFunction(self, old_name, use_name):  # pragma: no cover
         print(old_name + ' is deprecated. Please use ' + use_name + ' instead.')
-    def RandomPos(self):
+
+    def RandomPos(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('RandomPos', 'randomPos')
         return self.randomPos()
-    def Reverse(self):
+
+    def Reverse(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('Reverse', 'reverse')
         self.reverse()
-    def vServoSP(self, target, tol = 2, ax = 0, plt = 0, fig = 0):
+
+    def vServoSP(self, target, tol = 2, ax = 0, plt = 0, fig = 0):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('vServoSP', 'visualServoToTarget')
         return self.visualServoToTarget(target, tol, ax, plt, fig)
-    def SetDynamicsProperties(self, _Mlinks = None, _Mhome = None, _Glinks = None, _Dims = None):
+
+    def SetDynamicsProperties(self, _Mlinks = None, _Mhome = None, _Glinks = None, _Dims = None):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('SetDynamicsProperties', 'setDynamicsProperties')
         return self.setDynamicsProperties(_Mlinks, _Mhome, _Glinks, _Dims)
-    def SetMasses(self, mass):
+        
+    def SetMasses(self, mass):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('SetMasses', 'setMasses')
         return self.setMasses(mass)
-    def TestArmValues(self):
+
+    def TestArmValues(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('TestArmValues', 'testArmValues')
         return self.testArmValues()
-    def SetArbitraryHome(self, theta,T):
+
+    def SetArbitraryHome(self, theta,T):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('SetArbitraryHome', 'setArbitraryHome')
         return self.setArbitraryHome(theta, T)
-    def RestoreOriginalEE(self):
+
+    def RestoreOriginalEE(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('RestoreOriginalEE', 'restoreOriginalEE')
         return self.restoreOriginalEE()
-    def StaticForces(self, theta, wrenchEE):
+
+    def StaticForces(self, theta, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('StaticForces', 'staticForces')
         return self.staticForces(theta, wrenchEE)
-    def StaticForcesInv(self, theta, tau):
+
+    def StaticForcesInv(self, theta, tau):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('StaticForcesInv', 'staticForcesInv')
         return self.staticForcesInv(theta, tau)
-    def InverseDynamics(self, theta, thetadot, thetadotdot, grav, wrenchEE):
+
+    def InverseDynamics(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('InverseDynamics', 'inverseDynamics')
         return self.inverseDynamics(theta, thetadot, thetadotdot, grav, wrenchEE)
-    def InverseDynamicsEMR(self, theta, thetadot, thetadotdot, grav, wrenchEE):
+
+    def InverseDynamicsEMR(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('InverseDynamicsEMR', 'inverseDynamicsEMR')
         return self.inverseDynamicsEMR(theta, thetadot, thetadotdot, grav, wrenchEE)
-    def InverseDynamicsE(self, theta, thetadot, thetadotdot, grav, wrenchEE):
+
+    def InverseDynamicsE(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('InverseDynamicsE', 'inverseDynamicsE')
         return self.inverseDynamicsE(theta, thetadot, thetadotdot, grav, wrenchEE)
-    def InverseDynamicsC(self, theta, thetadot, thetadotdot, grav, wrenchEE):
+
+    def InverseDynamicsC(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('InverseDynamicsC', 'inverseDynamicsC')
         return self.inverseDynamicsC(theta, thetadot, thetadotdot, grav, wrenchEE)
-    def ForwardDynamicsE(self, theta, thetadot, tau, grav, wrenchEE):
+
+    def ForwardDynamicsE(self, theta, thetadot, tau, grav, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('ForwardDynamicsE', 'forwardDynamicsE')
         return self.forwardDynamicsE(theta, thetadot, tau, grav, wrenchEE)
-    def ForwardDynamics(self, theta, thetadot, tau, grav, wrenchEE):
+
+    def ForwardDynamics(self, theta, thetadot, tau, grav, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('ForwardDynamics', 'forwardDynamics')
         return self.forwardDynamics(theta, thetadot, tau, grav, wrenchEE)
-    def MassMatrix(self, theta):
+
+    def MassMatrix(self, theta):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('MassMatrix', 'massMatrix')
         return self.massMatrix(theta)
-    def CoriolisGravity(self, theta, thetadot, grav):
+    def CoriolisGravity(self, theta, thetadot, grav):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('CoriolisGravity', 'coriolisGravity')
         return self.coriolisGravity(theta, thetadot, grav)
-    def EndEffectorForces(self, theta, wrenchEE):
+    def EndEffectorForces(self, theta, wrenchEE):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('EndEffectorForces', 'endEffectorForces')
         return self.endEffectorForces(theta, wrenchEE)
-    def Jacobian(self, theta):
+    def Jacobian(self, theta):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('Jacobian', 'jacobian')
         return self.jacobian(theta)
-    def JacobianBody(self, theta):
+
+    def JacobianBody(self, theta):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('JacobianBody', 'jacobianBody')
         return self.jacobianBody(theta)
-    def JacobianLink(self, theta, i):
+
+    def JacobianLink(self, theta, i):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('JacobianLink', 'jacobianLink')
         return self.jacobianLink(theta, i)
-    def JacobianEE(self, theta):
+
+    def JacobianEE(self, theta):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('JacobianEE', 'jacobianEE')
         return self.jacobianEE(theta)
-    def JacobianEEtrans(self, theta):
+
+    def JacobianEEtrans(self, theta):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('JacobianEEtrans', 'jacobianEEtrans')
         return self.jacobianEEtrans(theta)
-    def NumericalJacobian(self, theta):
+
+    def NumericalJacobian(self, theta):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('NumericalJacobian', 'numericalJacobian')
         return self.numericalJacobian(theta)
-    def GetManipulability(self, theta = None):
+
+    def GetManipulability(self, theta = None):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('GetManipulability', 'getManipulability')
         return self.getManipulability(theta)
-    def Draw(self, ax):
+
+    def Draw(self, ax):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
@@ -355,7 +380,7 @@ class Arm:
         return end_effector_pos
 
     #Converted to python - Liam
-    def IK(self,T, theta_init = np.zeros(1), check = 1, level = 6, protect = False):
+    def IK(self, goal_position, theta_init=None, check=1, level=6, protect=False):
         """
         Calculates joint positions of a serial arm. All parameters are
             optional except the desired end effector position
@@ -368,16 +393,17 @@ class Arm:
         Returns:
             List of thetas, success boolean
         """
-        if theta_init.size == 1:
+        if theta_init is None:
             theta_init = fsr.angleMod(self._theta.reshape(len(self._theta)))
         if not protect:
-            return self.constrainedIK(T, theta_init, check, level)
-        theta, success = fmr.IKinSpace(self.screw_list, self.end_effector_home.gTM(),
-            T.gTM(), theta_init, 0.00000001, 0.00000001)
+            return self.constrainedIK(goal_position, theta_init, check, level)
+        theta, success = fmr.IKinSpace(
+                self.screw_list, self.end_effector_home.gTM(),
+                goal_position.gTM(), theta_init, 0.00000001, 0.00000001)
         theta = fsr.angleMod(theta)
         self._theta = theta
         if success:
-            self.end_effector_pos_global = T
+            self.end_effector_pos_global = goal_position
         else:
             if check == 1:
                 i = 0
@@ -385,15 +411,15 @@ class Arm:
                     theta_temp = np.zeros((len(self._theta)))
                     for j in range(len(theta_temp)):
                         theta_temp[j] = random.uniform(-np.pi, np.pi)
-                    theta, success = fmr.IKinSpace(self.screw_list, self.end_effector_home.gTM(),
-                        T.gTM(), theta_init, 0.00000001, 0.00000001)
+                    theta, success = fmr.IKinSpace(
+                            self.screw_list, self.end_effector_home.gTM(),
+                            goal_position.gTM(), theta_init, 0.00000001, 0.00000001)
                     i = i + 1
                 if success:
-                    self.end_effector_pos_global = T
+                    self.end_effector_pos_global = goal_position
         return theta, success
 
-
-    def constrainedIK(self, T, theta_init, check = 1, level = 6):
+    def constrainedIK(self, goal_position, theta_init, check = 1, level = 6):
         """
         Calculates joint positions of a serial arm, provided rotational constraints on the Joints
         All parameters are optional except the desired end effector position
@@ -408,103 +434,58 @@ class Arm:
         Returns:
             List of thetas, success boolean
         """
-        if not isinstance(T, tm):
-            print(T)
+        if not isinstance(goal_position, tm):
+            print(goal_position)
             print('Attempted pass ^')
             return self._theta
         screw_list = self.screw_list.copy()
-        if check == 1:
-            self.fail_count = 0
-        M = self.end_effector_home.copy()
+        end_effector_home_c = self.end_effector_home.copy()
         pos_tolerance = .001
         rot_tolerance = .0001
         theta_list = self._theta.copy()
         i = 0
         max_iterations = 30
 
-        try:
-            theta_list, success = fmr.IKinSpaceConstrained(screw_list, M.gTM(),
-                T.gTM(), theta_list, pos_tolerance, rot_tolerance,
+        theta_list, success = fmr.IKinSpaceConstrained(
+                screw_list, end_effector_home_c.gTM(), goal_position.gTM(),
+                theta_list, pos_tolerance, rot_tolerance,
                 self.joint_mins, self.joint_maxs, max_iterations)
-        except:
-            theta_list, success = self.constrainedIKNoFMR(screw_list, M, T, theta_list,
-                pos_tolerance, rot_tolerance, max_iterations)
+
         if success:
-            self.end_effector_pos_global = T
+            self.end_effector_pos_global = goal_position
         else:
             if check == 1:
                 i = 0
+                self.fail_count = 0
                 while i < level and success == 0:
                     theta_temp = np.zeros((len(self._theta)))
                     for j in range(len(theta_temp)):
                         theta_temp[j] = random.uniform(self.joint_mins[j], self.joint_maxs[j])
                     try:
-                        theta_list, success = fmr.IKinSpaceConstrained(screw_list, M.gTM(),
-                            T.gTM(), theta_temp, pos_tolerance, rot_tolerance,
-                            self.joint_mins, self.joint_maxs, max_iterations)
+                        theta_list, success = fmr.IKinSpaceConstrained(
+                                screw_list, end_effector_home_c.gTM(),
+                                goal_position.gTM(),
+                                theta_temp, pos_tolerance,
+                                rot_tolerance, self.joint_mins,
+                                self.joint_maxs, max_iterations)
                     except Exception as e:
-                        theta_list, success = self.constrainedIK(T, theta_temp, check = 0)
+                        theta_list, success = self.constrainedIK(
+                                goal_position, theta_temp, check=0)
                         disp('FMR Failure: ' + str(e))
                     i = i + 1
                 if success:
-                    self.end_effector_pos_global = T
+                    self.end_effector_pos_global = goal_position
         if not success:
             if check == 0:
                 self.fail_count += 1
             else:
-                #print('Total Cycle Failure')
+                # print('Total Cycle Failure')
                 self.FK(np.zeros(len(self._theta)))
         else:
             if self.fail_count != 0:
                 print('Success + ' + str(self.fail_count) + ' failures')
             self.FK(theta_list)
 
-        return theta_list, success
-
-    def constrainedIKNoFMR(self,
-        screw_list, M, T, theta_list, pos_tolerance, rot_tolerance, max_iterations):
-        """
-        Used as a backup function for the standard constrained IK
-        Args:
-            screw_list: screw list
-            M: home end effector position
-            T: Goal Position
-            theta_list: Initial thetas
-            pos_tolerance: Positional tolerance
-            rot_tolerance: Rotational tolerance
-            max_iterations: Maximum Iterations before failure
-        Returns:
-            theta_list: list of solved thetas
-            success: boolean of success
-        """
-        end_effector_pos_temp = fmr.FKinSpace(M.gTM(), screw_list, theta_list)
-        error_vec = np.dot(fmr.Adjoint(end_effector_pos_temp), fmr.se3ToVec(
-            fmr.MatrixLog6(np.dot(fmr.TransInv(end_effector_pos_temp), T.gTM()))))
-        #print(fmr.MatrixLog6(np.dot(fmr.TransInv(end_effector_pos_temp), T)), 'Test')
-        err = np.linalg.norm([error_vec[0], error_vec[1], error_vec[2]]) > pos_tolerance \
-              or np.linalg.norm([error_vec[3], error_vec[4], error_vec[5]]) > rot_tolerance
-        if np.isnan(error_vec).any():
-            err = True
-        i = 0
-        while err and i < max_iterations:
-            theta_list = theta_list \
-                        + np.dot(np.linalg.pinv(fmr.JacobianSpace(
-                        screw_list, theta_list)), error_vec)
-            for j in range(len(theta_list)):
-                if theta_list[j] < self.joint_mins[j]:
-                    theta_list[j] = self.joint_mins[j]
-                if theta_list[j] > self.joint_maxs[j]:
-                    theta_list[j] = self.joint_maxs[j];
-            i = i + 1
-            end_effector_pos_temp = fmr.FKinSpace(M.gTM(), screw_list, theta_list)
-            error_vec = np.dot(fmr.Adjoint(end_effector_pos_temp), \
-                        fmr.se3ToVec(fmr.MatrixLog6(np.dot(
-                        fmr.TransInv(end_effector_pos_temp), T.gTM()))))
-            err = np.linalg.norm([error_vec[0], error_vec[1], error_vec[2]]) > pos_tolerance \
-                  or np.linalg.norm([error_vec[3], error_vec[4], error_vec[5]]) > rot_tolerance
-            if np.isnan(error_vec).any():
-                err = True
-        success = not err
         return theta_list, success
 
     def IKForceOptimal(self, T, theta_init, forcev, random_sample = 1000, mode = 'MAX'):

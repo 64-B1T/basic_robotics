@@ -641,49 +641,49 @@ class tm:
          ", "+ fst % (self.TAA[4, 0]) + ", "+ fst % (self.TAA[5, 0])+ " ]")
 
     # Deprecated Function Handles
-    def TransformSqueezedCopy(self, transform_matrix):
+    def TransformSqueezedCopy(self, transform_matrix):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.TransformSqueezedCopy.__name__ + ' is deprecated, use ' +
                 self.transformSqueezedCopy.__name__ + ' instead')
         traceback.print_stack(limit=2)
         return self.transformSqueezedCopy(transform_matrix)
 
-    def AngleMod(self):
+    def AngleMod(self):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.AngleMod.__name__ + ' is deprecated, use ' +
                 self.angleMod.__name__ + ' instead')
         traceback.print_stack(limit=2)
         return self.angleMod()
 
-    def LeftHanded(self):
+    def LeftHanded(self):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.LeftHanded.__name__ + ' is deprecated, use ' +
                 self.leftHanded.__name__ + ' instead')
         traceback.print_stack(limit=2)
         return self.leftHanded()
 
-    def TripleUnit(self, lv=1):
+    def TripleUnit(self, lv=1):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.TripleUnit.__name__ + ' is deprecated, use ' +
                 self.tripleUnit.__name__ + ' instead')
         traceback.print_stack(limit=2)
         return self.tripleUnit(lv)
 
-    def QuatToR(self, quaternion):
+    def QuatToR(self, quaternion):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.QuatToR.__name__ + ' is deprecated, use ' +
                 self.tmFromQuaternion.__name__ + ' instead')
         traceback.print_stack(limit=2)
         return self.tmFromQuaternion(quaternion)
 
-    def Adjoint(self):
+    def Adjoint(self):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.Adjoint.__name__ + ' is deprecated, use ' +
                 self.adjoint.__name__ + ' instead')
         traceback.print_stack(limit=2)
         return self.adjoint()
 
-    def Exp6(self):
+    def Exp6(self):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.Exp6.__name__ + ' is deprecated, use ' +
                 self.exp6.__name__ + ' instead')

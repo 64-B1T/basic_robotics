@@ -1439,7 +1439,7 @@ class SP:
                     self.current_plate_transform_local),
             protect = protect)
 
-    def printOutOfDateFunction(self, old_name, use_name):
+    def printOutOfDateFunction(self, old_name, use_name):   # pragma: no cover
         """
         Prints an old function with an OOD notice
         Args:
@@ -1448,228 +1448,228 @@ class SP:
         """
         print(old_name + " is deprecated. Please use " + use_name + " instead.")
 
-    def SetMasses(self, plateMass, actuatorTop, actuatorBottom, grav = 9.81, tPlateMass = 0):
+    def SetMasses(self, plateMass, actuatorTop, actuatorBottom, grav = 9.81, tPlateMass = 0):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("SetMasses", "setMasses")
         return self.setMasses(plateMass, actuatorTop, actuatorBottom, grav, tPlateMass)
-    def SetGrav(self, grav = 9.81):
+    def SetGrav(self, grav = 9.81):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("SetGrav", "setGrav")
         return self.setGrav(grav)
-    def SetCOG(self, motor_grav_center, shaft_grav_center):
+    def SetCOG(self, motor_grav_center, shaft_grav_center):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("SetCOG", "setCOG")
         return self.setCOG(motor_grav_center, shaft_grav_center)
-    def SetAngleDev(self, MaxAngleDev = 55):
+    def SetAngleDev(self, MaxAngleDev = 55):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("SetAngleDev", "setMaxAngleDev")
         return self.setMaxAngleDev(MaxAngleDev)
-    def SetPlateAngleDev(self, MaxPlateDev = 60):
+    def SetPlateAngleDev(self, MaxPlateDev = 60):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("SetPlateAngleDev", "setMaxPlateRotation")
         return self.setMaxPlateRotation(MaxPlateDev)
-    def SetDrawingDimensions(self, OuterTopRad, OuterBotRad, ShaftRad, MotorRad):
+    def SetDrawingDimensions(self, OuterTopRad, OuterBotRad, ShaftRad, MotorRad):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("SetDrawingDimensions", "setDrawingDimensions")
         return self.setDrawingDimensions( OuterTopRad, OuterBotRad, ShaftRad, MotorRad)
-    def _setPlatePos(self, bottomT, topT):
+    def _setPlatePos(self, bottomT, topT):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_setPlatePos", "setPlatePos")
         return self.setPlatePos(bottomT, topT)
-    def gLens(self):
+    def gLens(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("gLens", "getLens")
         return self.getLens()
-    def gtopT(self):
+    def gtopT(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("gtopT", "getTopT")
         return self.getTopT()
-    def gbottomT(self):
+    def gbottomT(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("gbottomT", "getBottomT")
         return self.getBottomT()
-    def GetActuatorUnit(self, p1, p2, dist):
+    def GetActuatorUnit(self, p1, p2, dist):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("GetActuatorUnit", "fsr.getUnitVec")
         return fsr.getUnitVec(p1, p2, dist)
-    def SpinCustom(self, rot):
+    def SpinCustom(self, rot):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("SpinCustom", "spinCustom")
         return self.spinCustom(rot)
-    def LambdaRTP(self, stopt):
+    def LambdaRTP(self, stopt):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("LambdaRTP", "lambdaTopPlateReorientation")
         return self.lambdaTopPlateReorientation(stopt)
-    def ReorientTopPlate(self):
+    def ReorientTopPlate(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("ReorientTopPlate", "reorientTopPlate")
         return self.reorientTopPlate()
-    def _legLengthConstraint(self, donothing):
+    def _legLengthConstraint(self, donothing):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_legLengthConstraint", "legLengthConstraint")
         return self.legLengthConstraint()
-    def _resclLegs(self, cMin, cMax):
+    def _resclLegs(self, cMin, cMax):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_resclLegs", "rescaleLegLengths")
         return self.rescaleLegLengths(cMin, cMax)
-    def _addLegs(self, cMin, cMax):
+    def _addLegs(self, cMin, cMax):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_addLegs", "addLegsToMinimum")
         return self.addLegsToMinimum(cMin, cMax)
-    def _subLegs(self, cMin, cMax):
+    def _subLegs(self, cMin, cMax):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_subLegs", "subLegsToMaximum")
         return self.subLegsToMaximum(cMin, cMax)
-    def _lengthCorrectiveAction(self):
+    def _lengthCorrectiveAction(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_lengthCorrectiveAction", "lengthCorrectiveAction")
         return self.lengthCorrectiveAction()
-    def _continuousTranslationConstraint(self):
+    def _continuousTranslationConstraint(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction(
             "_continuousTranslationConstraint", "continuousTranslationConstraint")
         return self.continuousTranslationConstraint()
-    def _continuousTranslationCorrectiveAction(self):
+    def _continuousTranslationCorrectiveAction(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction(
             "_continuousTranslationCorrectiveAction", "continuousTranslationCorrectiveAction")
         return self.continuousTranslationCorrectiveAction()
-    def _interiorAnglesConstraint(self):
+    def _interiorAnglesConstraint(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_interiorAnglesConstraint", "interiorAnglesConstraint")
         return self.interiorAnglesConstraint()
-    def AngleFromNorm(self):
+    def AngleFromNorm(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("AngleFromNorm", "getJointAnglesFromNorm")
         return self.getJointAnglesFromNorm()
-    def AngleFromVertical(self):
+    def AngleFromVertical(self):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("AngleFromVertical", "getJointAnglesFromVertical")
         return self.getJointAnglesFromVertical()
-    def _bottomTopCheck(self, bottomT, topT):
+    def _bottomTopCheck(self, bottomT, topT):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("_bottomTopCheck", "bottomTopCheck")
         return self.bottomTopCheck(bottomT, topT)
-    def JacobianSpace(self, bottomT = None, topT = None):
+    def JacobianSpace(self, bottomT = None, topT = None):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("JacobianSpace", "jacobianSpace")
         return self.jacobianSpace(bottomT, topT)
-    def InverseJacobianSpace(self, bottomT = None, topT = None, protect = True):
+    def InverseJacobianSpace(self, bottomT = None, topT = None, protect = True):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("InverseJacobianSpace", "inverseJacobianSpace")
-        return self.inverseJacobianSpace(bottomT, topT)
-    def AltInverseJacobianSpace(self, bottomT = None, topT = None, protect = True):
+        return self.inverseJacobianSpace(bottomT, topT, protect)
+    def AltInverseJacobianSpace(self, bottomT = None, topT = None, protect = True):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("AltInverseJacobianSpace", "altInverseJacobianSpace")
         return self.altInverseJacobianSpace(bottomT, topT, protect)
-    def CarryMassCalc(self, twrench, protect = False):
+    def CarryMassCalc(self, twrench, protect = False):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("CarryMassCalc", "carryMassCalc")
         return self.carryMassCalc(twrench, protect)
-    def CarryMassCalcNew(self, twrench, protect = False):
+    def CarryMassCalcNew(self, twrench, protect = False):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("CarryMassCalcNew", "carryMassCalcLocal")
         return self.carryMassCalcLocal(twrench, protect)
-    def MeasureForcesAtEENew(self, wrench, protect = False):
+    def MeasureForcesAtEENew(self, wrench, protect = False):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("MeasureForcesAtEENew", "measureForcesAtEENew")
         return self.measureForcesAtEENew(wrench, protect)
-    def CarryMassCalcUp(self, twrench, protect = False):
+    def CarryMassCalcUp(self, twrench, protect = False):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("CarryMassCalcUp", "carryMassCalcUp")
         return self.carryMassCalcUp(twrench, protect)
-    def MeasureForcesFromWrenchEE(self, bottomT = np.zeros((1)) ,
+    def MeasureForcesFromWrenchEE(self, bottomT = np.zeros((1)) ,  # pragma: no cover
         topT = np.zeros((1)), topWEE = np.zeros((1)), protect = True):
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("MeasureForcesFromWrenchEE", "measureForcesFromWrenchEE")
         return self.measureForcesFromWrenchEE(bottomT, topT, topWEE, protect)
-    def MeasureForcesFromBottomEE(self, bottomT = np.zeros((1)) ,
+    def MeasureForcesFromBottomEE(self, bottomT = np.zeros((1)) ,  # pragma: no cover
         topT = np.zeros((1)), topWEE = np.zeros((1)), protect = True):
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("MeasureForcesFromBottomEE", "measureForcesFromBottomEE")
         return self.measureForcesFromBottomEE(bottomT, topT, topWEE, protect)
-    def WrenchEEFromMeasuredForces(self, bottomT, topT, tau):
+    def WrenchEEFromMeasuredForces(self, bottomT, topT, tau):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction("WrenchEEFromMeasuredForces", "wrenchEEFromMeasuredForces")
         return self.wrenchEEFromMeasuredForces(bottomT, topT, tau)
-    def WrenchBottomFromMeasuredForces(self, bottomT, topT, tau):
+    def WrenchBottomFromMeasuredForces(self, bottomT, topT, tau):  # pragma: no cover
         """
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction(
             "WrenchBottomFromMeasuredForces", "wrenchBottomFromMeasuredForces")
         return self.wrenchBottomFromMeasuredForces(bottomT, topT, tau)
-    def SumActuatorWrenches(self, forces = None):
+    def SumActuatorWrenches(self, forces = None):  # pragma: no cover
         """
         Deprecated. Don't Use
         """

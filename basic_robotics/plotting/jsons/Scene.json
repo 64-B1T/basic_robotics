@@ -1,0 +1,12 @@
+{
+  "Key":"Scene",
+  "Scene":1,
+  "Background":"rgb(229, 225, 230)",
+  "Fog":{"Type":"Exp","Color":"rgb(192,255,192)","Density":0.00015},
+  "Camera":{"Type":"Perspective","FOV":75,"Near":0.1,"Far":1000,"Position":[5,5,5]},
+  "Lights":[
+    {"Type":"Ambient","Color":"rgb(204,204,204)","Intensity":1},
+    {"Type":"Directional","Color":"rgb(255,255,255)","Intensity":2,"Position":[1,1,0.5]},
+    {"Type":"Point","Color":"rgb(255,255,255)","Intensity":1,"Distance":0,"Decay":2,"Position":[0,0,10]}
+  ]
+}

@@ -281,7 +281,7 @@ def geometricError(ref_point_1, ref_point_2):
         tm: geometric error
 
     """
-    return globalToLocal(ref_point_2, ref_point_1)
+    return abs(globalToLocal(ref_point_1, ref_point_2))
 
 def distance(ref_point_1, ref_point_2):
     """
@@ -423,7 +423,8 @@ def angleMod(rad):
         float: cut down angle or angles
     """
     if isinstance(rad, tm):
-        return rad.AngleMod();
+        rad.angleMod()
+        return rad
     if np.size(rad) == 1:
         if abs(rad) > 2 * np.pi:
             rad = rad % (2 * np.pi)
@@ -547,7 +548,6 @@ def transformFromTwist(input_twist):
     input_twist = input_twist.reshape((6))
     #print(tw)
     tms = mr.VecTose3(input_twist)
-    tms = delMini(tms)
     tmr = mr.MatrixExp6(tms)
     return tm(tmr)
 
@@ -591,12 +591,13 @@ def fiboSphere(num_points):
     xyzcoords = np.array([x, y, z]).T
     return xyzcoords
 
-def unitSphere(num_points):
+def unitSphere(num_points, return_azel=False):
     """
     Generates a "unit sphere" with an approximate number of points
     numActual = round(num_points)^2
     Args:
         num_points: Approximate number of points to collect
+        return_azel: Return Azimuth Elevation Coordinates Also
     Returns:
         xyzcoords: points in cartesian coordinates
         azel: coords in azimuth/elevation notation
@@ -622,7 +623,10 @@ def unitSphere(num_points):
         e = e + incb
         a = -1
 
-    return xyzcoords, azel
+    if not return_azel:
+        return np.array(xyzcoords)
+
+    return np.array(xyzcoords), azel
 
 
 def getUnitVec(ref_point_1, ref_point_2, distance = 1.0, return_dist = False):
@@ -655,39 +659,47 @@ def chainJacobian(screws, theta):
         jac: chain jacobian
     """
     jac = np.zeros((6, np.size(theta)))
-    T = np.eye(4)
+    T = tm()
     jac[0:6, 0] = screws[0:6, 0]
 
     for i in range(1, np.size(theta)):
-        T = T * TransformFromTwist(theta[i-1]*screws[1:6, i-1])
-        jac[0:6, i] = mr.Adjoint(T)*screws[0:6, i]
+        T = T @ transformFromTwist(theta[i-1] * screws[0:6, i-1])
+        jac[0:6, i] = T.adjoint() @ screws[0:6, i]
     return jac
 
-def numericalJacobian(f, x0, h):
+def numericalJacobian(function_handle, x_init, delta):
     """
     Calculates a numerical jacobian
     Args:
-        f: function handle (FK)
-        x0: initial value
-        h: delta value
+        function_handle: function handle (FK)
+        x_init: initial value
+        delta: delta value
     Returns:
         dfdx: numerical Jacobian
     """
-    x0p = np.copy(x0)
-    x0p[0] = x0p[0] + h
-    x0m = np.copy(x0)
-    x0m[0] = x0m[0] - h
-    dfdx = (f(x0p)-f(x0m))/(2*h)
+    x0p = np.copy(x_init)
+    x0m = np.copy(x_init)
 
-    for i in range(1, x0.size):
-        x0p =  np.copy(x0)
-        x0p[i] = x0p[i] + h
-        x0m =  np.copy(x0)
-        x0m[i] = x0m[i] - h
+    x0p[0] = x0p[0] + delta
+    x0m[0] = x0m[0] - delta
+
+    def ndfdx(x0p, x0m):
+        return (function_handle(x0p) - function_handle(x0m)) / (2 * delta)
+
+    dfdx = ndfdx(x0p, x0m)
+
+    for i in range(1, x_init.size):
+        x0p =  np.copy(x_init)
+        x0m =  np.copy(x_init)
+
+        x0p[i] = x0p[i] + delta
+        x0m[i] = x0m[i] - delta
         #Conversion paused here. continue evalutation
-        dfdx=np.concatenate((dfdx,(f(x0p)-f(x0m))/(2*h)), axis = 0)
-    dfdx=dfdx.conj().T
-    f(x0)
+        dfdx = np.vstack((dfdx, ndfdx(x0p, x0m)))
+    dfdx=dfdx.T
+
+    # Reset State If Necessary
+    function_handle(x_init)
 
     return dfdx
 
@@ -712,24 +724,6 @@ def boxSpatialInertia(m, l, w, h):
     Gbox = np.vstack((np.hstack((Ib, np.zeros((3, 3)))), np.hstack((np.zeros((3, 3)), m*np.identity((3))))))
     return Gbox
 
-
-def delMini(arr):
-    """
-    Deletes subarrays of dimension 1
-    Requires 2d array
-    Args:
-        arr: array to prune
-    Returns:
-        newarr: pruned array
-    """
-
-    s = arr.shape
-    newarr = np.zeros((s))
-    for i in range(s[0]):
-        for j in range(s[1]):
-            newarr[i, j] = arr[i, j]
-    return newarr
-
 def setElements(data, inds, vals):
     """
     Sets the elements in data specified by inds with the values in vals
@@ -751,187 +745,187 @@ def setElements(data, inds, vals):
 
 # DEPRECATED FUNCTION HANDLES
 import traceback
-def LocalToGlobal(reference, rel):
+def LocalToGlobal(reference, rel):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(LocalToGlobal.__name__ + ' is deprecated, use ' + localToGlobal.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return localToGlobal(reference, rel)
 
-def GlobalToLocal(reference, rel):
+def GlobalToLocal(reference, rel):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(GlobalToLocal.__name__ + ' is deprecated, use ' + globalToLocal.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return globalToLocal(reference, rel)
 
-def PlaneFrom3Tms(ref_point_1, ref_point_2, ref_point_3):
+def PlaneFrom3Tms(ref_point_1, ref_point_2, ref_point_3):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(PlaneFrom3Tms.__name__ + ' is deprecated, use ' + planeFromThreePoints.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return planeFromThreePoints(ref_point_1, ref_point_2, ref_point_3)
 
-def PlaneTMSFromOne(ref_point_1):
+def PlaneTMSFromOne(ref_point_1):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(PlaneTMSFromOne.__name__ + ' is deprecated, use ' + planePointsFromTransform.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return planePointsFromTransform(ref_point_1)
 
-def Mirror(origin, mirror_plane):
+def Mirror(origin, mirror_plane):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(Mirror.__name__ + ' is deprecated, use ' + mirror.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return mirror(origin, mirror_plane)
 
-def TMMidRotAdjust(active_point, ref_point_1, ref_point_2, mode = 0):
+def TMMidRotAdjust(active_point, ref_point_1, ref_point_2, mode = 0):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TMMidRotAdjust.__name__ + ' is deprecated, use ' + adjustRotationToMidpoint.__name__ + ' instead')
     traceback.print_stack(limit=2)
-    return adjustRotationToMidpoint(active_point, ref_point_1, ref_point_2, mode = 0)
+    return adjustRotationToMidpoint(active_point, ref_point_1, ref_point_2, mode = mode)
 
-def TMMidPointEx(ref_point_1, ref_point_2):
+def TMMidPointEx(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TMMidPointEx.__name__ + ' is deprecated, use ' + tmAvgMidpoint.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return tmAvgMidpoint(ref_point_1, ref_point_2)
 
-def TMMidPoint(ref_point_1, ref_point_2):
+def TMMidPoint(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TMMidPoint.__name__ + ' is deprecated, use ' + tmInterpMidpoint.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return tmInterpMidpoint(ref_point_1, ref_point_2)
 
-def RotFromVec(ref_point_1, ref_point_2):
+def RotFromVec(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(RotFromVec.__name__ + ' is deprecated, use ' + rotationFromVector.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return rotationFromVector(ref_point_1, ref_point_2)
 
-def lookat(ref_point_1, ref_point_2):
+def lookat(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(lookat.__name__ + ' is deprecated, use ' + lookAt.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return lookAt(ref_point_1, ref_point_2)
 
-def Error(ref_point_1, ref_point_2):
+def Error(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(Error.__name__ + ' is deprecated, use ' + poseError.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return poseError(ref_point_1, ref_point_2)
 
-def GeometricError(ref_point_1, ref_point_2):
+def GeometricError(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(GeometricError.__name__ + ' is deprecated, use ' + geometricError.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return geometricError(ref_point_1, ref_point_2)
 
-def Distance(ref_point_1, ref_point_2):
+def Distance(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(Distance.__name__ + ' is deprecated, use ' + distance.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return distance(ref_point_1, ref_point_2)
 
-def ArcDistance(ref_point_1, ref_point_2):
+def ArcDistance(ref_point_1, ref_point_2):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(ArcDistance.__name__ + ' is deprecated, use ' + arcDistance.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return arcDistance(ref_point_1, ref_point_2)
 
-def CloseGap(origin_point, goal_point, delta):
+def CloseGap(origin_point, goal_point, delta):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(CloseGap.__name__ + ' is deprecated, use ' + closeLinearGap.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return closeLinearGap(origin_point, goal_point, delta)
 
-def ArcGap(origin_point, goal_point, delta):
+def ArcGap(origin_point, goal_point, delta):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(ArcGap.__name__ + ' is deprecated, use ' + closeArcGap.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return closeArcGap(origin_point, goal_point, delta)
 
-def Deg2Rad(deg):
+def Deg2Rad(deg):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(Deg2Rad.__name__ + ' is deprecated, use ' + deg2Rad.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return deg2Rad(deg)
 
-def Rad2Deg(rad):
+def Rad2Deg(rad):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(Rad2Deg.__name__ + ' is deprecated, use ' + rad2Deg.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return rad2Deg(rad)
 
-def AngleMod(rad):
+def AngleMod(rad):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(AngleMod.__name__ + ' is deprecated, use ' + angleMod.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return angleMod(rad)
 
-def AngleBetween(ref_point_1, ref_point_2, ref_point_3):
+def AngleBetween(ref_point_1, ref_point_2, ref_point_3):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(AngleBetween.__name__ + ' is deprecated, use ' + angleBetween.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return angleBetween(ref_point_1, ref_point_2, ref_point_3)
 
-def GenForceWrench(position_applied, force, force_direction_vector):
+def GenForceWrench(position_applied, force, force_direction_vector):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(GenForceWrench.__name__ + ' is deprecated, use ' + makeWrench.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return makeWrench(position_applied, force, force_direction_vector)
 
-def TransformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):
+def TransformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TransformWrenchFrame.__name__ + ' is deprecated, use ' + transformWrenchFrame.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame)
 
-def TwistToScrew(input_twist):
+def TwistToScrew(input_twist):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TwistToScrew.__name__ + ' is deprecated, use ' + twistToScrew.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return twistToScrew(input_twist)
 
-def NormalizeTwist(twist):
+def NormalizeTwist(twist):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(NormalizeTwist.__name__ + ' is deprecated, use ' + normalizeTwist.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return normalizeTwist(twist)
 
-def TwistFromTransform(input_transform):
+def TwistFromTransform(input_transform):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TwistFromTransform.__name__ + ' is deprecated, use ' + twistFromTransform.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return twistFromTransform(input_transform)
 
-def TransformFromTwist(input_twist):
+def TransformFromTwist(input_twist):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TransformFromTwist.__name__ + ' is deprecated, use ' + transformFromTwist.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return transformFromTwist(input_twist)
 
-def TrVec(transform, vec):
+def TrVec(transform, vec):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(TrVec.__name__ + ' is deprecated, use ' + transformByVector.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return transformByVector(transform, vec)
 
-def ChainJacobian(screws, theta):
+def ChainJacobian(screws, theta):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(ChainJacobian.__name__ + ' is deprecated, use ' + chainJacobian.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return chainJacobian(screws, theta)
 
-def NumJac(f, x0, h):
+def NumJac(f, x0, h):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(NumJac.__name__ + ' is deprecated, use ' + numericalJacobian.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return numericalJacobian(f, x0, h)
 
-def BoxSpatialInertia(m, l, w, h):
+def BoxSpatialInertia(m, l, w, h):  # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(BoxSpatialInertia.__name__ + ' is deprecated, use ' + boxSpatialInertia.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return boxSpatialInertia(m, l, w, h)
 
-def SetElements(data, inds, vals):
+def SetElements(data, inds, vals):   # pragma: no cover
     """Deprecation notice function. Please use indicated correct function"""
     print(SetElements.__name__ + ' is deprecated, use ' + setElements.__name__ + ' instead')
     traceback.print_stack(limit=2)

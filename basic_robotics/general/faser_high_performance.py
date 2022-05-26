@@ -44,7 +44,7 @@ def IKinSpaceConstrained(screw_list, ee_home, ee_goal, theta_list,
             if theta_list[j] < joint_mins[j]:
                 theta_list[j] = joint_mins[j]
             if theta_list[j] > joint_maxs[j]:
-                theta_list[j] = joint_maxs[j];
+                theta_list[j] = joint_maxs[j]
         i = i + 1
         ee_current = FKinSpace(ee_home, screw_list, theta_list)
         error_vec = np.dot(Adjoint(ee_current),

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Visualizer</title>
+	<link rel="stylesheet" href="FaserView.css" type="text/css">
+</head>
+<body>
+	<div id="render">
+		<div class="overallGrid" id="overgrid">
+			<div class="headertrans">
+				<div class="faserlogo">
+					<!-- <img class="faserlogo" src="faserview.svg"> -->
+				</div>
+				<div class="faserlogomobile" id="faserlogomobilediv">
+					<!-- <img class="faserlogo" src="faserview.svg"> -->
+				</div>
+				<div class="leftmenu" id="menuleft">
+					<img class="menu" src="hamburgerB.svg">
+				</div>
+				<div class="leftmenuX" id="menuleftX">
+					<img class="menu" src="XB.svg">
+				</div>
+				<div class="rightmenu" id="menuright">
+					<img class="menu" src="hamburgerB.svg">
+				</div>
+				<div class="rightmenuX" id="menurightX">
+					<img class="menu" src="XB.svg">
+				</div>
+			</div>
+			<div class="left" id="leftpanel">
+			</div>
+			<!-- <div class="left" id="leftpanel" style="display:none">
+			</div> -->
+			<div class="centerUL">
+			</div>
+			<div class="centerUR">
+			</div>
+			<div class="editor" id="editordiv">
+			</div>
+			<div class="centerLL">
+			</div>
+			<div class="centerLR">
+			</div>
+			<div class="plot" id="plotdiv" style="pointer-events: auto";>
+				<!-- <iframe src="./FaserPlot.html" width="95%" height="500" style="border:none;"></iframe> -->
+			</div>
+			<div class="right" id="rightpanel">
+			</div>
+			<!-- <div class="right" id="rightpanel" style="display:none">
+			</div> -->
+			<div class="bottom">
+				<div class="bitem1">
+					<button class="headerbutton" id="activate" >Deactivate</button>
+				</div>
+				<div class="bitem2">
+				</div>
+				<div class="bitem3">
+					<button class="headerbutton" id="showeditor" style="display:none">Toggle Editor</button>
+				</div>
+				<div class="bitem4">
+					<button class="headerbutton" id="showplot" style="display:none">Toggle Plot</button>
+					<!-- <button class="headerbutton" id="showplot">Toggle Plot</button> -->
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+<script type="importmap">
+	{
+		"imports": {
+			"three": "https://unpkg.com/three/build/three.module.js"
+		}
+	}
+</script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script type="module" src="./Faser.js"></script>
+</body>
+</html>

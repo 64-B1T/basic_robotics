@@ -1,0 +1,28 @@
+{
+  "Key":"Control Group Intro",
+  "ControlGroups":[
+    {
+      "GroupName":"Move Box",
+      "Items":[
+        {"Value":"X","Init":0,"MinMaxStep":[-10,10,0.01],"Send":["X"]},
+        {"Value":"Y","Init":0,"MinMaxStep":[-10,10,0.01],"Send":["Y"]},
+        {"Value":"Z","Init":0,"MinMaxStep":[-10,10,0.01],"Send":["Z"]}
+      ]
+    },
+    {
+      "GroupName":"Checks and Selects",
+      "Items":[
+        {"Checkbox":"Do It","Checked":true,"Send Checks":["Do It"]},
+        {"Select":"Select This","Selected":0,"Options":["A","B","C"],"Send Labels":["Select This"]}
+      ]
+    }
+  ],
+  "DataGroups":[
+    {
+      "GroupName":"Data",
+      "Items":[
+        {"Text":"Optional text output here.","ID":"DataOut"}
+      ]
+    }
+  ]
+}

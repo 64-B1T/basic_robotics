@@ -1,3 +1,4 @@
+import numpy as np
 from basic_robotics.general import tm, fsr
 from basic_robotics.kinematics import Arm
 from basic_robotics.plotting.Draw import *
@@ -152,14 +153,31 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(link_i, link_i_ref)
 
     def test_kinematics_arm_IK(self):
-        #TODO
-        pass
+        test_tm = tm([1, 1, 3, 0, 0, 0])
+
+        self.arm.IK(test_tm)
+
+        self.matrix_equality_assertion(test_tm.TM, self.arm.getEEPos().TM)
+
+        test_angs = np.array([np.pi/7, np.pi/5, -np.pi/8, np.pi/7, -np.pi/8, np.pi/10])
+        test_tm_2 = self.arm.FK(test_angs)
+
+        test_tm_2 = self.arm.FK(np.zeros(6))
+        self.arm.IK(test_tm_2)
+
+        self.matrix_equality_assertion(test_tm_2.TM, self.arm.getEEPos().TM)
+
+        test_angs_2 = np.array([-np.pi/7, -np.pi/5, np.pi/8, -np.pi/7, np.pi/8, -np.pi/10])
+
+        test_tm_2 = self.arm.FK(np.zeros(6))
+        self.arm.IK(test_tm_2, test_angs_2)
+        self.matrix_equality_assertion(test_tm_2.TM, self.arm.getEEPos().TM)
+
+        test_tm_2 = self.arm.FK(np.zeros(6))
+        self.arm.IK(test_tm_2, test_angs_2, protect=True)
+        self.matrix_equality_assertion(test_tm_2.TM, self.arm.getEEPos().TM)
 
     def test_kinematics_arm_constrainedIK(self):
-        #TODO
-        pass
-
-    def test_kinematics_arm_constrainedIKNoFMR(self):
         #TODO
         pass
 

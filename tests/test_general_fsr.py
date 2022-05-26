@@ -141,6 +141,44 @@ class test_general_fsr(unittest.TestCase):
         ref1p = fsr.lookAt(ref1, ref2)
         self.assertAlmostEqual(fsr.distance(ref1p @ tm([0, 0, fsr.distance(ref1, ref2), 0, 0, 0]), ref2), 0, 3)
 
+        # Test Case Where The object is directly above
+        ref1 = tm([-1, 0, 0, 0, 0, 0])
+        ref2 = tm([-1, 0, 7, 0, 0, 0])
+        ref1p = fsr.lookAt(ref1, ref2)
+        self.assertAlmostEqual(fsr.distance(ref1p @ tm([0, 0, fsr.distance(ref1, ref2), 0, 0, 0]), ref2), 0, 3)
+
+    def test_general_fsr_poseError(self):
+        tm1 = tm([1, 2, 3, 4, 5, 6])
+        tm2 = tm([-1, 2, 0, 4, 5, 0])
+
+        tm3 = fsr.poseError(tm1, tm2)
+        self.assertEqual(tm3[0], 2)
+        self.assertEqual(tm3[1], 0)
+        self.assertEqual(tm3[2], 3)
+        self.assertEqual(tm3[5], 6)
+
+    def test_general_fsr_geometricError(self):
+        tm1 = tm([1, 2, 3, 0, 0, 0])
+        tm2 = tm([-1, 2, 0, 4, 5, 0])
+
+        tm3 = fsr.geometricError(tm1, tm2)
+        self.assertEqual(tm3[0], 2)
+        self.assertEqual(tm3[1], 0)
+        self.assertEqual(tm3[2], 3)
+
+    def test_general_fsr_distance(self):
+        ref1 = tm([-1, 0, 0, 0, 0, 0])
+        ref2 = tm([1, 0, 0, 0, 0, 0])
+        dist = fsr.distance(ref1, ref2)
+        self.assertAlmostEqual(dist, 2, 2)
+
+        a = np.array([0, 1])
+        b = np.array([0, 4])
+
+        dist = fsr.distance(a, b)
+
+        self.assertAlmostEqual(dist, 3, 2)
+
     def test_general_fsr_arcDistance(self):
         ref1 = tm([-1, 0, 0, 0, 0, 0])
         ref2 = tm([1, 0, 0, 0, 0, 0])
@@ -161,6 +199,11 @@ class test_general_fsr(unittest.TestCase):
         ref2 = tm([0, 0, 0, np.pi/2, 0, 0])
         ntm = fsr.closeLinearGap(ref1, ref2, np.pi/8)
         self.assertAlmostEqual(ntm[3], np.pi/4 + np.pi/8, 3)
+
+        ref1 = tm([0, 0, 0, np.pi/4, 0, 0])
+        ref2 = tm([0, 0, 0, np.pi/4, 0, 0])
+        ntm = fsr.closeLinearGap(ref1, ref2, np.pi/8)
+        self.assertAlmostEqual(ntm[3], np.pi/4, 3)
 
     def test_general_fsr_closeArcGap(self):
         ref1 = tm([-1, 0, 0, 0, 0, 0])
@@ -200,6 +243,19 @@ class test_general_fsr(unittest.TestCase):
                 fsr.distance(path[i], path[i+1]),
                 fsr.distance(path[i+1],path[i+2]), 4)
 
+    def test_general_fsr_deg2Rad(self):
+        d1 = 90
+        d2 = 180
+
+        self.assertEqual(fsr.deg2Rad(d1), np.pi/2)
+        self.assertEqual(fsr.deg2Rad(d2), np.pi)
+
+    def test_general_fsr_rad2Deg(self):
+        d1 = np.pi/2
+        d2 = np.pi
+
+        self.assertEqual(fsr.rad2Deg(d1), 90)
+        self.assertEqual(fsr.rad2Deg(d2), 180)
 
     def test_general_fsr_angleMod(self):
         sin_non_mod = np.pi/2
@@ -217,6 +273,11 @@ class test_general_fsr(unittest.TestCase):
 
         self.assertAlmostEqual(fsr.angleMod(arr_mod)[3], arr_non_mod[3], 2)
         self.assertNotEqual(fsr.angleMod(arr_mod)[0], arr_non_mod[0], 2)
+
+        tmtest = tm(arr_mod)
+        tmtest2 = fsr.angleMod(tmtest)
+        self.assertAlmostEqual(tmtest2[3], arr_non_mod[3], 2)
+
 
     def test_general_fsr_angleBetween(self):
         p1 = tm()
@@ -328,6 +389,12 @@ class test_general_fsr(unittest.TestCase):
         for i in range(6):
             self.assertAlmostEqual(result[i,0],output_twist[i,0], 3)
 
+        input_twist = np.array([0, 0, 0, 3, 4, 5])
+        output_twist = np.array([0, 0, 0, .4243, .5657, .7071])
+        result = fsr.normalizeTwist(input_twist)
+        for i in range(6):
+            self.assertAlmostEqual(result[0],output_twist[0], 3)
+
     def test_general_fsr_twistFromTransform(self):
         #Test derived from L6.m 2018 Robotics Control Class
         def test_combo(input_tm, output):
@@ -376,13 +443,38 @@ class test_general_fsr(unittest.TestCase):
         test_combo(input_twist, expected)
 
     def test_general_fsr_transformByVector(self):
-        pass #TODO
+        A = tm([1, 2, 3, 4, 5, 6])
+        B = np.array([0, 2, 1])
+
+        res_exp = np.array([2.0103, 1.9980, 4.9948])
+
+        C = fsr.transformByVector(A, B)
+
+        self.assertAlmostEqual(res_exp[0], C[0], 2)
+        self.assertAlmostEqual(res_exp[1], C[1], 2)
+        self.assertAlmostEqual(res_exp[2], C[2], 2)
 
     def test_general_fsr_fiboSphere(self):
-        pass #TODO
+        fsphere = fsr.fiboSphere(100)
+
+        self.assertEqual(len(fsphere), 100)
+        for i in range(99):
+            self.assertAlmostEqual(
+                    fsr.distance(fsphere[i,:], np.array([0, 0, 0])),
+                    1, 1)
 
     def test_general_fsr_unitSphere(self):
-        pass #TODO
+        usphere = fsr.unitSphere(100)
+
+        self.assertEqual(len(usphere), 121) # Not exactly 100
+        for i in range(99):
+            self.assertAlmostEqual(
+                    fsr.distance(usphere[i,:], np.array([0, 0, 0])),
+                    1, 1)
+
+        usphere, azel = fsr.unitSphere(100, True)
+
+        self.assertEqual(len(azel), 121)
 
     def test_general_fsr_getUnitVec(self):
         test_tm = tm([1, 2, 3, 0, 0, 0])
@@ -396,13 +488,45 @@ class test_general_fsr(unittest.TestCase):
         for i in range(3):
             self.assertAlmostEqual(res_expected_2[i], unit[i])
 
+        unit, dist = fsr.getUnitVec(origin_tm, test_tm, 3, True)
+        for i in range(3):
+            self.assertAlmostEqual(res_expected_2[i], unit[i])
+        self.assertAlmostEqual(dist, 3.741657, 3)
+
 
     def test_general_fsr_chainJacobian(self):
-        pass #TODO
+        exscrew = np.array([[0, 0, 0, 1, 0, 1],
+            [0, 1, 1, 0, 1, 0],
+            [1, 0, 0, 0, 0, 0],
+            [0, -2, -2, 0, -2, 0],
+            [0, 0, 0, 2, 0, 2],
+            [0, 0, 1.5, 0, 3.1, 0]])
+        ref = np.array([[0, 0, 0, -0.98999, 0.019915, 0.54137],
+            [0, 1, 1, 0, -0.98999, -0.1068],
+            [1, 0, 0, -0.14112, -0.13971, 0.83397],
+            [0, -2, -0.73779, 0, 0.50688, 0.054682],
+            [0, 0, 0, -0.61604, -0.097872, 0.92229],
+            [0, 0, 0.81045, 0, 0.76579, 0.082613]])
+
+        ans = fsr.chainJacobian(exscrew, np.array([0, 1, 2, 3, 4, 5]))
+
+        for i in range(6):
+            for j in range(6):
+                self.assertAlmostEqual(ref[i,j], ans[i,j], 2)
 
     def test_general_fsr_numericalJacobian(self):
-        #Test derived from L17p2.m 2018 Robotics Control Class
-        pass #TODO
+        # Test derived from
+        # https://www.mathworks.com/matlabcentral/answers/28066-numerical-jacobian-in-matlab
+        fx = lambda x : np.array([x[0]**2 + x[1]**2, x[0]**3 * x[1]**3])
+
+        pa = np.array([1.0, 1.0])
+        res = fsr.numericalJacobian(fx, pa, 0.00001)
+
+        ans = np.array([[2, 2], [3, 3]])
+
+        for i in range(2):
+            for j in range(2):
+                self.assertAlmostEqual(res[i,j], ans[i,j], 2)
 
     def test_general_fsr_boxSpatialInertia(self):
         #Test derived from L10.m 2018 Robotics Control Class
@@ -438,13 +562,16 @@ class test_general_fsr(unittest.TestCase):
             for j in range(6):
                 self.assertAlmostEqual(result[i,j], expected[i,j], 3)
 
-    def test_general_fsr_delMini(self):
-        pass #TODO
-
     def test_general_fsr_setElements(self):
-        pass #TODO
+        test_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+        test_inds = np.array([1, 2, 5])
+        test_new = np.array([9, 10, 11])
 
+        r_arr = fsr.setElements(test_arr, test_inds, test_new)
 
+        self.assertEqual(r_arr[1], test_new[0])
+        self.assertEqual(r_arr[2], test_new[1])
+        self.assertEqual(r_arr[5], test_new[2])
 
 if __name__ == '__main__':
     unittest.main()
