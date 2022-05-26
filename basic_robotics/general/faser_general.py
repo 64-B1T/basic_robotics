@@ -315,7 +315,7 @@ def arcDistance(ref_point_1, ref_point_2):
 
     """
     geo_error = globalToLocal(ref_point_1, ref_point_2)
-    d = math.sqrt(geo_error[0]**2 + geo_error[1]**2 + geo_error[2]**2 + geo_error[3]**2 +geo_error[4]**2 + geo_error[5]**2)
+    d = mr.Norm6(geo_error[0:6])
     return d
 
 #Gap Closure
@@ -335,10 +335,10 @@ def closeLinearGap(origin_point, goal_point, delta):
     origin_to_goal = goal_point - origin_point
     #normalize
     return_transform = np.zeros((6, 1))
-    var = math.sqrt(origin_to_goal[0]**2 + origin_to_goal[1]**2 + origin_to_goal[2]**2)
+    var = mr.Norm6(origin_to_goal[0:6])
     #print(var, "var")
     if var == 0:
-        var = 0
+        return goal_point
     for i in range(6):
         return_transform[i] = origin_point.TAA[i] + (origin_to_goal[i] / var) * delta
     #xf = origin_point @ TAAtoTM(return_transform)
@@ -361,10 +361,10 @@ def closeArcGap(origin_point, goal_point, delta):
     origin_to_goal = goal_point - origin_point
     #normalize
     return_transform = np.zeros((6, 1))
-    var = math.sqrt(origin_to_goal[0]**2 + origin_to_goal[1]**2 + origin_to_goal[2]**2)
+    var = mr.Norm6(origin_to_goal[0:6])
     #print(var, "var")
     if var == 0:
-        var = 0
+        return goal_point
     for i in range(6):
         return_transform[i] = (origin_to_goal[i] / var) * delta
     xf = origin_point @ TAAtoTM(return_transform)
@@ -373,7 +373,7 @@ def closeArcGap(origin_point, goal_point, delta):
 
 def IKPath(initial, goal, steps):
     """
-    Creates a simple oath from origin to goal witha  given number of steps
+    Creates a simple path from origin to goal with a given number of steps
 
     Args:
         initial (tm): Initial Position
@@ -384,11 +384,12 @@ def IKPath(initial, goal, steps):
         [tm]: list of transforms representing trajectory
 
     """
-    delta = (goal.gTAA() - initial.gTAA())/steps
+    delta = (goal.gTAA() - initial.gTAA())/(steps - 1)
     pose_list = []
-    for i in range(steps):
+    for i in range(steps - 1):
         pos = tm(initial.gTAA() + delta * i)
         pose_list.append(pos)
+    pose_list.append(goal)
     return pose_list
 
 

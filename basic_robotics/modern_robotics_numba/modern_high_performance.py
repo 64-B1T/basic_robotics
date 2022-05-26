@@ -63,6 +63,13 @@ def AngleMod(rad):
 def Norm(v):
     return np.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
+@jit(nopython=True, cache=True)
+def Norm6(v):
+    #Obviously this won't work on massive values, but it's faster than np.norm
+    #For most values which could appear
+    #Also only for Float Values
+    return np.sqrt(v[0]**2 + v[1]**2 + v[2]**2 + v[3]**2 + v[4]**2 + v[5]**2)
+
 '''
 *** CHAPTER 3: RIGID-BODY MOTIONS ***
 '''

@@ -71,6 +71,12 @@ class test_kinematics_arm(unittest.TestCase):
 
         self.arm = arm
 
+    #Kinematics
+
+    def test_kinematics_arm_thetaProtector(self):
+        #TODO
+        pass
+
     def test_kinematics_arm_FK(self):
         ee_pos = self.arm.FK(np.zeros((6)))
         self.assertAlmostEqual(ee_pos[0], 7.8)
@@ -81,39 +87,176 @@ class test_kinematics_arm(unittest.TestCase):
         self.assertAlmostEqual(ee_pos[1], 3.6031, 3)
         self.assertAlmostEqual(ee_pos[2], 1.5151, 3)
 
+    def test_kinematics_arm_FKLink(self):
+        link_i = self.arm.FKLink(np.zeros((6)), 0).gTM()
+        link_i_ref = np.array([[1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 2.25],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+        link_i = self.arm.FKLink(np.zeros((6)), 5).gTM()
+        link_i_ref = np.array([[1, 0, 0, 7.75],
+            [0, 1, 0, 0],
+            [0, 0, 1, 4.5],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+        link_i = self.arm.FKLink(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 0).gTM()
+        link_i_ref = np.array([[0.86603, -0.5, 0, 0],
+            [0.5, 0.86603, 0, 0],
+            [0, 0, 1, 2.25],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+        link_i = self.arm.FKLink(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 5).gTM()
+        link_i_ref = np.array([[0.8001, -0.52446, 0.29116, 6.2008],
+            [0.46194, 0.84834, 0.2587, 3.58],
+            [-0.38268, -0.072487, 0.92103, 1.5342],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+    def test_kinematics_arm_FKJoint(self):
+        link_i = self.arm.FKJoint(np.zeros((6)), 0).gTM()
+        link_i_ref = np.array([[1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+        link_i = self.arm.FKJoint(np.zeros((6)), 1).gTM()
+        link_i_ref = np.array([[1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 4.5],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+        link_i = self.arm.FKJoint(np.zeros((6)), 5).gTM()
+        link_i_ref = np.array([[1, 0, 0, 7.7],
+            [0, 1, 0, 0],
+            [0, 0, 1, 4.5],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+        link_i = self.arm.FKJoint(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 0).gTM()
+        link_i_ref = np.array([[0.86603, -0.5, 0, 0],
+            [0.5, 0.86603, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+        link_i = self.arm.FKJoint(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 5).gTM()
+        link_i_ref = np.array([[0.8001, -0.52446, 0.29116, 6.1607],
+            [0.46194, 0.84834, 0.2587, 3.55693],
+            [-0.38268, -0.072487, 0.92103, 1.55333],
+            [0, 0, 0, 1]])
+        self.matrix_equality_assertion(link_i, link_i_ref)
+
+    def test_kinematics_arm_IK(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_constrainedIK(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_constrainedIKNoFMR(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_IKForceOptimal(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_IKMotion(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_IKFree(self):
+        #TODO
+        pass
+
+    #Kinematics Helpers
+
+    def test_kinematics_arm_randomPos(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_reverse(self):
+        #TODO
+        pass
+
+    # Motion Planning
+
+    def test_kinematics_arm_lineTrajectory(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_visualServoToTarget(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_PDControlToGoalEE(self):
+        #TODO
+        pass
+
+    # Get and Set
+
+    def test_kinematics_arm_setDynamicsProperties(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_setMasses(self):
+        #TODO
+        pass
+
     def test_kinematics_arm_getJointTransforms(self):
         disp(self.arm.getJointTransforms())
 
-    def test_kinematics_arm_forwardDynamics(self):
-        #Test Derived from L11.m
-        ee_pos = self.arm.FK(np.zeros((6)))
-        theta_dot_dot = self.arm.forwardDynamics(
-            np.zeros((6)),
-            np.ones((6)) * -1,
-            np.zeros((6)),
-            end_effector_wrench = np.array([0, 0, 0, 0, 0, 150*9.81])
-        )
-        self.assertAlmostEqual(theta_dot_dot[0], -0.0033, 3)
-        self.assertAlmostEqual(theta_dot_dot[1], 9.1779, 3)
-        self.assertAlmostEqual(theta_dot_dot[2], -38.2955, 3)
-        self.assertAlmostEqual(theta_dot_dot[3], 2.5, 3)
-        self.assertAlmostEqual(theta_dot_dot[4], 11033.6127, 3)
-        self.assertAlmostEqual(theta_dot_dot[5], 0.5, 3)
+    def test_kinematics_arm_setArbitraryHome(self):
+        #TODO
+        pass
 
-        #ee_pos = self.arm.FK()
-        ee_pos = self.arm.FK(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]))
-        theta_dot_dot = self.arm.forwardDynamics(
-            np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]),
-            np.ones((6)) * -1,
-            np.zeros((6)),
-            end_effector_wrench = np.array([0, 0, 0, 0, 0, 150*9.81])
-        )
-        self.assertAlmostEqual(theta_dot_dot[0], 7.233560, 0)
-        self.assertAlmostEqual(theta_dot_dot[1], 6.007569, 0)
-        self.assertAlmostEqual(theta_dot_dot[2], -23.72005, 0)
-        self.assertAlmostEqual(theta_dot_dot[3], 5.42538, 0)
-        self.assertAlmostEqual(theta_dot_dot[4], 10349.3890, 0)
-        self.assertAlmostEqual(theta_dot_dot[5], 0.80946, 0)
+    def test_kinematics_arm_restoreOriginalEE(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_getEEPos(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_getScrewList(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_getLinkDimensions(self):
+        #TODO
+        pass
+
+    #Forces and Dynamics
+
+    def test_kinematics_arm_velocityAtEndEffector(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_staticForces(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_staticForcesInv(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_staticForceWithLinkMasses(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_inverseDynamics(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_inverseDynamicsEMR(self):
+        #TODO
+        pass
 
     def test_kinematics_arm_inverseDynamicsE(self):
         tau, A, V, vel_dot, F = self.arm.inverseDynamicsE(
@@ -223,6 +366,9 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(vel_dot, v_dot_ref)
         self.matrix_equality_assertion(F, F_ref)
 
+    def test_kinematics_arm_inverseDynamicsC(self):
+        #TODO
+        pass
 
     def test_kinematics_arm_forwardDynamicsE(self):
         theta_dot_dot, M, h, ee = self.arm.forwardDynamicsE(
@@ -291,6 +437,37 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(M, M_ref)
         self.matrix_equality_assertion(h, h_ref)
         self.matrix_equality_assertion(ee, ee_ref)
+
+    def test_kinematics_arm_forwardDynamics(self):
+        #Test Derived from L11.m
+        ee_pos = self.arm.FK(np.zeros((6)))
+        theta_dot_dot = self.arm.forwardDynamics(
+            np.zeros((6)),
+            np.ones((6)) * -1,
+            np.zeros((6)),
+            end_effector_wrench = np.array([0, 0, 0, 0, 0, 150*9.81])
+        )
+        self.assertAlmostEqual(theta_dot_dot[0], -0.0033, 3)
+        self.assertAlmostEqual(theta_dot_dot[1], 9.1779, 3)
+        self.assertAlmostEqual(theta_dot_dot[2], -38.2955, 3)
+        self.assertAlmostEqual(theta_dot_dot[3], 2.5, 3)
+        self.assertAlmostEqual(theta_dot_dot[4], 11033.6127, 3)
+        self.assertAlmostEqual(theta_dot_dot[5], 0.5, 3)
+
+        #ee_pos = self.arm.FK()
+        ee_pos = self.arm.FK(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]))
+        theta_dot_dot = self.arm.forwardDynamics(
+            np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]),
+            np.ones((6)) * -1,
+            np.zeros((6)),
+            end_effector_wrench = np.array([0, 0, 0, 0, 0, 150*9.81])
+        )
+        self.assertAlmostEqual(theta_dot_dot[0], 7.233560, 0)
+        self.assertAlmostEqual(theta_dot_dot[1], 6.007569, 0)
+        self.assertAlmostEqual(theta_dot_dot[2], -23.72005, 0)
+        self.assertAlmostEqual(theta_dot_dot[3], 5.42538, 0)
+        self.assertAlmostEqual(theta_dot_dot[4], 10349.3890, 0)
+        self.assertAlmostEqual(theta_dot_dot[5], 0.80946, 0)
 
     def test_kinematics_arm_integrateForwardDynamics(self):
         t_ref = np.array([[0],
@@ -554,69 +731,43 @@ class test_kinematics_arm(unittest.TestCase):
 
         #TODO add another one
 
-    def test_kinematics_arm_FKJoint(self):
-        link_i = self.arm.FKJoint(np.zeros((6)), 0).gTM()
-        link_i_ref = np.array([[1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
-        link_i = self.arm.FKJoint(np.zeros((6)), 1).gTM()
-        link_i_ref = np.array([[1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 4.5],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
+    def test_kinematics_arm_massMatrix(self):
+        mmat = self.arm.massMatrix(np.zeros(6))
+        massmat_ref = np.array([[925.6592, 0, 0, 0, 0, 0],
+            [0, 925.6258, 323.9217, 0, 1.5483, 0],
+            [0, 323.9217, 139.4217, 0, 0.79833, 0],
+            [0, 0, 0, 0.005, 0, 0.0016667],
+            [0, 1.5483, 0.79833, 0, 0.028333, 0],
+            [0, 0, 0, 0.0016667, 0, 0.0016667]])
+        self.matrix_equality_assertion(mmat, massmat_ref, 1)
 
-        link_i = self.arm.FKJoint(np.zeros((6)), 5).gTM()
-        link_i_ref = np.array([[1, 0, 0, 7.7],
-            [0, 1, 0, 0],
-            [0, 0, 1, 4.5],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
+        mmat = self.arm.massMatrix(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]))
+        massmat_ref = np.array([[790.1149, -5.493e-14, -5.0935e-14, -0.0019134, -0.54742, -0.00063781],
+            [-5.493e-14, 925.6258, 323.9217, 5.6845e-15, 1.4305, -5.8766e-16],
+            [-5.0935e-14, 323.9217, 139.4217, 2.8714e-15, 0.73756, -3.0327e-16],
+            [-0.0019134, 5.6845e-15, 2.8714e-15, 0.005, 1.1288e-17, 0.0016667],
+            [-0.54742, 1.4305, 0.73756, 1.1288e-17, 0.028333, -3.6329e-17],
+            [-0.00063781, -5.8766e-16, -3.0327e-16, 0.0016667, -3.6329e-17, 0.0016667]])
+        self.matrix_equality_assertion(mmat, massmat_ref, 1)
 
-        link_i = self.arm.FKJoint(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 0).gTM()
-        link_i_ref = np.array([[0.86603, -0.5, 0, 0],
-            [0.5, 0.86603, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
+    def test_kinematics_arm_coriolisGravity(self):
+        #TODO
+        pass
 
-        link_i = self.arm.FKJoint(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 5).gTM()
-        link_i_ref = np.array([[0.8001, -0.52446, 0.29116, 6.1607],
-            [0.46194, 0.84834, 0.2587, 3.55693],
-            [-0.38268, -0.072487, 0.92103, 1.55333],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
+    def test_kinematics_arm_endEffectorForces(self):
+        #TODO
+        pass
 
-    def test_kinematics_arm_FKLink(self):
-        link_i = self.arm.FKLink(np.zeros((6)), 0).gTM()
-        link_i_ref = np.array([[1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 2.25],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
+    # Jacobian Calculations
 
-        link_i = self.arm.FKLink(np.zeros((6)), 5).gTM()
-        link_i_ref = np.array([[1, 0, 0, 7.75],
-            [0, 1, 0, 0],
-            [0, 0, 1, 4.5],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
+    def test_kinematics_arm_jacobian(self):
+        #TODO
+        pass
 
-        link_i = self.arm.FKLink(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 0).gTM()
-        link_i_ref = np.array([[0.86603, -0.5, 0, 0],
-            [0.5, 0.86603, 0, 0],
-            [0, 0, 1, 2.25],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
+    def test_kinematics_arm_jacobianBody(self):
+        #TODO
+        pass
 
-        link_i = self.arm.FKLink(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 5).gTM()
-        link_i_ref = np.array([[0.8001, -0.52446, 0.29116, 6.2008],
-            [0.46194, 0.84834, 0.2587, 3.58],
-            [-0.38268, -0.072487, 0.92103, 1.5342],
-            [0, 0, 0, 1]])
-        self.matrix_equality_assertion(link_i, link_i_ref)
 
     def test_kinematics_arm_jacobianLink(self):
         jlink = self.arm.jacobianLink(np.zeros((6)), 0)
@@ -655,21 +806,34 @@ class test_kinematics_arm(unittest.TestCase):
             [0, 0, 0, 0, 0, 0]])
         self.matrix_equality_assertion(jlink, jlink_ref)
 
-    def test_kinematics_arm_massMatrix(self):
-        mmat = self.arm.massMatrix(np.zeros(6))
-        massmat_ref = np.array([[925.6592, 0, 0, 0, 0, 0],
-            [0, 925.6258, 323.9217, 0, 1.5483, 0],
-            [0, 323.9217, 139.4217, 0, 0.79833, 0],
-            [0, 0, 0, 0.005, 0, 0.0016667],
-            [0, 1.5483, 0.79833, 0, 0.028333, 0],
-            [0, 0, 0, 0.0016667, 0, 0.0016667]])
-        self.matrix_equality_assertion(mmat, massmat_ref, 1)
+    def test_kinematics_arm_jacobianEE(self):
+        #TODO
+        pass
 
-        mmat = self.arm.massMatrix(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]))
-        massmat_ref = np.array([[790.1149, -5.493e-14, -5.0935e-14, -0.0019134, -0.54742, -0.00063781],
-            [-5.493e-14, 925.6258, 323.9217, 5.6845e-15, 1.4305, -5.8766e-16],
-            [-5.0935e-14, 323.9217, 139.4217, 2.8714e-15, 0.73756, -3.0327e-16],
-            [-0.0019134, 5.6845e-15, 2.8714e-15, 0.005, 1.1288e-17, 0.0016667],
-            [-0.54742, 1.4305, 0.73756, 1.1288e-17, 0.028333, -3.6329e-17],
-            [-0.00063781, -5.8766e-16, -3.0327e-16, 0.0016667, -3.6329e-17, 0.0016667]])
-        self.matrix_equality_assertion(mmat, massmat_ref, 1)
+    def test_kinematics_arm_jacobianEEtrans(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_numericalJacobian(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_getManipulability(self):
+        #TODO
+        pass
+
+    # Camera
+
+    def test_kinematics_arm_addCamera(self):
+        #TODO
+        pass
+
+    def test_kinematics_arm_updateCams(self):
+        #TODO
+        pass
+
+    # Class Methods
+
+    def test_kinematics_arm_move(self):
+        #TODO
+        pass

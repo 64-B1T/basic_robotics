@@ -142,19 +142,81 @@ class test_general_fsr(unittest.TestCase):
         self.assertAlmostEqual(fsr.distance(ref1p @ tm([0, 0, fsr.distance(ref1, ref2), 0, 0, 0]), ref2), 0, 3)
 
     def test_general_fsr_arcDistance(self):
-        pass #TODO
+        ref1 = tm([-1, 0, 0, 0, 0, 0])
+        ref2 = tm([1, 0, 0, 0, 0, 0])
+        geo_err = fsr.arcDistance(ref1, ref2)
+        self.assertAlmostEqual(geo_err, 2, 2)
+        ref1 = tm([-1, 0, 0, 0, 0, 0])
+        ref2 = tm([1, 0, 0, 0, np.pi/6, 0])
+        geo_err = fsr.arcDistance(ref1, ref2)
+        self.assertAlmostEqual(geo_err, np.sqrt(4 + (np.pi/6)**2), 2)
 
     def test_general_fsr_closeLinearGap(self):
-        pass #TODO
+        ref1 = tm([-1, 0, 0, 0, 0, 0])
+        ref2 = tm([1, 0, 0, 0, 0, 0])
+        ntm = fsr.closeLinearGap(ref1, ref2, 0.1)
+        self.assertAlmostEqual(ntm[0], -0.9, 3)
+
+        ref1 = tm([0, 0, 0, np.pi/4, 0, 0])
+        ref2 = tm([0, 0, 0, np.pi/2, 0, 0])
+        ntm = fsr.closeLinearGap(ref1, ref2, np.pi/8)
+        self.assertAlmostEqual(ntm[3], np.pi/4 + np.pi/8, 3)
 
     def test_general_fsr_closeArcGap(self):
-        pass #TODO
+        ref1 = tm([-1, 0, 0, 0, 0, 0])
+        ref2 = tm([1, 0, 0, 0, 0, 0])
+        ntm = fsr.closeArcGap(ref1, ref2, 0.1)
+        self.assertAlmostEqual(ntm[0], -0.9, 3)
+
+        ref1 = tm([0, 0, 0, np.pi/4, 0, 0])
+        ref2 = tm([0, 0, 0, np.pi/2, 0, 0])
+        ntm = fsr.closeArcGap(ref1, ref2, np.pi/8)
+        self.assertAlmostEqual(ntm[3], np.pi/4 + np.pi/8, 3)
+
+        ref1 = tm([1, 2, 3, np.pi/4, 0, np.pi/8])
+        ref2 = tm([-.1, 0, 0, np.pi/2, 0, 0])
+        ref3 = tm([ 0.980213, 2.010569, 2.905226, 0.805147, 0.007977, 0.383584 ])
+        ntm = fsr.closeArcGap(ref1, ref2, 0.1)
+        for i in range(6):
+            self.assertAlmostEqual(ref3[i], ntm[i], 2)
+
+        ntm = fsr.closeArcGap(ref1, ref1, 0.1)
+        for i in range(6):
+            self.assertAlmostEqual(ref1[i], ntm[i], 2)
 
     def test_general_fsr_IKPath(self):
-        pass #TODO
+        ref1 = tm([0, 0, 0, 0, 0, 0])
+        ref2 = tm([1, 2, 3, 0, np.pi/4, 0])
+
+        path = fsr.IKPath(ref1, ref2, 100)
+
+        for i in range(6):
+            self.assertAlmostEqual(ref1[i], path[0][i], 2)
+        for i in range(6):
+            self.assertAlmostEqual(ref2[i], path[-1][i], 2)
+        self.assertEqual(len(path), 100)
+        for i in range(98):
+            self.assertAlmostEqual(
+                fsr.distance(path[i], path[i+1]),
+                fsr.distance(path[i+1],path[i+2]), 4)
+
 
     def test_general_fsr_angleMod(self):
-        pass #TODO
+        sin_non_mod = np.pi/2
+        sin_mod = 5 * np.pi/2
+
+        self.assertAlmostEqual(fsr.angleMod(sin_mod), sin_non_mod, 2)
+
+        arr_non_mod = np.array([np.pi/2, np.pi/2, np.pi/2, np.pi/2])
+        arr_mod = np.array([5 * np.pi/2, 5 * np.pi/2, 5 * np.pi/2, 5 * np.pi/2])
+
+        self.assertAlmostEqual(fsr.angleMod(arr_mod)[0], arr_non_mod[0], 2)
+
+        arr_non_mod = np.array([np.pi/2, np.pi/2, np.pi/2, np.pi/2, 0, 0])
+        arr_mod = np.array([5 * np.pi/2, 5 * np.pi/2, 5 * np.pi/2, 5 * np.pi/2, 0, 0])
+
+        self.assertAlmostEqual(fsr.angleMod(arr_mod)[3], arr_non_mod[3], 2)
+        self.assertNotEqual(fsr.angleMod(arr_mod)[0], arr_non_mod[0], 2)
 
     def test_general_fsr_angleBetween(self):
         p1 = tm()
