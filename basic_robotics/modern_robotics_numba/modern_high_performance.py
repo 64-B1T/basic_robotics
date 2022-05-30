@@ -786,7 +786,7 @@ def JacobianSpace(Slist, thetalist):
                   [0.2, 0.43654132, -2.43712573,  2.77535713]
                   [0.2, 2.96026613,  3.23573065,  2.22512443]])
     """
-    thetalist = thetalist.reshape((len(thetalist)))
+    thetalist = thetalist.flatten()
     Js = SafeCopy(Slist)
     T = np.eye(4)
     for i in range(1, len(thetalist)):

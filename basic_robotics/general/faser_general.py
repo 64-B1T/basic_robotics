@@ -18,9 +18,9 @@ def TAAtoTM(taa_format):
     mres = mr.MatrixExp3(mr.VecToso3(taa_format[3:6]))
     #return mr.RpToTrans(mres, transaa[0:3])
     taa_format = taa_format.reshape((6, 1))
-    tm = np.vstack((np.hstack((mres, taa_format[0:3])), np.array([0, 0, 0, 1])))
+    transform = np.vstack((np.hstack((mres, taa_format[0:3])), np.array([0, 0, 0, 1])))
     #print(tm)
-    return tm
+    return transform
 
 def TMtoTAA(transformation_matrix):
     """
@@ -490,6 +490,13 @@ def transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):
     return  ref.adjoint().T @ wrench
 
 #Twists
+
+
+def twistToGoal(start_transform, end_transform):
+    twist_transform = start_transform.inv().T @ end_transform
+    twist_to_goal = TwistFromTransform(twist_transform);
+    return twist_to_goal
+
 def twistToScrew(input_twist):
     """
     Converts a twist to a screw
@@ -587,7 +594,7 @@ def fiboSphere(num_points):
     phi = np.arccos(1 - 2*indices/num_points)
     theta = np.pi * (1 + 5**0.5) * indices
 
-    x, y, z = np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi);
+    x, y, z = np.cos(theta) * np.sin(phi), np.sin(theta) * np.sin(phi), np.cos(phi)
     xyzcoords = np.array([x, y, z]).T
     return xyzcoords
 

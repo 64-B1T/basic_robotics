@@ -1,8 +1,9 @@
 import numpy as np
 from basic_robotics.general import tm, fsr
-from basic_robotics.kinematics import Arm
+from basic_robotics.kinematics import Arm, loadArmFromURDF
 from basic_robotics.plotting.Draw import *
 from basic_robotics.utilities.disp import disp
+from basic_robotics.modern_robotics_numba import mr
 import unittest
 
 class test_kinematics_arm(unittest.TestCase):
@@ -186,8 +187,9 @@ class test_kinematics_arm(unittest.TestCase):
         pass
 
     def test_kinematics_arm_IKMotion(self):
-        #TODO
+        #Todo
         pass
+
 
     def test_kinematics_arm_IKFree(self):
         #TODO
@@ -257,12 +259,43 @@ class test_kinematics_arm(unittest.TestCase):
         pass
 
     def test_kinematics_arm_staticForces(self):
-        #TODO
-        pass
+        test_theta = np.array([np.pi/16, np.pi/5, -np.pi/6, np.pi/9, -np.pi/14, np.pi/7])
+        wrench_ref = np.array([[0.82906],
+            [-11.5542],
+            [5.223],
+            [-9.8724],
+            [-1.1878],
+            [-1.0605]])
+        tau_arm = self.arm.staticForces(test_theta, wrench_ref)
+        tau_ref = np.array([[5.223],
+            [33.1211],
+            [8.0504],
+            [0],
+            [7.9936e-15],
+            [3.3307e-16]])
+
+        self.matrix_equality_assertion(tau_arm, tau_ref)
+
 
     def test_kinematics_arm_staticForcesInv(self):
-        #TODO
-        pass
+        test_theta = np.array([np.pi/16, np.pi/5, -np.pi/6, np.pi/9, -np.pi/14, np.pi/7])
+        tau_ref = np.array([[5.223],
+            [33.1211],
+            [8.0504],
+            [0],
+            [7.9936e-15],
+            [3.3307e-16]])
+        wrench_ref = np.array([[0.82906],
+            [-11.5542],
+            [5.223],
+            [-9.8724],
+            [-1.1878],
+            [-1.0605]])
+
+        wrench_arm = self.arm.staticForcesInv(test_theta, tau_ref)
+
+        self.matrix_equality_assertion(wrench_arm, wrench_ref)
+
 
     def test_kinematics_arm_staticForceWithLinkMasses(self):
         #TODO
@@ -276,8 +309,8 @@ class test_kinematics_arm(unittest.TestCase):
         #TODO
         pass
 
-    def test_kinematics_arm_inverseDynamicsE(self):
-        tau, A, V, vel_dot, F = self.arm.inverseDynamicsE(
+    def test_kinematics_arm_inverseDynamics(self):
+        tau, A, V, vel_dot, F = self.arm.inverseDynamics(
             np.zeros(6),
             np.ones((6)) * -1,
             np.zeros(6),
@@ -312,7 +345,7 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(V, v_ref)
         self.matrix_equality_assertion(vel_dot, v_dot_ref)
         self.matrix_equality_assertion(F, F_ref)
-        tau, A, V, vel_dot, F = self.arm.inverseDynamicsE(
+        tau, A, V, vel_dot, F = self.arm.inverseDynamics(
             np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]),
             np.ones((6)) * -1,
             np.zeros(6),
@@ -348,7 +381,7 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(vel_dot, v_dot_ref)
         self.matrix_equality_assertion(F, F_ref)
 
-        tau, A, V, vel_dot, F = self.arm.inverseDynamicsE(
+        tau, A, V, vel_dot, F = self.arm.inverseDynamics(
             np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]),
             np.array([-.1, .2, -.3, .4, -.5, .6]),
             np.array([.01, .02, .03, .04, .05, .06]),
@@ -779,8 +812,37 @@ class test_kinematics_arm(unittest.TestCase):
     # Jacobian Calculations
 
     def test_kinematics_arm_jacobian(self):
-        #TODO
-        pass
+        test_theta_1 = np.array([0, np.pi/4, -np.pi/4, 0, 0, 0])
+        arm_jac = self.arm.jacobian(test_theta_1)
+
+        ref_screws = np.array([[0, 0, 0, 1, 0, 1],
+            [0, 1, 1, 0, 1, 0],
+            [1, 0, 0, 0, 0, 0],
+            [0, -4.5, -4.5, 0, -4.5, 0],
+            [0, 0, 0, 4.5, 0, 4.5],
+            [0, 0, 3.75, 0, 7.6, 0]])
+        self.matrix_equality_assertion(self.arm.screw_list, ref_screws)
+
+        ref_jac = np.array([[0, 0, 0, 1, 0, 1],
+            [0, 1, 1, 0, 1, 0],
+            [1, 0, 0, 0, 0, 0],
+            [0, -4.5, -1.8483, 0, -1.8483, 0],
+            [0, 0, 0, 1.8483, 0, 1.8483],
+            [0, 0, 2.6517, 0, 6.5017, 0]])
+
+        self.matrix_equality_assertion(arm_jac, ref_jac)
+
+        test_theta_2 = np.array([np.pi/16, np.pi/5, -np.pi/6, np.pi/9, -np.pi/14, np.pi/7])
+        arm_jac = self.arm.jacobian(test_theta_2)
+        ref_jac = np.array([[0, -0.19509, -0.19509, 0.97541, -0.14826, 0.98724],
+            [0, 0.98079, 0.98079, 0.19402, 0.92861, 0.11878],
+            [1, 0, 0, -0.10453, 0.34015, 0.10605],
+            [0, -4.4135, -2.2517, -0.5073, -1.3028, -0.082906],
+            [0, -0.87791, -0.44789, 2.5504, -2.5702, 1.1554],
+            [0, 0, 3.0338, 2.7756e-17, 6.4489, -0.5223]])
+
+        self.matrix_equality_assertion(arm_jac, ref_jac)
+
 
     def test_kinematics_arm_jacobianBody(self):
         #TODO
@@ -855,3 +917,77 @@ class test_kinematics_arm(unittest.TestCase):
     def test_kinematics_arm_move(self):
         #TODO
         pass
+
+    def test_kinematics_arm_loadArmFromURDF_UR5(self):
+        arm = loadArmFromURDF('./tests/test_helpers/ur5.urdf')
+        #Parameters taken from Modern Roboticss Textbook for UR5
+        M01 = tm(np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.089159], [0, 0, 0, 1]]))
+        M12 = tm(np.array([[0, 0, 1, 0.28], [0, 1, 0, 0.13585], [-1, 0, 0, 0], [0, 0, 0, 1]]))
+        M23 = tm(np.array([[1, 0, 0, 0], [0, 1, 0, -0.1197], [0, 0, 1, 0.395], [0, 0, 0, 1]]))
+        M34 = tm(np.array([[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0.14225], [0, 0, 0, 1]]))
+        M45 = tm(np.array([[1, 0, 0, 0], [0, 1, 0, 0.093], [0, 0, 1, 0], [0, 0, 0, 1]]))
+        M56 = tm(np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0.09465], [0, 0, 0, 1]]))
+        M67 = tm(np.array([[1, 0, 0, 0], [0, 0, 1, 0.0823], [0, -1, 0, 0], [0, 0, 0, 1]]))
+        G1 = np.diag([0.010267495893, 0.010267495893,  0.00666, 3.7, 3.7, 3.7])
+        G2 = np.diag([0.22689067591, 0.22689067591, 0.0151074, 8.393, 8.393, 8.393])
+        G3 = np.diag([0.049443313556, 0.049443313556, 0.004095, 2.275, 2.275, 2.275])
+        G4 = np.diag([0.111172755531, 0.111172755531, 0.21942, 1.219, 1.219, 1.219])
+        G5 = np.diag([0.111172755531, 0.111172755531, 0.21942, 1.219, 1.219, 1.219])
+        G6 = np.diag([0.0171364731454, 0.0171364731454, 0.033822, 0.1879, 0.1879, 0.1879])
+        Glist = [G1, G2, G3, G4, G5, G6]
+        Mlist = [M01, M12, M23, M34, M45, M56, M67]
+        Slist = np.array([[0,         0,         0,         0,        0,        0],
+                 [0,         1,         1,         1,        0,        1],
+                 [1,         0,         0,         0,       -1,        0],
+                 [0, -0.089159, -0.089159, -0.089159, -0.10915, 0.005491],
+                 [0,         0,         0,         0,  0.81725,        0],
+                 [0,         0,     0.425,   0.81725,        0,  0.81725]])
+
+        self.matrix_equality_assertion(arm.screw_list, Slist, 2)
+
+        Mlist_Aug = [Mlist[0]]
+        for m in Mlist[1:]:
+            Mlist_Aug.append(Mlist_Aug[-1] @ m)
+
+        for i in range(6):
+            self.matrix_equality_assertion(arm.link_home_positions[i+1].gTM(), Mlist_Aug[i].gTM())
+
+        self.matrix_equality_assertion(arm.getEEPos().gTM(), Mlist_Aug[-1].gTM())
+        test_theta = np.array([np.pi/5, np.pi/2, np.pi/3, -np.pi/5, -np.pi/3, np.pi/8])
+        ee_pos_mr = tm(mr.FKinSpace(Mlist_Aug[-1].gTM(), Slist, test_theta))
+        arm.FK(test_theta)
+        self.matrix_equality_assertion(arm.getEEPos().gTM(), ee_pos_mr.gTM())
+
+    def test_kinematics_arm_loadArmFromURDF_IRB2400(self):
+        arm = loadArmFromURDF('./tests/test_helpers/irb_2400.urdf')
+        # https://library.e.abb.com/public/4057a4faf6814f138012ca658469f6f9/3HAC042195%20PS%20IRB%202400-en.pdf
+
+        ref = tm([.855 +.085, 0, 1.455, 0, 0, 0])
+        self.matrix_equality_assertion(ref.gTM(), arm.getEEPos().gTM(), 2)
+        test_ang = np.array([0, 0, fsr.deg2Rad(-60), 0, 0, 0])
+        arm.FK(test_ang)
+        res = arm.getEEPos() @ tm([-.085, 0, 0, 0, 0, 0])
+
+        self.assertAlmostEqual(res[0], .360, 2)
+        self.assertAlmostEqual(res[2], 2.041, 2)
+
+        test_ang = np.array([0, 0, fsr.deg2Rad(65), 0, 0, 0])
+        arm.FK(test_ang)
+        res = arm.getEEPos() @ tm([-.085, 0, 0, 0, 0, 0])
+
+        self.assertAlmostEqual(res[0], .541, 2)
+        self.assertAlmostEqual(res[2], .693, 2)
+
+        test_ang = np.array([0, fsr.deg2Rad(110), fsr.deg2Rad(-60), 0, 0, 0])
+        arm.FK(test_ang)
+        res = arm.getEEPos() @ tm([-.085, 0, 0, 0, 0, 0])
+
+        self.assertAlmostEqual(res[0], 1.351, 2)
+        self.assertAlmostEqual(res[2], -.118, 2)
+
+    def test_kinematics_arm_loadArmFromURDF_Puma560(self):
+        print('Loading')
+        arm = loadArmFromURDF('./tests/test_helpers/puma_560.urdf')
+        #https://i.stack.imgur.com/SjXiJ.png
+        ref = tm([0.4318, -0.1397, 0.18288, np.pi, 0, 0])
+        self.matrix_equality_assertion(ref.gTM(), arm.getEEPos().gTM(), 2)
