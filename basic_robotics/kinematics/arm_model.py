@@ -47,7 +47,7 @@ class Arm:
             self.link_names.append('link' + str(i))
             self.joint_names.append('joint' + str(i))
         self.link_names.append('end_effector')
-        self.eef_transform = None
+        self.eef_to_last_joint = None
         self.end_effector_pos_global = end_effector_home.copy()
         self.link_home_positions = None
         self.joint_home_positions = None # Home Positions of Joints in GLobal Space
@@ -116,6 +116,11 @@ class Arm:
                 self.joint_poses_home[0:3, i] = joint_pose_temp # For plotting purposes
         self.end_effector_home_local = end_effector_home
         self.end_effector_home = base_pos_global @ end_effector_home
+        if not np.allclose(
+                self.end_effector_home[0:3],
+                self.joint_home_positions[-1][0:3],
+                atol = 1e-9, rtol = 0):
+            self.eef_to_last_joint = fsr.globalToLocal(self.end_effector_home, self.joint_home_positions[-1])
         self.end_effector_pos_global = self.end_effector_home.copy()
         self.original_end_effector_home = self.end_effector_home.copy()
 
@@ -328,8 +333,11 @@ class Arm:
         Returns:
             newtheta: corrected joint angles
         """
-        theta[np.where(theta<self.joint_mins)] = self.joint_mins[np.where(theta<self.joint_mins)]
-        theta[np.where(theta>self.joint_maxs)] = self.joint_maxs[np.where(theta>self.joint_maxs)]
+        theta_len = len(theta)
+        theta[np.where(theta<self.joint_mins[0:theta_len])] = (
+                self.joint_mins[np.where(theta<self.joint_mins[0:theta_len])])
+        theta[np.where(theta>self.joint_maxs[0:theta_len])] = (
+                self.joint_maxs[np.where(theta>self.joint_maxs[0:theta_len])])
         return theta
 
     #Converted to python -Liam
@@ -376,11 +384,18 @@ class Arm:
         """
         # Returns the TM of link i
         # Lynch 4.1
-        if not protect and (np.any(theta < self.joint_mins) or np.any(theta > self.joint_maxs)):
+        theta_len = len(theta)
+        if (not protect and (
+                np.any(theta < self.joint_mins[0:theta_len]) or
+                np.any(theta > self.joint_maxs[0:theta_len]))):
             print('Unsuitable Thetas')
             theta = self.thetaProtector(theta)
-        end_effector_pos =  tm(fmr.FKinSpace(self.joint_home_positions[i].TM,
-            self.screw_list[0:6, 0:i], theta[0:i+1]))
+        if i == self.num_dof - 1:
+            jh = self.end_effector_home.TM
+        else:
+            jh = self.joint_home_positions[i].TM
+        end_effector_pos =  tm(fmr.FKinSpace(jh,
+            self.screw_list[0:6, 0:i+1], theta[0:i+1]))
         return end_effector_pos
 
     #Converted to python - Liam
@@ -917,34 +932,40 @@ class Arm:
         Returns:
             tmlist
         """
-        dimensions = np.copy(self.link_dimensions).conj().T
-        joint_pose_list = [None] * dimensions.shape[0]
-
-        end_effector_home = self.base_pos_global
-        end_effector_transform = tm(fmr.FKinSpace(end_effector_home.gTM(),
-            self.screw_list[0:6, 0:0], self._theta[0:0]))
-        #print(end_effector_transform, 'EEPOS')
-        joint_pose_list[0] = end_effector_transform
+        poses = []
         for i in range((self.num_dof)):
-            if self.joint_home_positions == None:
-                temp_tm = tm()
-                temp_tm[0:3, 0] = self.original_joint_poses_home[0:3, i]
-                end_effector_home = self.base_pos_global @ temp_tm
-            else:
-                end_effector_home = self.joint_home_positions[i]
-            #print(end_effector_home, 'end_effector_home' + str(i + 1))
-            #print(self._theta[0:i+1])
-            end_effector_transform = tm(fmr.FKinSpace(end_effector_home.gTM(),
-                self.screw_list[0:6, 0:i], self._theta[0:i]))
-            #print(end_effector_transform, 'EEPOS')
-            joint_pose_list[i] = end_effector_transform
-        if dimensions.shape[0] > self.num_dof:
-            #Fix handling of dims
-            #print(fsr.TAAtoTM(np.array([0.0, 0.0, self.link_dimensions[-1, 2], 0.0 , 0.0, 0.0])))
-            joint_pose_list[len(joint_pose_list) - 1] = self.FK(self._theta)
-        if self.eef_transform is not None:
-            joint_pose_list.append(joint_pose_list[-1] @ self.eef_transform)
-        return joint_pose_list
+            poses.append(self.FKJoint(self._theta, i))
+        if self.eef_to_last_joint is not None:
+            poses.insert(-1, poses[-1] @ self.eef_to_last_joint)
+        return poses
+        #dimensions = np.copy(self.link_dimensions).conj().T
+        #joint_pose_list = [None] * dimensions.shape[0]
+
+        #end_effector_home = self.base_pos_global
+        #end_effector_transform = tm(fmr.FKinSpace(end_effector_home.gTM(),
+        #    self.screw_list[0:6, 0:0], self._theta[0:0]))
+        #print(end_effector_transform, 'EEPOS')
+        #joint_pose_list[0] = end_effector_transform
+        #for i in range((self.num_dof)):
+        #    if self.joint_home_positions == None:
+        #        temp_tm = tm()
+        #        temp_tm[0:3, 0] = self.original_joint_poses_home[0:3, i]
+        #        end_effector_home = self.base_pos_global @ temp_tm
+        #    else:
+        #        end_effector_home = self.joint_home_positions[i]
+        #    #print(end_effector_home, 'end_effector_home' + str(i + 1))
+        #    #print(self._theta[0:i+1])
+        #    end_effector_transform = tm(fmr.FKinSpace(end_effector_home.gTM(),
+        #        self.screw_list[0:6, 0:i], self._theta[0:i]))
+        #    #print(end_effector_transform, 'EEPOS')
+        #    joint_pose_list[i] = end_effector_transform
+        #if dimensions.shape[0] > self.num_dof:
+        #    #Fix handling of dims
+        #    #print(fsr.TAAtoTM(np.array([0.0, 0.0, self.link_dimensions[-1, 2], 0.0 , 0.0, 0.0])))
+        #    joint_pose_list[len(joint_pose_list) - 1] = self.FK(self._theta)
+        #if self.eef_to_last_joint is not None:
+        #    joint_pose_list.insert(-1, joint_pose_list[-1] @ self.eef_to_last_joint)
+        #return joint_pose_list
 
     def setArbitraryHome(self, theta,T):
         """
@@ -971,8 +992,6 @@ class Arm:
         """
         Gets End Effector Position
         """
-        if self.eef_transform is not None:
-            return self.end_effector_pos_global.copy() @ self.eef_transform
         return self.end_effector_pos_global.copy()
 
     def getScrewList(self):
@@ -1858,6 +1877,7 @@ def loadArmFromURDF(file_name):
     joint_vel_limits = []
     joint_effort_limits = []
     joint_origins = []
+    eef_to_last_joint = None
     eef_transform = tm()
     while temp_element.num_children > 0:
         #temp_element.display()
@@ -1873,8 +1893,10 @@ def loadArmFromURDF(file_name):
                 col_props.append([temp_element.col_type,
                         temp_element.col_origin, temp_element.col_properties])
             if temp_element.sub_type == 'fixed': #If it's a fixed joint, it's a pseudo link
-                eef_transform = eef_transform @ temp_element.xyz_origin
+                #eef_transform = eef_transform @ temp_element.xyz_origin
                 joint_origins.append(temp_element.xyz_origin) # Fixed Joints are still origins
+                joint_poses[-1] = joint_poses[-1] @ temp_element.xyz_origin
+                eef_to_last_joint = temp_element.xyz_origin.inv()
             temp_element = mostChildren(temp_element)
             continue
         joint_origins.append(temp_element.xyz_origin)
@@ -1898,6 +1920,8 @@ def loadArmFromURDF(file_name):
             joint_axes[0:3, i],
             np.cross(joint_homes[0:3, i], joint_axes[0:3, i])))
 
+    joint_poses = joint_poses[1:]
+
     arm = Arm(tm(), screw_list, joint_poses[-1], joint_homes, joint_axes)
     arm.joint_home_positions = joint_poses
     arm.link_home_positions = link_poses
@@ -1909,7 +1933,7 @@ def loadArmFromURDF(file_name):
     arm.joint_maxs = np.array(joint_maxs)
     arm.max_vels = np.array(joint_vel_limits)
     arm.max_effort = np.array(joint_effort_limits)
-    arm.eef_transform = eef_transform
+    arm.eef_to_last_joint = eef_to_last_joint
     arm.vis_props = vis_props
     arm.col_props = col_props
     arm.joint_origins = joint_origins

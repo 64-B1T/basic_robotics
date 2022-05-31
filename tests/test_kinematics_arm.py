@@ -6,6 +6,10 @@ from basic_robotics.utilities.disp import disp
 from basic_robotics.modern_robotics_numba import mr
 import unittest
 
+def matrix_equality_message(a, b):
+    return ('\nMatrix Equality Error\n' + disp(a, 'Matrix A', noprint=True) +
+            '\nIs Not Equal To\n' + disp(b, 'Matrix B', noprint=True))
+
 class test_kinematics_arm(unittest.TestCase):
     def matrix_equality_assertion(self, mat_a, mat_b, num_dec = 3):
         shape_a = mat_a.shape
@@ -16,7 +20,8 @@ class test_kinematics_arm(unittest.TestCase):
         mat_a_flat = mat_a.flatten()
         mat_b_flat = mat_b.flatten()
         for i in range(len(mat_a_flat)):
-            self.assertAlmostEqual(mat_a_flat[i], mat_b_flat[i], num_dec)
+            self.assertAlmostEqual(
+                mat_a_flat[i], mat_b_flat[i], num_dec, matrix_equality_message(mat_a, mat_b))
 
     def setUp(self):
         Base_T = tm() # Set a transformation for the base
@@ -133,7 +138,7 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(link_i, link_i_ref)
 
         link_i = self.arm.FKJoint(np.zeros((6)), 5).gTM()
-        link_i_ref = np.array([[1, 0, 0, 7.7],
+        link_i_ref = np.array([[1, 0, 0, 7.8],
             [0, 1, 0, 0],
             [0, 0, 1, 4.5],
             [0, 0, 0, 1]])
@@ -147,10 +152,7 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(link_i, link_i_ref)
 
         link_i = self.arm.FKJoint(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 5).gTM()
-        link_i_ref = np.array([[0.8001, -0.52446, 0.29116, 6.1607],
-            [0.46194, 0.84834, 0.2587, 3.55693],
-            [-0.38268, -0.072487, 0.92103, 1.55333],
-            [0, 0, 0, 1]])
+        link_i_ref = self.arm.FK(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10])).gTM()
         self.matrix_equality_assertion(link_i, link_i_ref)
 
     def test_kinematics_arm_IK(self):
@@ -158,7 +160,7 @@ class test_kinematics_arm(unittest.TestCase):
 
         self.arm.IK(test_tm)
 
-        self.matrix_equality_assertion(test_tm.TM, self.arm.getEEPos().TM)
+        self.matrix_equality_assertion(test_tm.TM , self.arm.getEEPos().TM)
 
         test_angs = np.array([np.pi/7, np.pi/5, -np.pi/8, np.pi/7, -np.pi/8, np.pi/10])
         test_tm_2 = self.arm.FK(test_angs)
@@ -230,7 +232,25 @@ class test_kinematics_arm(unittest.TestCase):
         pass
 
     def test_kinematics_arm_getJointTransforms(self):
-        disp(self.arm.getJointTransforms())
+        joint_transforms = self.arm.getJointTransforms()
+        self.matrix_equality_assertion(joint_transforms[-1].gTM(), self.arm.getEEPos().gTM())
+        self.assertEqual(len(joint_transforms), 7)
+        L1 = 4.5
+        L2 = 3.75
+        L3 = 3.75
+        W = 0.1
+        ref_poses = np.array([[0, 0, 0],[0, 0, L1],[L2, 0, L1],[L2+L3, 0, L1],[L2+L3+W, 0, L1],[L2+L3+2*W, 0, L1]]).conj().T
+        for i in range(6):
+            self.assertEqual(ref_poses[0,i], joint_transforms[i][0])
+            self.assertEqual(ref_poses[1,i], joint_transforms[i][1])
+            self.assertEqual(ref_poses[2,i], joint_transforms[i][2])
+        self.arm.FK(np.array([0, 0, 0, 0, 0, np.pi/2]))
+        joint_transforms = self.arm.getJointTransforms()
+        self.matrix_equality_assertion(joint_transforms[-1].gTM(), self.arm.getEEPos().gTM())
+        self.arm.FK(np.array([np.pi/4, np.pi/3, np.pi/6, np.pi/8, np.pi/10, np.pi/16]))
+        joint_transforms = self.arm.getJointTransforms()
+        self.matrix_equality_assertion(joint_transforms[-1].gTM(), self.arm.getEEPos().gTM())
+
 
     def test_kinematics_arm_setArbitraryHome(self):
         #TODO
@@ -958,6 +978,21 @@ class test_kinematics_arm(unittest.TestCase):
         arm.FK(test_theta)
         self.matrix_equality_assertion(arm.getEEPos().gTM(), ee_pos_mr.gTM())
 
+        test_theta_2 = np.array([np.pi/5, np.pi/6, -np.pi/7, -np.pi/6, -np.pi/5, np.pi/6])
+        ee_pos = arm.FK(test_theta_2)
+
+        thetas_ik, success = arm.IK(ee_pos)
+
+        self.assertTrue(success)
+        self.matrix_equality_assertion(thetas_ik, test_theta_2, 2)
+
+        arm.FK(np.array([np.pi/4, np.pi/3, np.pi/6, np.pi/8, np.pi/10, np.pi/16]))
+        joint_transforms = arm.getJointTransforms()
+        self.assertEqual(7, len(joint_transforms))
+        self.matrix_equality_assertion(joint_transforms[-1].gTM(), arm.getEEPos().gTM())
+
+
+
     def test_kinematics_arm_loadArmFromURDF_IRB2400(self):
         arm = loadArmFromURDF('./tests/test_helpers/irb_2400.urdf')
         # https://library.e.abb.com/public/4057a4faf6814f138012ca658469f6f9/3HAC042195%20PS%20IRB%202400-en.pdf
@@ -985,9 +1020,20 @@ class test_kinematics_arm(unittest.TestCase):
         self.assertAlmostEqual(res[0], 1.351, 2)
         self.assertAlmostEqual(res[2], -.118, 2)
 
+        test_theta_2 = np.array([np.pi/5, np.pi/6, -np.pi/7, -np.pi/6, -np.pi/5, np.pi/6])
+        ee_pos = arm.FK(test_theta_2)
+
+        thetas_ik, success = arm.IK(ee_pos)
+
+        self.assertTrue(success)
+        self.matrix_equality_assertion(thetas_ik, test_theta_2, 2)
+
     def test_kinematics_arm_loadArmFromURDF_Puma560(self):
-        print('Loading')
         arm = loadArmFromURDF('./tests/test_helpers/puma_560.urdf')
         #https://i.stack.imgur.com/SjXiJ.png
         ref = tm([0.4318, -0.1397, 0.18288, np.pi, 0, 0])
         self.matrix_equality_assertion(ref.gTM(), arm.getEEPos().gTM(), 2)
+        arm.FK(np.array([np.pi/4, np.pi/3, np.pi/6, np.pi/8, np.pi/10, np.pi/16]))
+        joint_transforms = arm.getJointTransforms()
+        self.assertEqual(6, len(joint_transforms))
+        self.matrix_equality_assertion(joint_transforms[-1].gTM(), arm.getEEPos().gTM())

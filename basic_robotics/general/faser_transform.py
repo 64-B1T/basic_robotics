@@ -559,9 +559,11 @@ class tm:
         """
         if ~isinstance(a, tm):
             return False
-        if np.all(self.TAA == a.TAA):
-            return True
-        return False
+        if np.allclose(self.TAA, a.TAA, rtol=0, atol=1e-8): #Why AllClose?
+            return True # Floats Are Evil
+        return False # RTOL Being Zero means only Absolute Tolerance of 1e-8
+        # So at an RTOL 1e-8, a maximum m deviation of 10 nanometers
+        # So at an RTOL 1e-9, a maximum r deviation of 5.7e-7 degrees
 
     def __gt__(self, a):
         """
