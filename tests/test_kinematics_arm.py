@@ -4,19 +4,22 @@ from basic_robotics.kinematics import Arm, loadArmFromURDF
 from basic_robotics.plotting.Draw import *
 from basic_robotics.utilities.disp import disp
 from basic_robotics.modern_robotics_numba import mr
+from basic_robotics.metrology import Camera
 import unittest
-
-def matrix_equality_message(a, b):
-    return ('\nMatrix Equality Error\n' + disp(a, 'Matrix A', noprint=True) +
-            '\nIs Not Equal To\n' + disp(b, 'Matrix B', noprint=True))
 
 class test_kinematics_arm(unittest.TestCase):
     def matrix_equality_assertion(self, mat_a, mat_b, num_dec = 3):
+        def matrix_equality_message(a, b):
+            return ('\nMatrix Equality Error\n' + disp(a, 'Matrix A', noprint=True) +
+                    '\nIs Not Equal To\n' + disp(b, 'Matrix B', noprint=True))
+        def matrix_shape_message(a, b):
+            return ('\nMatrix Shape Error\n' + disp(a.shape, 'Matrix A', noprint=True) +
+                    '\nIs Not Equal To\n' + disp(b.shape, 'Matrix B', noprint=True))
         shape_a = mat_a.shape
         shape_b = mat_b.shape
-        self.assertEqual(len(shape_a), len(shape_b))
+        self.assertEqual(len(shape_a), len(shape_b), matrix_shape_message(mat_a, mat_b))
         for i in range(len(shape_a)):
-            self.assertEqual(shape_a[i], shape_b[i])
+            self.assertEqual(shape_a[i], shape_b[i], matrix_shape_message(mat_a, mat_b))
         mat_a_flat = mat_a.flatten()
         mat_b_flat = mat_b.flatten()
         for i in range(len(mat_a_flat)):
@@ -31,7 +34,7 @@ class test_kinematics_arm(unittest.TestCase):
         L2 = 3.75
         L3 = 3.75
         W = 0.1
-        # Define the transformations of each joint
+        # Define the transformations of each link
         Tspace = [tm(np.array([[0],[0],[L1/2],[0],[0],[0]])),
             tm(np.array([[L2/2],[0],[L1],[0],[0],[0]])),
             tm(np.array([[L2+(L3/2)],[0],[L1],[0],[0],[0]])),
@@ -81,8 +84,9 @@ class test_kinematics_arm(unittest.TestCase):
     #Kinematics
 
     def test_kinematics_arm_thetaProtector(self):
-        #TODO
-        pass
+        test_theta = np.array([2*np.pi + np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10])
+        n_theta = self.arm.thetaProtector(test_theta)
+        self.assertAlmostEqual(n_theta[0], self.arm.joint_maxs[0])
 
     def test_kinematics_arm_FK(self):
         ee_pos = self.arm.FK(np.zeros((6)))
@@ -156,9 +160,10 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(link_i, link_i_ref)
 
     def test_kinematics_arm_IK(self):
+        random.seed(10)
         test_tm = tm([1, 1, 3, 0, 0, 0])
 
-        self.arm.IK(test_tm)
+        ref_theta, suc = self.arm.IK(test_tm)
 
         self.matrix_equality_assertion(test_tm.TM , self.arm.getEEPos().TM)
 
@@ -180,18 +185,31 @@ class test_kinematics_arm(unittest.TestCase):
         self.arm.IK(test_tm_2, test_angs_2, protect=True)
         self.matrix_equality_assertion(test_tm_2.TM, self.arm.getEEPos().TM)
 
+        test_tm_2 = self.arm.FK(np.array([-np.pi, 0, np.pi/4, -np.pi/4, 0, 0]))
+        self.arm.IK(test_tm_2, np.zeros(6), protect=True)
+        self.matrix_equality_assertion(test_tm_2.TM, self.arm.getEEPos().TM)
+
+        test_tm_2 = self.arm.FK(test_angs_2)
+        self.arm.IK(test_tm_2, test_angs_2 * -1, protect=True)
+        self.matrix_equality_assertion(test_tm_2.TM, self.arm.getEEPos().TM)
+
+        test_tm = tm([4, 3.999999995, 3, 0, 0, 0])
+
+        theta, suc = self.arm.IK(test_tm, test_angs_2, protect=True)
+
+        self.assertNotEqual(theta.flatten()[0], ref_theta.flatten()[0])
+
     def test_kinematics_arm_constrainedIK(self):
         #TODO
         pass
 
-    def test_kinematics_arm_IKForceOptimal(self):
-        #TODO
-        pass
+    #def test_kinematics_arm_IKForceOptimal(self):
+    #    #TODO
+    #    pass
 
-    def test_kinematics_arm_IKMotion(self):
-        #Todo
-        pass
-
+    #def test_kinematics_arm_IKMotion(self):
+    #    #TODO This function doesn't work at all
+    #    pass
 
     def test_kinematics_arm_IKFree(self):
         #TODO
@@ -200,26 +218,76 @@ class test_kinematics_arm(unittest.TestCase):
     #Kinematics Helpers
 
     def test_kinematics_arm_randomPos(self):
-        #TODO
+        random.seed(10)
+        end_effector_a = self.arm.randomPos()
+        random.seed(10)
+        end_effector_b = self.arm.randomPos()
+        self.matrix_equality_assertion(end_effector_a.gTM(), end_effector_b.gTM())
         pass
 
-    def test_kinematics_arm_reverse(self):
-        #TODO
-        pass
+    #def test_kinematics_arm_reverse(self):
+    #    self.arm.reverse()
+    #    self.matrix_equality_assertion(self.arm.getEEPos().gTM(), tm().gTM())
 
     # Motion Planning
 
     def test_kinematics_arm_lineTrajectory(self):
-        #TODO
-        pass
+        test_theta = np.array([-np.pi/4, np.pi/4, -np.pi/4, 0, np.pi/4, 0])
+        desired = self.arm.getEEPos()
+        self.arm.FK(test_theta)
+        traj = self.arm.lineTrajectory(desired)
+        self.matrix_equality_assertion(self.arm.getEEPos().gTM(), desired.gTM())
 
     def test_kinematics_arm_visualServoToTarget(self):
-        #TODO
-        pass
+        tg = self.arm.FK(self.arm._theta) @ tm(np.array([.5, .5, 1, 0, 0, 0]))
+        theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01)
+        self.matrix_equality_assertion(theta, self.arm._theta)
+
+        cam = Camera(200, 200, 1024, 1024, 2048, 2048, 1, tm())
+        test_theta = np.array([0, np.pi/4, -np.pi/4, 0, -np.pi/4, 0])
+        cam.moveCamera(self.arm.FK(test_theta))
+        #Attach a camera to the end link of the arm
+        self.arm.addCamera(cam, tm(np.array([0, 0, 0, 0, 0, 0])))
+
+        tg = self.arm.FK(self.arm._theta) @ tm(np.array([.5, .5, 1, 0, 0, 0]))
+        self.arm.updateCams()
+        theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01)
+        self.assertTrue(fsr.distance(self.arm.getEEPos(), tg) < 0.02)
+
+        #Failed to find solution
+        tg = self.arm.FK(self.arm._theta) @ tm(np.array([5, .5, 1, 0, 0, 0]))
+        theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01, max_iter=800)
+        self.assertFalse(fsr.distance(self.arm.getEEPos(), tg) < 0.02)
+
+        #Failed to locate Target
+        tg = self.arm.FK(self.arm._theta) @ tm(np.array([5, .5, -.4, 0, 0, 0]))
+        theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01)
+        self.assertFalse(fsr.distance(self.arm.getEEPos(), tg) < 0.02)
+
+        tg = self.arm.FK(self.arm._theta) @ tm(np.array([-.5, -.5, .995, 0, 0, 0]))
+        self.arm.updateCams()
+        theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01)
+        self.assertTrue(fsr.distance(self.arm.getEEPos(), tg) < 0.02)
+
+        tg = self.arm.FK(self.arm._theta) @ tm(np.array([-.5, -.5, 1.005, 0, 0, 0]))
+        self.arm.updateCams()
+        theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01)
+        self.assertTrue(fsr.distance(self.arm.getEEPos(), tg) < 0.02)
 
     def test_kinematics_arm_PDControlToGoalEE(self):
-        #TODO
-        pass
+        test_theta = np.array([-np.pi/4, np.pi/4, -np.pi/4, 0, np.pi/4, 0])
+        self.arm.FK(test_theta)
+        desired = self.arm.getEEPos()
+        self.arm.FK(np.zeros(6))
+        #disp([self.arm.getEEPos(), desired])
+        traj = self.arm.PDControlToGoalEE(desired)
+        sc = np.array([[-62.8433],
+              [19.66],
+              [21.3039],
+              [11.6727],
+              [22.9917],
+              [11.6727]]).flatten()
+        self.matrix_equality_assertion(traj, sc)
 
     # Get and Set
 
@@ -253,8 +321,18 @@ class test_kinematics_arm(unittest.TestCase):
 
 
     def test_kinematics_arm_setArbitraryHome(self):
-        #TODO
-        pass
+        new_home = self.arm.getEEPos() @ tm([0, 0, 1, 0, 0, 0])
+        self.arm.setArbitraryHome(new_home)
+        ref_ee_to_last = self.arm._eef_to_last_joint
+
+        self.arm.restoreOriginalEE()
+        self.arm.FK(np.array([0, 1, 2, 0, 1, 2]))
+        new_home = self.arm.getEEPos() @ tm([0, 0, 1, 0, 0, 0])
+        self.arm.FK(np.zeros(6))
+        self.arm.setArbitraryHome(new_home, np.array([0, 1, 2, 0, 1, 2]))
+        ref_ee_to_last_2 = self.arm._eef_to_last_joint
+
+        self.matrix_equality_assertion(ref_ee_to_last.gTM(), ref_ee_to_last_2.gTM())
 
     def test_kinematics_arm_restoreOriginalEE(self):
         #TODO
@@ -275,8 +353,22 @@ class test_kinematics_arm(unittest.TestCase):
     #Forces and Dynamics
 
     def test_kinematics_arm_velocityAtEndEffector(self):
-        #TODO
-        pass
+        test_theta = np.array([[0.5236],
+                      [0.3927],
+                      [0],
+                      [-0.3927],
+                      [0],
+                      [0.31416]]).flatten()
+        joint_vel_ref = np.array([1, 2, 2, 3, 1, 3])
+        eef_vel_ref = np.array([[2.2119],
+             [6.9626],
+             [-1.6497],
+             [-27.9734],
+             [15.2506],
+             [13.4161]])
+        eef_vel = self.arm.velocityAtEndEffector(joint_vel_ref, test_theta)
+        self.matrix_equality_assertion(eef_vel, eef_vel_ref)
+
 
     def test_kinematics_arm_staticForces(self):
         test_theta = np.array([np.pi/16, np.pi/5, -np.pi/6, np.pi/9, -np.pi/14, np.pi/7])
@@ -317,17 +409,43 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(wrench_arm, wrench_ref)
 
 
-    def test_kinematics_arm_staticForceWithLinkMasses(self):
-        #TODO
-        pass
+    def test_kinematics_arm_staticForcesWithLinkMasses(self):
+        arm = loadArmFromURDF('./tests/test_helpers/ur5.urdf')
+        tau = arm.staticForcesWithLinkMasses(np.zeros(6), fsr.makeWrench(tm(), [0, 0, -9.81], 5))
+        tau2 = arm.staticForces(np.zeros(6), fsr.makeWrench(tm(), [0, 0, -9.81], 5))
+        self.assertEqual(tau[5], tau2[5])
+
 
     def test_kinematics_arm_inverseDynamics(self):
         #TODO
         pass
 
     def test_kinematics_arm_inverseDynamicsEMR(self):
-        #TODO
-        pass
+            tau = self.arm.inverseDynamicsEMR(
+                np.zeros(6),
+                np.ones((6)) * -1,
+                np.zeros(6),
+                np.array([0, 0, -9.81]),
+                np.zeros(6)
+            )
+            ref_tau = np.array([[ 3.07833333e+00],
+                 [-1.69663283e+03],
+                 [-4.82645333e+02],
+                 [-1.33333333e-02],
+                 [-1.95700000e+00],
+                 [-5.00000000e-03]]).flatten()
+            self.matrix_equality_assertion(tau, ref_tau)
+
+            tau = self.arm.inverseDynamicsEMR(
+                np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]),
+                np.array([-.1, .2, -.3, .4, -.5, .6]),
+                np.array([.01, .02, .03, .04, .05, .06]),
+                np.array([0, 0, -9.81]),
+                np.array([0, 0, 0, 0, 0, 150*9.81])
+            )
+
+            ref_tau = np.array([845.496,-12978.494,-6375.407, 0.000,-281.521,  0.000])
+            self.matrix_equality_assertion(tau, ref_tau)
 
     def test_kinematics_arm_inverseDynamics(self):
         tau, A, V, vel_dot, F = self.arm.inverseDynamics(
@@ -437,9 +555,393 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(vel_dot, v_dot_ref)
         self.matrix_equality_assertion(F, F_ref)
 
+    def test_kinematics_arm_inverseDynamicsCHelperStage2(self):
+        A, G = self.arm._inverseDynamicsCHelperAG()
+        param_a = np.array([[-0.99592],
+                   [1.1955],
+                   [0.27203],
+                   [-3.0431],
+                   [2.6713],
+                   [np.pi/4]]).flatten()
+        param_b = np.array([[-0.81133],
+                   [0.49231],
+                   [2.158],
+                   [17.8095],
+                   [-15.2309],
+                   [np.pi/4]]).flatten()
+        L, V, joint_axes, Vbase = self.arm._inverseDynamicsCHelperStage2(A, param_a, param_b)
+        refL = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.36652, 2.7756e-17, -0.93041, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 2.7756e-17, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.93041, 5.5511e-17, 0.36652, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-1.4849e-16, 0.82467, -3.5606e-17, 0.36652, 2.7756e-17, -0.93041, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-0.50548, -3.5014e-17, 0.68723, 0, 1, 2.7756e-17, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [5.8495e-17, 0.21842, -1.4243e-16, 0.93041, 5.5511e-17, 0.36652, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.10305, 1.182e-17, -0.99468, 0, 0, 0, 0.96323, 0, -0.26869, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-1.7529e-16, 1, 4.4879e-18, 0, 0, 0, -4.2599e-17, 1, -1.7162e-16, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.99468, 1.1644e-16, 0.10305, 0, 0, 0, 0.26869, 5.5511e-17, 0.96323, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-2.8509e-16, 1.2395, 2.2925e-18, 0.10305, 1.182e-17, -0.99468, -3.1736e-17, 0.50379, -1.2329e-16, 0.96323, 0, -0.26869, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [3.1041, 3.1503e-16, 1.5677, -1.7529e-16, 1, 4.4879e-18, 0.50379, 2.0434e-16, 3.6811, -4.2599e-17, 1, -1.7162e-16, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [6.3758e-16, -3.2491, -1.6316e-16, 0.99468, 1.1644e-16, 0.10305, 1.9364e-16, -3.6811, 6.2147e-16, 0.26869, 5.5511e-17, 0.96323, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.10305, 1.182e-17, -0.99468, 0, 0, 0, 0.96323, 7.7037e-34, -0.26869, 0, 0, 0, 1, 0, 1.3878e-17, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-0.097768, -0.99516, -0.010129, 0, 0, 0, -0.02641, -0.99516, -0.094677, 0, 0, 0, -1.7347e-18, -0.99516, -0.098292, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-0.98986, 0.098292, -0.10255, 0, 0, 0, -0.26739, 0.098292, -0.95856, 0, 0, 0, 1.3878e-17, 0.098292, -0.99516, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-3.0374e-16, 1.2395, 3.6053e-19, 0.10305, 1.182e-17, -0.99468, -3.6773e-17, 0.50379, -1.4135e-16, 0.96323, 7.7037e-34, -0.26869, 5.7778e-33, 1.7869e-15, -1.8747e-17, 1, 0, 1.3878e-17, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-4.9945, 0.50857, -1.7575, -0.097768, -0.99516, -0.010129, -1.0161, 0.55103, -5.5085, -0.02641, -0.99516, -0.094677, 1.8031e-15, 0.18921, -1.9157, -1.7347e-18, -0.99516, -0.098292, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.49331, 5.149, 0.17359, -0.98986, 0.098292, -0.10255, 0.10036, 5.5789, 0.54407, -0.26739, 0.098292, -0.95856, -1.9095e-16, 1.9157, 0.18921, 1.3878e-17, 0.098292, -0.99516, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.3567, -0.044542, 0.93316, 0, 0, 0, -0.73748, -0.044542, 0.6739, 0, 0, 0, -0.89143, -0.044542, 0.45096, 0, 0, 0, -0.89143, -2.6021e-17, -0.45316, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-0.097768, -0.99516, -0.010129, 0, 0, 0, -0.02641, -0.99516, -0.094677, 0, 0, 0, 1.0408e-17, -0.99516, -0.098292, 0, 0, 0, 1.2143e-17, 1, -1.5396e-17, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.92909, -0.08762, -0.35933, 0, 0, 0, 0.67485, -0.08762, 0.73273, 0, 0, 0, 0.45316, -0.08762, 0.88711, 0, 0, 0, 0.45316, -7.3726e-17, -0.89143, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-0.22576, -3.4608, -0.078892, 0.3567, -0.044542, 0.93316, -0.046076, -2.9998, -0.24869, -0.73748, -0.044542, 0.6739, 4.9033e-17, -0.89065, -0.08797, -0.89143, -0.044542, 0.45096, -3.7458e-17, 0.022658, 7.3878e-17, -0.89143, -2.6021e-17, -0.45316, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-4.9975, 0.5091, -1.7806, -0.097768, -0.99516, -0.010129, -0.9957, 0.55156, -5.5197, -0.02641, -0.99516, -0.094677, 0.022658, 0.18974, -1.9211, 1.0408e-17, -0.99516, -0.098292, 0.022658, 1.8936e-19, 0.0054285, 1.2143e-17, 1, -1.5396e-17, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [-0.43922, -4.0229, -0.15469, 0.92909, -0.08762, -0.35933, -0.089319, -4.7395, -0.48449, 0.67485, -0.08762, 0.73273, 9.5935e-17, -1.7023, -0.16814, 0.45316, -0.08762, 0.88711, -7.4292e-17, -0.0054285, -3.7649e-17, 0.45316, -7.3726e-17, -0.89143, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                [0.3567, -0.044542, 0.93316, 0, 0, 0, -0.73748, -0.044542, 0.6739, 0, 0, 0, -0.89143, -0.044542, 0.45096, 0, 0, 0, -0.89143, -8.1532e-17, -0.45316, 0, 0, 0, 1, -5.5511e-17, -2.2204e-16, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0.58783, -0.76564, -0.26124, 0, 0, 0, 0.45852, -0.76564, 0.45117, 0, 0, 0, 0.32043, -0.76564, 0.55778, 0, 0, 0, 0.32043, 0.70711, -0.63034, 0, 0, 0, 0, 0.70711, 0.70711, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0.7261, 0.64173, -0.24692, 0, 0, 0, 0.49587, 0.64173, 0.58507, 0, 0, 0, 0.32043, 0.64173, 0.69679, 0, 0, 0, 0.32043, -0.70711, -0.63034, 0, 0, 0, 0, -0.70711, 0.70711, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                [-0.22576, -3.4608, -0.078892, 0.3567, -0.044542, 0.93316, -0.046076, -2.9998, -0.24869, -0.73748, -0.044542, 0.6739, -9.4524e-17, -0.89065, -0.08797, -0.89143, -0.044542, 0.45096, -1.8102e-16, 0.022658, 3.535e-16, -0.89143, -8.1532e-17, -0.45316, 0, -1.5701e-15, -3.1402e-16, 1, -5.5511e-17, -2.2204e-16, 0, 0, 0, 1, 0, 0],
+                [-3.7718, -2.4205, -1.3931, 0.58783, -0.76564, -0.26124, -0.71764, -2.8972, -4.1871, 0.45852, -0.76564, 0.45117, 0.048065, -1.0054, -1.4076, 0.32043, -0.76564, 0.55778, 0.048065, -0.074549, -0.059195, 0.32043, 0.70711, -0.63034, 1.3323e-15, -0.070711, 0.070711, 0, 0.70711, 0.70711, 0, 0, 0, 0, 1, 0],
+                [3.1644, -3.1281, 1.1758, 0.7261, 0.64173, -0.24692, 0.59506, -3.6648, 3.5154, 0.49587, 0.64173, 0.58507, -0.048065, -1.2613, 1.1837, 0.32043, 0.64173, 0.69679, -0.048065, -0.074549, 0.059195, 0.32043, -0.70711, -0.63034, -8.8818e-16, -0.070711, -0.070711, 0, -0.70711, 0.70711, 0, 0, 0, 0, 0, 1]])
+        refV = np.array([[0],
+                [0],
+                [-0.81133],
+                [0],
+                [0],
+                [0],
+                [0.75487],
+                [0.49231],
+                [-0.29737],
+                [2.8888e-17],
+                [-0.55757],
+                [-0.92308],
+                [0.80701],
+                [2.6503],
+                [-0.083609],
+                [0.49604],
+                [-1.2719],
+                [-6.7476],
+                [18.6165],
+                [-2.6293],
+                [0.34371],
+                [0.49604],
+                [2.5906],
+                [11.6512],
+                [-16.7511],
+                [-17.8602],
+                [8.1298],
+                [-5.7816],
+                [3.0143],
+                [-9.3857],
+                [-15.9657],
+                [-6.8804],
+                [18.3777],
+                [-5.7816],
+                [-2.6675],
+                [-8.0801]])
+        refJointAxes = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.36652, 2.7756e-17, -0.93041, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 2.7756e-17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0.93041, 5.5511e-17, 0.36652, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-1.4849e-16, 0.82467, -3.5606e-17, 0.36652, 2.7756e-17, -0.93041, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [-0.50548, -3.5014e-17, 0.68723, 0, 1, 2.7756e-17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [5.8495e-17, 0.21842, -1.4243e-16, 0.93041, 5.5511e-17, 0.36652, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0.96323, 0, -0.26869, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, -4.2599e-17, 1, -1.7162e-16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0.26869, 5.5511e-17, 0.96323, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, -3.1736e-17, 0.50379, -1.2329e-16, 0.96323, 0, -0.26869, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0.50379, 2.0434e-16, 3.6811, -4.2599e-17, 1, -1.7162e-16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 1.9364e-16, -3.6811, 6.2147e-16, 0.26869, 5.5511e-17, 0.96323, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1.3878e-17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.7347e-18, -0.99516, -0.098292, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.3878e-17, 0.098292, -0.99516, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5.7778e-33, 1.7869e-15, -1.8747e-17, 1, 0, 1.3878e-17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.8031e-15, 0.18921, -1.9157, -1.7347e-18, -0.99516, -0.098292, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.9095e-16, 1.9157, 0.18921, 1.3878e-17, 0.098292, -0.99516, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.89143, -2.6021e-17, -0.45316, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.2143e-17, 1, -1.5396e-17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.45316, -7.3726e-17, -0.89143, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3.7458e-17, 0.022658, 7.3878e-17, -0.89143, -2.6021e-17, -0.45316, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.022658, 1.8936e-19, 0.0054285, 1.2143e-17, 1, -1.5396e-17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -7.4292e-17, -0.0054285, -3.7649e-17, 0.45316, -7.3726e-17, -0.89143, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -5.5511e-17, -2.2204e-16, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.70711, 0.70711, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.70711, 0.70711, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.5701e-15, -3.1402e-16, 1, -5.5511e-17, -2.2204e-16, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.3323e-15, -0.070711, 0.070711, 0, 0.70711, 0.70711, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -8.8818e-16, -0.070711, -0.070711, 0, -0.70711, 0.70711, 0, 0, 0, 0, 0, 0]])
+        refVbase = np.array([[0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0]])
+
+        self.matrix_equality_assertion(L, refL)
+        self.matrix_equality_assertion(V, refV, 2)
+        self.matrix_equality_assertion(joint_axes, refJointAxes)
+        self.matrix_equality_assertion(Vbase, refVbase)
+
+
+
+
+    def test_kinematics_arm_inverseDynamicsCHelperAG(self):
+        ARef = np.array([[0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, -1.875, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, -1.875, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, -0.05, 0],
+                [0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0]])
+        GRef = np.array([[33.7667, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 33.7667, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0.033333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0.033333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 23.4542, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 23.4542, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.033333, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23.4542, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23.4542, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0016667, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]])
+        A, G = self.arm._inverseDynamicsCHelperAG()
+        self.matrix_equality_assertion(A, ARef)
+        self.matrix_equality_assertion(G, GRef)
+
+    def test_kinematics_arm_inverseDynamicsCHelperSetup(self):
+        A, G = self.arm._inverseDynamicsCHelperAG()
+        param_a = np.array([[-0.99592],
+                   [1.1955],
+                   [0.27203],
+                   [-3.0431],
+                   [2.6713],
+                   [np.pi/4]]).flatten()
+        Ftip, vel_dot_base = self.arm._inverseDynamicsCHelperSetup(A, G, param_a, np.zeros(3), np.zeros((6,1)))
+        refFtip = np.array([[0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0],
+                [0]])
+        refVdotbase = np.array([[0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0],
+            [0]]).flatten()
+
+        self.matrix_equality_assertion(Ftip, refFtip)
+        self.matrix_equality_assertion(refVdotbase, vel_dot_base)
+
     def test_kinematics_arm_inverseDynamicsC(self):
-        #TODO
-        pass
+        param_a = np.array([[-0.99592],
+                   [1.1955],
+                   [0.27203],
+                   [-3.0431],
+                   [2.6713],
+                   [np.pi/4]]).flatten()
+        param_b = np.array([[-0.81133],
+                   [0.49231],
+                   [2.158],
+                   [17.8095],
+                   [-15.2309],
+                   [np.pi/4]]).flatten()
+        #Checkpoint 1
+        refTauc = np.array([[302.3778],
+                   [395.2302],
+                   [327.529],
+                   [4.1344],
+                   [6.7104],
+                   [0.17229]])
+        refM = np.array([[71.747, -0.064157, -0.033075, -0.16879, 0.030752, 0.0015553],
+                [-0.064157, 906.5926, 312.9486, 0.065482, 1.2044, -7.4236e-05],
+                [-0.033075, 312.9486, 136.5088, 0.033304, 0.65488, -7.4236e-05],
+                [-0.16879, 0.065482, 0.033304, 0.010134, 5.7506e-17, -0.0014857],
+                [0.030752, 1.2044, 0.65488, 5.6379e-17, 0.028333, -9.2519e-20],
+                [0.0015553, -7.4236e-05, -7.4236e-05, -0.0014857, -9.2519e-20, 0.0016667]])
+
+
+        tauc, M, _ = self.arm.inverseDynamicsC(param_a, param_b, np.zeros(6), np.zeros(3), np.zeros((6,1)))
+        self.matrix_equality_assertion(tauc, refTauc, 1)
+        self.matrix_equality_assertion(M, refM, 1)
+
+        param_c = np.array([[0.1],
+                   [0.2],
+                   [0.3],
+                   [0.4],
+                   [0.5],
+                   [0.6]]).flatten()
+        param_d = np.array([[0],
+                   [0],
+                   [-9.81]]).flatten()
+        param_e = np.array([[76.096],
+                   [48.779],
+                   [0],
+                   [0],
+                   [0],
+                   [-49.05]])
+
+
+        tauc, M, _ = self.arm.inverseDynamicsC(param_a, param_b, param_c, param_d, param_e)
+        refTauc = np.array([[309.4305],
+                   [366.8189],
+                   [464.5087],
+                   [-44.9258],
+                   [49.2987],
+                   [76.2688]])
+        self.matrix_equality_assertion(tauc, refTauc, 1)
 
     def test_kinematics_arm_forwardDynamicsE(self):
         theta_dot_dot, M, h, ee = self.arm.forwardDynamicsE(
@@ -865,9 +1367,20 @@ class test_kinematics_arm(unittest.TestCase):
 
 
     def test_kinematics_arm_jacobianBody(self):
-        #TODO
-        pass
-
+        test_theta = np.array([[-0.7854],
+                      [0.7854],
+                      [-0.7854],
+                      [0],
+                      [0.7854],
+                      [0]]).flatten()
+        jB = self.arm.jacobianBody(test_theta)
+        jbref = np.array([[-0.70711, 0, 0, 0.70711, 0, 1],
+                 [0, 1, 1, 0, 1, 0],
+                 [0.70711, 0, 0, 0.70711, 0, 0],
+                 [0, 2.7224, 2.7224, 0, 0, 0],
+                 [6.6431, 0, 0, 0.14142, 0, 0],
+                 [0, -6.6724, -2.9224, 0, -0.2, 0]])
+        self.matrix_equality_assertion(jB, jbref)
 
     def test_kinematics_arm_jacobianLink(self):
         jlink = self.arm.jacobianLink(np.zeros((6)), 0)
@@ -906,21 +1419,73 @@ class test_kinematics_arm(unittest.TestCase):
             [0, 0, 0, 0, 0, 0]])
         self.matrix_equality_assertion(jlink, jlink_ref)
 
-    def test_kinematics_arm_jacobianEE(self):
-        #TODO
-        pass
+    def test_kinematics_arm_jacobianEETrans(self):
+        test_theta = np.array([[0.5236],
+                      [0.3927],
+                      [0],
+                      [-0.3927],
+                      [0],
+                      [0.31416]]).flatten()
+        jeeref = np.array([[0, -0.5, -0.5, 0.8001, -0.58877, 0.8001],
+                  [0, 0.86603, 0.86603, 0.46194, 0.72688, 0.46194],
+                  [1, 0, 0, -0.38268, -0.35355, -0.38268],
+                  [-3.6031, -2.585, -1.3422, 0, -0.022969, 0],
+                  [6.2408, -1.4925, -0.77493, 4.4409e-16, -0.10164, 8.8818e-16],
+                  [0, -7.2063, -3.7417, 0, -0.17071, 0]])
 
-    def test_kinematics_arm_jacobianEEtrans(self):
-        #TODO
-        pass
+        njee = self.arm.jacobianEETrans(test_theta)
+        self.matrix_equality_assertion(jeeref, njee)
 
     def test_kinematics_arm_numericalJacobian(self):
-        #TODO
-        pass
+        test_theta = np.array([[-0.7854],
+                      [0.7854],
+                      [-0.7854],
+                      [0],
+                      [0.7854],
+                      [0]]).flatten()
+        numjac = np.array([[0, 0.70711, 0.70711, 0.70711, 0.70711, 0.5],
+                  [-3.9181e-14, 0.70711, 0.70711, -0.70711, 0.70711, -0.5],
+                  [1, 1.1102e-16, -5.54e-14, 1.1102e-16, 1.1113e-13, -0.70711],
+                  [9.5035e-14, -3.182, -1.307, 1.307, -1.307, 4.175],
+                  [9.5923e-14, 3.182, 1.307, 1.307, 1.307, 4.175],
+                  [0, -3.153e-13, 2.6517, 5.0577e-16, 6.5017, 3.5763e-16]])
+        jacobian = np.zeros((6, self.arm.num_dof))
+        temp = lambda x : self.arm.FK(x).gTM().T.flatten()
+        numerical_jacobian = fsr.numericalJacobian(temp, test_theta, 0.0005)
+        jst = np.array([[0.5, -0.5, -0.5, 0.5, -0.5, 0],
+               [0.5, 0.5, 0.5, 0.5, 0.5, 0],
+               [0, -0.70711, -0.70711, 0, -0.70711, 0],
+               [0, 0, 0, 0, 0, 0],
+               [-0.70711, 0, 0, 0, 0, 0.5],
+               [0.70711, 0, 0, 0, 0, -0.5],
+               [0, 0, 0, 1, 0, 0.70711],
+               [0, 0, 0, 0, 0, 0],
+               [0.5, 0.5, 0.5, -0.5, 0.5, -0.70711],
+               [0.5, -0.5, -0.5, -0.5, -0.5, -0.70711],
+               [0, -0.70711, -0.70711, 0, -0.70711, 0],
+               [0, 0, 0, 0, 0, 0],
+               [4.6974, -1.975, -0.1, 0.1, -0.1, 0],
+               [4.6974, 1.975, 0.1, 0.1, 0.1, 0],
+               [0, -6.6431, -3.9914, 0, -0.14142, 0],
+               [0, 0, 0, 0, 0, 0]])
+        nj = self.arm.numericalJacobian(test_theta)
+        self.matrix_equality_assertion(numerical_jacobian, jst)
+        self.matrix_equality_assertion(nj, numjac)
+        self.matrix_equality_assertion(nj, self.arm.jacobian(test_theta))
 
     def test_kinematics_arm_getManipulability(self):
+        test_theta = np.array([[-0.7854],
+                      [0.7854],
+                      [-0.7854],
+                      [0],
+                      [0.7854],
+                      [0]]).flatten()
+        self.arm.FK(test_theta)
+        AwEig, AwEigVec, uAw, AvEig, AvEigVec, uAw = self.arm.getManipulability()
+        #print(AwEig)
+        #print(AwEigVec)
+        #print(uAw)
         #TODO
-        pass
 
     # Camera
 
@@ -935,8 +1500,45 @@ class test_kinematics_arm(unittest.TestCase):
     # Class Methods
 
     def test_kinematics_arm_move(self):
-        #TODO
-        pass
+        random.seed(10)
+        joint_transforms_0a = self.arm.getJointTransforms()
+        test_theta = np.array([np.pi/5, np.pi/6, -np.pi/7, -np.pi/6, -np.pi/5, np.pi/6])
+        ee_pos = self.arm.FK(test_theta)
+        joint_transforms_1a = self.arm.getJointTransforms()
+        self.arm.FK(np.zeros(6))
+
+        self.arm.move(tm([5, 0, 0, 0, 0, 0]))
+        joint_transforms_0b = self.arm.getJointTransforms()
+        test_theta = np.array([np.pi/5, np.pi/6, -np.pi/7, -np.pi/6, -np.pi/5, np.pi/6])
+        ee_pos = self.arm.FK(test_theta)
+        joint_transforms_1b = self.arm.getJointTransforms()
+        self.matrix_equality_assertion(self.arm._base_pos_global.gTM(), tm([5, 0, 0, 0, 0, 0]).gTM())
+
+        for i in range(len(joint_transforms_0a)):
+            self.matrix_equality_assertion(
+                    (joint_transforms_0a[i] + tm([5, 0, 0, 0, 0, 0])).gTM(),
+                    joint_transforms_0b[i].gTM())
+            self.matrix_equality_assertion(
+                    (joint_transforms_1a[i] + tm([5, 0, 0, 0, 0, 0])).gTM(),
+                    joint_transforms_1b[i].gTM())
+
+        self.arm.FK(np.zeros(6))
+        self.arm.move(tm([0, 0, -5, 0, 0, 0]))
+        joint_transforms_1c = self.arm.getJointTransforms()
+        for i in range(len(joint_transforms_0a)):
+            self.matrix_equality_assertion(
+                    (joint_transforms_0a[i] + tm([0, 0, -5, 0, 0, 0])).gTM(),
+                    joint_transforms_1c[i].gTM())
+
+        random.seed(10)
+        self.arm.move(tm())
+        curr_ee = self.arm.getEEPos()
+        self.arm.move(tm([0.5, 0.5, 0.75, 0, 0, 0]), True)
+        new_ee = self.arm.getEEPos()
+        self.matrix_equality_assertion(curr_ee.gTM(), new_ee.gTM())
+
+
+
 
     def test_kinematics_arm_loadArmFromURDF_UR5(self):
         arm = loadArmFromURDF('./tests/test_helpers/ur5.urdf')
@@ -970,7 +1572,7 @@ class test_kinematics_arm(unittest.TestCase):
             Mlist_Aug.append(Mlist_Aug[-1] @ m)
 
         for i in range(6):
-            self.matrix_equality_assertion(arm.link_home_positions[i+1].gTM(), Mlist_Aug[i].gTM())
+            self.matrix_equality_assertion(arm._link_homes_global[i+1].gTM(), Mlist_Aug[i].gTM())
 
         self.matrix_equality_assertion(arm.getEEPos().gTM(), Mlist_Aug[-1].gTM())
         test_theta = np.array([np.pi/5, np.pi/2, np.pi/3, -np.pi/5, -np.pi/3, np.pi/8])

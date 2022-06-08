@@ -138,3 +138,6 @@ dmypy.json
 
 #Upload Script
 upload.sh
+
+#Secrets
+tests_secret/

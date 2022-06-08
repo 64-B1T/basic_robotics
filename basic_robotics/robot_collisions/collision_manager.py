@@ -228,6 +228,7 @@ class ColliderArm(ColliderObject):
         self.populateSerialArm()
         self.ignore_connected_links = True
         self.ignore_ee = False
+        self.include_base = True
 
     def deleteEE(self):
         """
@@ -240,9 +241,9 @@ class ColliderArm(ColliderObject):
         """
         populateColliderObject with serial arm properties
         """
-        props = self.arm.col_props
+        props = self.arm._col_props
         if props is None:
-            props = self.arm.vis_props
+            props = self.arm._vis_props
         for i in range(len(props)):
             link_name = self.arm.link_names[i]
             p = props[i]
@@ -262,7 +263,7 @@ class ColliderArm(ColliderObject):
         """
         update positions of collision meshes to match with the arm current state
         """
-        joint_transforms = self.arm.getJointTransforms()
+        joint_transforms = self.arm.getJointTransforms(self.include_base)
         for i in range(self.num_links):
             self.manager.set_transform(self.arm.link_names[i], joint_transforms[i].gTM())
 
@@ -298,7 +299,7 @@ class ColliderArm(ColliderObject):
         Args:
             ax: matplotlib axis object to draw to
         """
-        joint_transforms = self.arm.getJointTransforms()
+        joint_transforms = self.arm.getJointTransforms(self.include_base)
         for i in range(self.num_links):
             #Due to a limitation in trimesh.mesh, it is not possible to directly set the transform
             #So to apply a global transform, one must undo the previous transform, and then apply

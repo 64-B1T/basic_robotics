@@ -866,7 +866,7 @@ def IKinBody(Blist, M, T, thetalist0, eomg, ev):
 
 
 @jit(nopython=True)
-def IKinSpace(Slist, M, T, thetalist0, eomg, ev):
+def IKinSpace(Slist, M, T, thetalist0, eomg, ev, max_iters=20):
     """Computes inverse kinematics in the space frame for an open chain robot
     :param Slist: The joint screw axes in the space frame when the
                   manipulator is at the home position, in the format of a
@@ -911,8 +911,6 @@ def IKinSpace(Slist, M, T, thetalist0, eomg, ev):
     """
     thetalist = thetalist0.copy()
     i = 0
-    maxiterations = 20
-
     Tsb = FKinSpace(M,Slist, thetalist)
     adjTsb = Adjoint(Tsb)
     invTsb = TransInv(Tsb)
@@ -923,7 +921,7 @@ def IKinSpace(Slist, M, T, thetalist0, eomg, ev):
 
 
     err = Norm([Vs[0], Vs[1], Vs[2]]) > eomg or Norm([Vs[3], Vs[4], Vs[5]]) > ev
-    while err and i < maxiterations:
+    while err and i < max_iters:
         jspace = JacobianSpace(Slist, thetalist)
         invj = np.linalg.pinv(jspace)
         newtheta =np.dot(invj, Vs)

@@ -493,8 +493,8 @@ def transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):
 
 
 def twistToGoal(start_transform, end_transform):
-    twist_transform = start_transform.inv().T @ end_transform
-    twist_to_goal = TwistFromTransform(twist_transform);
+    twist_transform = (start_transform.inv().T() @ end_transform.T()).T()
+    twist_to_goal = twistFromTransform(twist_transform);
     return twist_to_goal
 
 def twistToScrew(input_twist):
@@ -695,7 +695,7 @@ def numericalJacobian(function_handle, x_init, delta):
 
     dfdx = ndfdx(x0p, x0m)
 
-    for i in range(1, x_init.size):
+    for i in range(1, len(x_init)):
         x0p =  np.copy(x_init)
         x0m =  np.copy(x_init)
 
