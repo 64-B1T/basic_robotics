@@ -400,22 +400,22 @@ class tm:
             self.TAA[ind, 0] = val
         self.TAAtoTM()
 
-    def __floordiv__(self, a):
+    def __floordiv__(self, other_object):
         """
         PERFORMS RIGHT MATRIX DIVISION IF A IS A MATRIX
         Otherwise performs elementwise floor division
         Args:
-            a: object to divide by
+            other_object : object to divide by
         Returns:
             floor (or matrix right division) result
         """
-        if isinstance(a, tm):
-            return tm(np.linalg.lstsq(a.gTM().T,
+        if isinstance(other_object, tm):
+            return tm(np.linalg.lstsq(other_object.gTM().T,
                 self.gTM().T, rcond=None)[0].T)
-        elif isinstance(a, np.ndarray):
-            return tm(np.linalg.lstsq(a.T, self.gTM().T, rcond=None)[0].T)
+        elif isinstance(other_object, np.ndarray):
+            return tm(np.linalg.lstsq(other_object.T, self.gTM().T, rcond=None)[0].T)
         else:
-            return tm(self.TAA // a)
+            return tm(self.TAA // other_object)
 
     def __abs__(self):
         """
@@ -433,203 +433,203 @@ class tm:
         """
         return sum(self.TAA)
 
-    def __add__(self, a):
+    def __add__(self, other_object):
         """
         Adds a value to a TM
         If it is another TM, adds the two TAA representations together and updates
         If it is an array of 6 values, adds to the TAA and updates
         If it is a scalar, adds the scalar to each element of the TAA and updates
         Args:
-            a: other value
+            other_object : other value
         Returns:
             this + a
         """
-        if isinstance(a, tm):
-            return tm(self.TAA + a.TAA)
+        if isinstance(other_object, tm):
+            return tm(self.TAA + other_object.TAA)
         else:
-            if isinstance(a, np.ndarray):
-                if len(a) == 6:
-                    return tm(self.TAA + a.reshape((6,1)))
+            if isinstance(other_object, np.ndarray):
+                if len(other_object) == 6:
+                    return tm(self.TAA + other_object.reshape((6,1)))
                 else:
-                    return self.TAA + a
+                    return self.TAA + other_object
             else:
-                return tm(self.TAA + a)
+                return tm(self.TAA + other_object)
 
-    def __sub__(self, a):
+    def __sub__(self, other_object):
         """
         Adds a value to a TM
         If it is another TM, subs a from TAA and updates
         If it is an array of 6 values, subs a from TAA and updates
         If it is a scalar, subs the scalar from each element of the TAA and updates
         Args:
-            a: other value
+            other_object : other value
         Returns:
             this - a
         """
-        if isinstance(a, tm):
-            return tm(self.TAA - a.TAA)
+        if isinstance(other_object, tm):
+            return tm(self.TAA - other_object.TAA)
         else:
-            if isinstance(a, np.ndarray):
-                if len(a) == 6:
-                    return tm(self.TAA - a.reshape((6, 1)))
+            if isinstance(other_object, np.ndarray):
+                if len(other_object) == 6:
+                    return tm(self.TAA - other_object.reshape((6, 1)))
                 else:
-                    return self.TAA - a
+                    return self.TAA - other_object
             else:
-                return tm(self.TAA - a)
+                return tm(self.TAA - other_object)
 
-    def __matmul__(self, a):
+    def __matmul__(self, other_object):
         """
         Performs matrix multiplication on 4x4 TAA objects
         Accepts either another tm, or a matrix
         Args:
-            a: thing to multiply by
+            other_object : thing to multiply by
         Returns:
             TM * a
         """
-        if isinstance(a, tm):
-            return tm(self.TM @ a.TM)
+        if isinstance(other_object, tm):
+            return tm(self.TM @ other_object.TM)
         else:
-            if isinstance(a, np.ndarray):
-                return tm(self.TM @ a)
+            if isinstance(other_object, np.ndarray):
+                return tm(self.TM @ other_object)
 
-    def __rmatmul__(self, a):
+    def __rmatmul__(self, other_object):
         """
         Performs right matrix multiplication on 4x4 TAA objects
         Accepts either another tm, or a matrix
         Args:
-            a: thing to multiply by
+            other_object : thing to multiply by
         Returns:
             a * TM
         """
-        if isinstance(a, tm):
-            return tm(a.TM @ self.TM)
+        if isinstance(other_object, tm):
+            return tm(other_object.TM @ self.TM)
         else:
-            if isinstance(a, np.ndarray):
-                return tm(a @ self.TM)
-            return tm(a * self.TAA)
+            if isinstance(other_object, np.ndarray):
+                return tm(other_object @ self.TM)
+            return tm(other_object * self.TAA)
 
-    def __mul__(self, a):
+    def __mul__(self, other_object):
         """
         Multiplies by a matrix or scalar
         Args:
-            a: other value
+            other_object : other value
         Returns:
             TM * a
         """
-        if isinstance(a, tm):
-            return tm(self.TM @ a.TM)
+        if isinstance(other_object, tm):
+            return tm(self.TM @ other_object.TM)
         else:
-            if isinstance(a, np.ndarray):
-                return tm(self.TM * a)
-            return tm(self.TAA * a)
+            if isinstance(other_object, np.ndarray):
+                return tm(self.TM * other_object)
+            return tm(self.TAA * other_object)
 
-    def __rmul__(self, a):
+    def __rmul__(self, other_object):
         """
         Performs right multiplication by a matrix or scalar
         Args:
-            a: thing to multiply by
+            other_object : thing to multiply by
         Returns:
             a * TM
         """
-        if isinstance(a, tm):
-            return tm(a.TM @ self.TM)
+        if isinstance(other_object, tm):
+            return tm(other_object.TM @ self.TM)
         else:
-            if isinstance(a, np.ndarray):
-                return tm(a * self.TM)
-            return tm(a * self.TAA)
+            if isinstance(other_object, np.ndarray):
+                return tm(other_object * self.TM)
+            return tm(other_object * self.TAA)
 
-    def __truediv__(self, a):
+    def __truediv__(self, other_object):
         """
         Performs elementwise division across a TAA object
         Args:
-            a: value to divide by
+            other_object : value to divide by
         Returns
             tm: new tm with requested division
         """
         #Divide Elementwise from TAA
-        return tm(self.TAA / a)
+        return tm(self.TAA / other_object)
 
-    def __eq__(self, a):
+    def __eq__(self, other_object):
         """
         Checks for equality with another tm
         Args:
-            a: Another object
+            other_object : Another object
         Returns:
             boolean
         """
-        if ~isinstance(a, tm):
+        if ~isinstance(other_object, tm):
             return False
-        if np.allclose(self.TAA, a.TAA, rtol=0, atol=1e-8): #Why AllClose?
+        if np.allclose(self.TAA,other_object.TAA, rtol=0, atol=1e-8): #Why AllClose?
             return True # Floats Are Evil
         return False # RTOL Being Zero means only Absolute Tolerance of 1e-8
         # So at an RTOL 1e-8, a maximum m deviation of 10 nanometers
         # So at an RTOL 1e-9, a maximum r deviation of 5.7e-7 degrees
 
-    def __gt__(self, a):
+    def __gt__(self, other_object):
         """
         Checks for greater than another tm
         Args:
-            a: Another object
+            other_object : Another object
         Returns:
             boolean
         """
-        if isinstance(a, tm):
-            if np.all(self.TAA > a.TAA):
+        if isinstance(other_object, tm):
+            if np.all(self.TAA > other_object.TAA):
                 return True
         else:
-            if np.all(self.TAA > a):
+            if np.all(self.TAA > other_object):
                 return True
         return False
 
-    def __lt__(self, a):
+    def __lt__(self, other_object):
         """
         Checks for less than another tm
         Args:
-            a: Another object
+            other_object : Another object
         Returns:
             boolean
         """
-        if isinstance(a, tm):
-            if np.all(self.TAA < a.TAA):
+        if isinstance(other_object, tm):
+            if np.all(self.TAA < other_object.TAA):
                 return True
         else:
-            if np.all(self.TAA < a):
+            if np.all(self.TAA < other_object):
                 return True
         return False
 
-    def __le__(self, a):
+    def __le__(self, other_object):
         """
         Checks for less than or equa to another tm
         Args:
-            a: Another object
+            other_object : Another object
         Returns:
             boolean
         """
-        if self.__lt__(a) or self.__eq__(a):
+        if self.__lt__(other_object) or self.__eq__(other_object):
             return True
         return False
 
-    def __ge__(self, a):
+    def __ge__(self, other_object):
         """
         Checks for greater than or equal to another tm
         Args:
-            a: Another object
+            other_object : Another object
         Returns:
             boolean
         """
-        if self.__gt__(a) or self.__eq__(a):
+        if self.__gt__(other_object) or self.__eq__(other_object):
             return True
         return False
 
-    def __ne__(self, a):
+    def __ne__(self, other_object):
         """
         Checks for not equality with another tm
         Args:
-            a: Another object
+            other_object : Another object
         Returns:
             boolean
         """
-        return not self.__eq__(a)
+        return not self.__eq__(other_object)
 
     def __str__(self, dlen=6):
         """
@@ -657,26 +657,12 @@ class tm:
         traceback.print_stack(limit=2)
         return self.angleMod()
 
-    def LeftHanded(self):  # pragma: no cover
-        """Deprecation notice function. Please use indicated correct function"""
-        print(self.LeftHanded.__name__ + ' is deprecated, use ' +
-                self.leftHanded.__name__ + ' instead')
-        traceback.print_stack(limit=2)
-        return self.leftHanded()
-
     def TripleUnit(self, lv=1):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""
         print(self.TripleUnit.__name__ + ' is deprecated, use ' +
                 self.tripleUnit.__name__ + ' instead')
         traceback.print_stack(limit=2)
         return self.tripleUnit(lv)
-
-    def QuatToR(self, quaternion):  # pragma: no cover
-        """Deprecation notice function. Please use indicated correct function"""
-        print(self.QuatToR.__name__ + ' is deprecated, use ' +
-                self.tmFromQuaternion.__name__ + ' instead')
-        traceback.print_stack(limit=2)
-        return self.tmFromQuaternion(quaternion)
 
     def Adjoint(self):  # pragma: no cover
         """Deprecation notice function. Please use indicated correct function"""

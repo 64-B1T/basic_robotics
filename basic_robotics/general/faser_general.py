@@ -493,6 +493,16 @@ def transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):
 
 
 def twistToGoal(start_transform, end_transform):
+    """
+    Returns a twist describing motion from start_transform to end_transform
+
+    Args:
+        start_transform (tm): Starting Transform
+        end_transform (tm): Ending Transform
+
+    Returns:
+        np.array : twist to goal
+    """    
     twist_transform = (start_transform.inv().T() @ end_transform.T()).T()
     twist_to_goal = twistFromTransform(twist_transform);
     return twist_to_goal

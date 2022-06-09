@@ -1,5 +1,6 @@
+from ..metrology.virtual_vision import Camera
 from ..general import tm, fmr, fsr
-from ..plotting.Draw import DrawArm, DrawRectangle
+from ..plotting.Draw import DrawArm#, DrawRectangle
 from ..utilities.disp import disp
 import numpy as np
 import scipy as sci
@@ -9,7 +10,7 @@ import random
 import xml.etree.ElementTree as ET
 import os
 import json
-from os.path import dirname, basename, isfile
+
 
 class Arm:
     #Conventions:
@@ -20,8 +21,8 @@ class Arm:
     #Docstring: Google
 
     #Converted to python - Liam
-    def __init__(self, base_pos_global, screw_list, end_effector_home,
-            joint_poses_home, joint_axes = None):
+    def __init__(self, base_pos_global : tm, screw_list : 'np.ndarray[float]', end_effector_home : tm,
+            joint_poses_home : 'list[tm]', joint_axes : 'np.ndarray[float]' = None) -> 'Arm':
         """"
         Create a serial arm
         Args:
@@ -100,7 +101,8 @@ class Arm:
         self.original_screw_list = self.screw_list
         self.FK(np.zeros((self.num_dof)))
 
-    def initialize(self, base_pos_global : 'tm', screw_list : 'np.ndarray[float]', end_effector_home : 'tm', joint_poses_home : 'list[tm]'):
+    def initialize(self, base_pos_global : 'tm', screw_list : 'np.ndarray[float]', 
+            end_effector_home : 'tm', joint_poses_home : 'list[tm]') -> None:
         """
         Helper for Serial Arm. Should be called internally
         Args:
@@ -150,7 +152,7 @@ class Arm:
     Kinematics
     """
 
-    def thetaProtector(self, theta : 'np.ndarray[float]'):
+    def thetaProtector(self, theta : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         Properly bounds theta values
         Args:
@@ -168,7 +170,7 @@ class Arm:
         return theta
 
     #Converted to python -Liam
-    def FK(self, theta, protect = False):
+    def FK(self, theta : 'np.ndarray[float]', protect : bool = False) -> tm:
         """
         Calculates the end effector position of the serial arm given thetas
         params:
@@ -188,7 +190,7 @@ class Arm:
         return end_effector_transform
 
     #Converted to python - Liam
-    def FKLink(self, theta, i, protect = False):
+    def FKLink(self, theta : 'np.ndarray[float]', i : int, protect : bool = False) -> tm:
         """
         Calculates the position of a given joint provided a theta list
         Args:
@@ -203,7 +205,7 @@ class Arm:
             self.screw_list[0:6, 0:i], theta[0:i+1]))
         return end_effector_pos
 
-    def FKJoint(self, theta, i, protect = False):
+    def FKJoint(self, theta : 'np.ndarray[float]', i : int, protect : bool = False) -> tm:
         """
         Calculates the position of a given joint provided a theta list
         Args:
@@ -223,7 +225,8 @@ class Arm:
         return end_effector_pos
 
     #Converted to python - Liam
-    def IK(self, goal_position, theta_init=None, check=True, level=6, max_iters = 30, protect=False):
+    def IK(self, goal_position : tm, theta_init : 'np.ndarray[float]' = None, check : bool =True,
+            level : int = 6, max_iters : int = 30, protect : bool = False):
         """
         Calculates joint positions of a serial arm. All parameters are
             optional except the desired end effector position
@@ -264,7 +267,9 @@ class Arm:
                     self._end_effector_pos_global = goal_position
         return theta, success
 
-    def constrainedIK(self, goal_position, theta_init, check = 1, level = 6, max_iters = 30):
+    def constrainedIK(self, goal_position : tm, theta_init : 'np.ndarray[float]' = None,
+            check : bool = True, level : int = 6,
+            max_iters : int= 30) -> tuple['np.ndarray[float]', bool]:
         """
         Calculates joint positions of a serial arm, provided rotational constraints on the Joints
         All parameters are optional except the desired end effector position
@@ -285,18 +290,19 @@ class Arm:
             return self._theta
         screw_list = self.screw_list.copy()
         end_effector_home_c = self._end_effector_home.copy()
-        theta_list = self._theta.copy()
+        if theta_init is None:
+            theta_init = self._theta.copy()
         i = 0
 
         theta_list, success = fmr.IKinSpaceConstrained(
                 screw_list, end_effector_home_c.gTM(), goal_position.gTM(),
-                theta_list, self.pos_tolerance, self.rot_tolerance,
+                theta_init, self.pos_tolerance, self.rot_tolerance,
                 self.joint_mins, self.joint_maxs, max_iters)
 
         if success:
             self._end_effector_pos_global = goal_position
         else:
-            if check == 1:
+            if check:
                 i = 0
                 self.fail_count = 0
                 while i < level and success == 0:
@@ -312,13 +318,13 @@ class Arm:
                                 self.joint_maxs, max_iters)
                     except Exception as e:
                         theta_list, success = self.constrainedIK(
-                                goal_position, theta_temp, check=0)
+                                goal_position, theta_temp, check=False)
                         disp('FMR Failure: ' + str(e))
                     i = i + 1
                 if success:
                     self._end_effector_pos_global = goal_position
         if not success:
-            if check == 0:
+            if not check:
                 self.fail_count += 1
             else:
                 # print('Total Cycle Failure')
@@ -400,7 +406,8 @@ class Arm:
     #    print(t.sol)
     #    return t.sol
 
-    def IKFree(self,T, theta_init, inds):
+    def IKFree(self, goal_position : tm, theta_init : 'np.ndarray[float]', 
+            inds : list[int]) -> tuple['np.ndarray[float]', bool]:
         """
         Only allow theta_init(freeinds) to be varied
         Method not covered in Lynch.
@@ -408,7 +415,7 @@ class Arm:
         indicated by freeinds in theta_init.  The remaining elements are
         unchanged.
         Args:
-            T: Desired end effector position to calculate for
+            goal_position: Desired end effector position to calculate for
             theta_init: Intial theta guess for desired end effector position.
             inds: Free indexes to move
         Returns:
@@ -419,14 +426,14 @@ class Arm:
         """
         #free_thetas = fsolve(@(x)(obj.FK(SetElements(theta_init,
             #freeinds, x))-T), theta_init(freeinds))
-        res = lambda x : fsr.TAAtoTM(self.FK(fsr.setElements(theta_init, inds, x))-T)
+        res = lambda x : fsr.TAAtoTM(self.FK(fsr.setElements(theta_init, inds, x)) - goal_position)
         #Use newton_krylov instead of fsolve
         free_thetas = sci.optimize.fsolve(res, theta_init[inds])
         # free_thetas = fsolve(@(x)(self.FK(SetElements(theta_init,
             #freeinds, x))-T), theta_init(freeinds));
         theta = np.squeeze(theta_init)
         theta[inds] = np.squeeze(free_thetas)
-        if fmr.Norm6((T-self.FK(theta))[0:6]) < 0.001:
+        if fmr.Norm6((goal_position - self.FK(theta))[0:6]) < 0.001:
             success = 1
         else:
             success = 0
@@ -437,7 +444,7 @@ class Arm:
     Kinematics Helpers
     """
 
-    def randomPos(self):
+    def randomPos(self) -> tm:
         """
         Create a random position, return the end effector TF
         Returns:
@@ -538,7 +545,8 @@ class Arm:
     Motion Planning
     """
 
-    def lineTrajectory(self, target, initial = 0, execute = True, delt = .01):
+    def lineTrajectory(self, target : tm, initial : tm = None, 
+            execute  : bool = True, delt : float = .01) -> list['np.ndarray[float]']:
         """
         Move the arm end effector in a straight line towards the target
         Args:
@@ -549,7 +557,7 @@ class Arm:
         Returns:
             theta_list list of theta configurations
         """
-        if initial == 0:
+        if initial is None:
             initial = self._end_effector_pos_global.copy()
         satisfied = False
         init_theta = np.copy(self._theta)
@@ -572,9 +580,9 @@ class Arm:
         return theta_list
 
 
-    def visualServoToTarget(self,
-        target, pixel_tol = 2, desired_dist = 1, pose_delta = 0.1,
-                pose_tol = 0.2, max_iter=1000, cam_ind = 0):
+    def visualServoToTarget(self, target : tm, pixel_tol : int = 2, desired_dist : float = 1.0,
+            pose_delta : float = 0.1, pose_tol : float = 0.2, max_iter: int = 1000,
+            cam_ind : int = 0) -> tuple['np.ndarray[float]', 'list[np.ndarray[float]]']:
         """
         Use a virtual camera to perform visual servoing to target
         Args:
@@ -634,19 +642,19 @@ class Arm:
             if j > max_iter:
                 print('Failed to find solution, max iterations')
                 return self._theta, []
-                break
         return theta, theta_list
 
-    def PDControlToGoalEE(self, goal_position, theta = None, prev_theta = None,
-            Kp = 100, Kd = 100, max_theta_dot = 0.1):
+    def PDControlToGoalEE(self, goal_position : tm, theta : 'np.ndarray[float]' = None,
+            prev_theta : 'np.ndarray[float]' = None, p_gain : float = 100.0,
+            d_gain : float = 100.0, max_theta_dot : float = 0.1) -> 'np.ndarray[float]':
         """
         Uses PD Control to Maneuver to an end effector goal
         Args:
             theta: start theta
             goal_position: goal position
-            Kp: P parameter
-            Kd: D parameter
-            prevtheta: prev_theta parameter
+            p_gain: Proportional Gain
+            d_gain: Derivative Gain
+            prev_theta: prev_theta parameter
             max_theta_dot: maximum joint velocities
         Returns:
             scaled_theta_dot: scaled velocities
@@ -659,7 +667,7 @@ class Arm:
         error_ee_to_goal = fmr.Norm(current_end_effector_pos[0:3]-goal_position[0:3])
         delt_distance_to_goal = (error_ee_to_goal-
             fmr.Norm(previous_end_effector_pos[0:3]-goal_position[0:3]))
-        scale = Kp * error_ee_to_goal + Kd * min(0, delt_distance_to_goal)
+        scale = p_gain * error_ee_to_goal + d_gain * min(0, delt_distance_to_goal)
         #twist = fsr.twistToGoal(current_end_effector_pos, goal_position)
         twist = fsr.twistToGoal(current_end_effector_pos, goal_position)
         normalized_twist = fsr.normalizeTwist(twist)
@@ -674,7 +682,10 @@ class Arm:
     Getters and Setters
     """
 
-    def setNames(self, arm_name = None, link_names = None, joint_names = None):
+    def setNames(self, arm_name : str = None,
+            link_names : list[str]= None,
+            joint_names : list[str]= None) -> None:
+
         if arm_name is not None and self.name != "Arm":
             self.name = arm_name
         if link_names is not None:
@@ -689,7 +700,11 @@ class Arm:
             for i in range(self.num_dof):
                 self.joint_names.append('joint' + str(i))
 
-    def setJointProperties(self, joint_mins = None, joint_maxs = None, max_vels = None, max_effort = None):
+    def setJointProperties(self, joint_mins : 'np.ndarray[float]' = None,
+            joint_maxs : 'np.ndarray[float]' = None,
+            max_vels : 'np.ndarray[float]'= None,
+            max_effort : 'np.ndarray[float]'= None) -> None:
+            
         if joint_mins is not None:
             self.joint_mins = joint_mins
         if joint_maxs is not None:
@@ -699,7 +714,10 @@ class Arm:
         if max_effort is not None:
             self.max_effort = max_effort
 
-    def setVisColProperties(self, vis_props = None, col_props = None, link_dimensions=None):
+    def setVisColProperties(self, vis_props : list = None,
+            col_props : list = None,
+            link_dimensions : 'np.ndarray[float]' = None) -> None:
+
         if vis_props is not None:
             self._vis_props = vis_props
         if col_props is not None:
@@ -707,7 +725,11 @@ class Arm:
         if link_dimensions is not None:
             self._link_dimensions = link_dimensions
 
-    def setOrigins(self, prev_joints_to_next_joints = None, joint_homes_global = None, link_homes_global = None, eef_to_last_joint = None):
+    def setOrigins(self, prev_joints_to_next_joints : list[tm] = None,
+            joint_homes_global : list[tm] = None,
+            link_homes_global : list[tm] = None,
+            eef_to_last_joint : tm = None) -> None:
+
         if prev_joints_to_next_joints is not None:
             self._prev_joints_to_next_joints = prev_joints_to_next_joints
         if joint_homes_global is not None:
@@ -717,7 +739,10 @@ class Arm:
         if eef_to_last_joint is not None:
             self._eef_to_last_joint = eef_to_last_joint
 
-    def setMassProperties(self, link_masses = None, mass_grav_centers = None, box_spatial_links = None):
+    def setMassProperties(self, link_masses : 'np.ndarray[float]' = None,
+            mass_grav_centers : list[tm] = None,
+            box_spatial_links : 'np.ndarray[float]' = None) -> None:
+
         if link_masses is not None:
             self._link_masses = link_masses
         if mass_grav_centers is not None:
@@ -727,7 +752,7 @@ class Arm:
         if box_spatial_links is not None:
             self._box_spatial_links = box_spatial_links
 
-    def testArmValues(self):   # pragma: no cover
+    def testArmValues(self) -> None:   # pragma: no cover
         """
         prints a bunch of arm values
         """
@@ -753,22 +778,27 @@ class Arm:
         print(self._link_dimensions, title = 'Dimensions')
 
 
-    def getJointTransforms(self, return_base = False):
+    def getJointTransforms(self, return_base : bool = True) -> list[tm]:
         """
-        returns tmobjects for each link in a serial arm
+        returns joint information for each link in the arm, including the base
+        If the end effector is not coincident with the last joint of the arm,
+        returns end effector also, even though it is not a true joint
+        Base return behavior can be disabled by setting 'return_base' to false
+
         Returns:
             tmlist
         """
-        poses = []
         if return_base:
             poses = [self._base_pos_global.copy()]
+        else:
+            poses = []
         for i in range((self.num_dof)):
             poses.append(self.FKJoint(self._theta, i))
         if self._eef_to_last_joint is not None:
             poses.insert(-1, poses[-1] @ self._eef_to_last_joint)
         return poses
 
-    def setArbitraryHome(self, new_home_global, theta = None):
+    def setArbitraryHome(self, new_home_global : tm, theta : 'np.ndarray[float]' = None) -> None:
         """
         #  Given a pose and some new_home_global in the space frame, find out where
         #  that new_home_global is in the EE frame, then find the home pose for
@@ -785,20 +815,20 @@ class Arm:
 
 
     #Converted to Python - Joshua
-    def restoreOriginalEE(self):
+    def restoreOriginalEE(self) -> None:
         """
         Retstore the original End effector of the Arm
         """
         self._end_effector_home = self.original_end_effector_home
         self._helper_determine_eef_to_last_joint()
 
-    def getEEPos(self):
+    def getEEPos(self) -> tm:
         """
         Gets End Effector Position
         """
         return self._end_effector_pos_global.copy()
 
-    def getScrewList(self):
+    def getScrewList(self) -> 'np.ndarray[float]':
         """
         Returns screw list in space
         Return:
@@ -806,7 +836,7 @@ class Arm:
         """
         return self.screw_list.copy()
 
-    def getLinkDimensions(self):
+    def getLinkDimensions(self) -> 'np.ndarray[float]':
         """
         Returns link dimensions
         Return:
@@ -818,7 +848,8 @@ class Arm:
     Forces and Dynamics
     """
 
-    def velocityAtEndEffector(self, joint_velocities, theta = None):
+    def velocityAtEndEffector(self, joint_velocities : 'np.ndarray[float]',
+            theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
         Calculate velocity at end effector based on joint velocities
 
@@ -833,7 +864,8 @@ class Arm:
         end_effector_vels = self.jacobian(theta) @ joint_velocities.reshape((6, 1))
         return end_effector_vels
 
-    def staticForces(self, theta, end_effector_wrench):
+    def staticForces(self, theta : 'np.ndarray[float]',
+            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         Calculate forces on each link of the serial arm
         Args:
@@ -844,7 +876,8 @@ class Arm:
         """
         return self._helper_relate_eef_to_joints(end_effector_wrench, theta)
 
-    def staticForcesInv(self, theta, tau):
+    def staticForcesInv(self, theta : 'np.ndarray[float]',
+            tau : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         Given a position on the arm and forces for each joint,
         calculate the wrench on the end effector
@@ -857,7 +890,8 @@ class Arm:
         wrench = np.linalg.pinv(self.jacobian(theta).T) @ tau
         return wrench
 
-    def staticForcesWithLinkMasses(self, theta, end_effector_wrench):
+    def staticForcesWithLinkMasses(self, theta : 'np.ndarray[float]',
+            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         Calculate Static Forces with Link Masses. Dependent on Loading URDF Prior
 
@@ -871,17 +905,19 @@ class Arm:
         jacobian = self.jacobian(theta)
         tau_init = jacobian.T @ end_effector_wrench
         carry_wrench = end_effector_wrench
-        joint_poses = self.getJointTransforms()[0:self.num_dof]
+        joint_poses = self.getJointTransforms()
         for i in range(self.num_dof, 0, -1):
             link_mass_cg = self._link_mass_grav_centers[i]
             link_mass = self._link_masses[i]
-            applied_pos_global = joint_poses[i-1] @ link_mass_cg
+            applied_pos_global = joint_poses[i] @ link_mass_cg
             carry_wrench = carry_wrench + fsr.makeWrench(applied_pos_global, link_mass, self.grav)
             tau = jacobian[0:6, 0:i].T @ carry_wrench
             tau_init[i-1] = tau[-1]
         return tau_init
 
-    def inverseDynamicsEMR(self, theta, theta_dot, theta_dot_dot, grav, end_effector_wrench):
+    def inverseDynamicsEMR(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
+            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]', 
+            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         Inverse dynamics
         Args:
@@ -898,7 +934,9 @@ class Arm:
         return fmr.InverseDynamics(theta, theta_dot, theta_dot_dot, grav, end_effector_wrench,
             link_mass_array, self._box_spatial_links, self.screw_list)
 
-    def inverseDynamics(self, theta, theta_dot, theta_dot_dot, grav, end_effector_wrench):
+    def inverseDynamics(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
+            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]', 
+            end_effector_wrench : 'np.ndarray[float]'):
         """
         Inverse dynamics
         Args:
@@ -971,7 +1009,7 @@ class Arm:
             G[a_index:b_index, a_index:b_index] = self._box_spatial_links[i,:,:]
         return A, G
 
-    def _inverseDynamicsCHelperSetup(self, A, G, theta, grav, end_effector_wrench):
+    def _inverseDynamicsCHelperSetup(self, theta, grav, end_effector_wrench):
         n = self.num_dof
         T10 = self.FKLink(theta, 0).inv()
 
@@ -1001,7 +1039,9 @@ class Arm:
         return L, V, joint_axes, Vbase
 
 
-    def inverseDynamicsC(self, theta, theta_dot, theta_dot_dot, grav, end_effector_wrench):
+    def inverseDynamicsC(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
+            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]',
+            end_effector_wrench : 'np.ndarray[float]'):
         """
         Inverse dynamics Implementation of algorithm in Lynch 8.4
         Args:
@@ -1017,7 +1057,7 @@ class Arm:
         """
         n = self.num_dof
         A, G = self._inverseDynamicsCHelperAG()
-        Ftip, vel_dot_base = self._inverseDynamicsCHelperSetup(A, G, theta, grav, end_effector_wrench)
+        Ftip, vel_dot_base = self._inverseDynamicsCHelperSetup(theta, grav, end_effector_wrench)
         L, V, joint_axes, Vbase = self._inverseDynamicsCHelperStage2(A, theta, theta_dot)
         #Checkpoint 2
         adV = np.zeros((6*n, 6*n))
@@ -1046,7 +1086,9 @@ class Arm:
 
         return tau, M, G
 
-    def forwardDynamicsE(self, theta, theta_dot, tau, grav = None, end_effector_wrench = None):
+    def forwardDynamicsE(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
+            tau : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None, 
+            end_effector_wrench : 'np.ndarray[float]' = None):
         """
         Forward dynamics
         Args:
@@ -1073,8 +1115,9 @@ class Arm:
 
         return theta_dot_dot, M, h, ee
 
-    def forwardDynamics(self, theta, theta_dot, tau,
-            grav = None, end_effector_wrench = np.zeros((6,1))):
+    def forwardDynamics(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]', 
+            tau : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None,
+            end_effector_wrench : 'np.ndarray[float]' = np.zeros((6,1))) -> 'np.ndarray[float]':
         """
         Forward dynamics
         Args:
@@ -1100,8 +1143,11 @@ class Arm:
             self.screw_list)
         return theta_dot_dot
 
-    def integrateForwardDynamics(self, theta0, thetadot0, tau, dt=1,
-            grav=None, end_effector_wrench=np.zeros((6,1)), t_series = None):
+    def integrateForwardDynamics(self, theta0 : 'np.ndarray[float]', 
+            thetadot0 : 'np.ndarray[float]', tau : 'np.ndarray[float]', dt : float = 1.0, 
+            grav : 'np.ndarray[float]' = None, 
+            end_effector_wrench : 'np.ndarray[float]' = np.zeros((6,1)), 
+            t_series : 'np.ndarray[float]' = None):
 
         if grav is None:
             grav = self.grav
@@ -1118,10 +1164,10 @@ class Arm:
         init_thetas[self.num_dof:] = thetadot0
         sol = integrate.solve_ivp(anon, np.array([0, dt]), init_thetas, t_eval = t_series)
 
-        merged = np.hstack([i.reshape(-1,1) for i in sol.y])
+       # merged = np.hstack([i.reshape(-1,1) for i in sol.y])
         return sol.t, sol.y.T
 
-    def massMatrix(self, theta):
+    def massMatrix(self, theta : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         calculates mass matrix for configuration
         Args:
@@ -1140,7 +1186,9 @@ class Arm:
         #    self._box_spatial_links, self.screw_list), 'Masses')
         return M
 
-    def coriolisGravity(self, theta, theta_dot, grav):
+    def coriolisGravity(self, theta : 'np.ndarray[float]',
+            theta_dot : 'np.ndarray[float]',
+            grav : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         Implements Coriolis Gravity from dynamics
         Args:
@@ -1153,7 +1201,8 @@ class Arm:
         h = self.inverseDynamics(theta, theta_dot, 0*theta, grav, np.zeros((6, 1)))[0]
         return h
 
-    def endEffectorForces(self, theta, end_effector_wrench):
+    def endEffectorForces(self, theta : 'np.ndarray[float]', 
+            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
         Calculates forces at the end effector
         Args:
@@ -1172,7 +1221,7 @@ class Arm:
     """
 
     #Converted to Python - Joshua
-    def jacobian(self, theta = None):
+    def jacobian(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
         Calculates Space Jacobian for given configuration
         Args:
@@ -1184,7 +1233,7 @@ class Arm:
         return fmr.JacobianSpace(self.screw_list, theta)
 
     #Converted to Python - Joshua
-    def jacobianBody(self, theta = None):
+    def jacobianBody(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
         Calculates Body Jacobian for given configuration
         Args:
@@ -1195,7 +1244,7 @@ class Arm:
         theta = self._helper_ensure_theta_not_none(theta)
         return fmr.JacobianBody(self.screw_list_body, theta)
 
-    def jacobianLink(self, theta, i):
+    def jacobianLink(self, theta : 'np.ndarray[float]', i : int) -> 'np.ndarray[float]':
         """
         Calculates Space Jacobian for given configuration link
         Args:
@@ -1211,7 +1260,7 @@ class Arm:
         t_mt = t_ad @ t_js
         return np.hstack((t_mt, t_z))
 
-    def jacobianEETrans(self, theta):
+    def jacobianEETrans(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
         Jacobian of the end effector (body), but the frame is rotated to be
         aligned with the space (global) frame
@@ -1220,12 +1269,13 @@ class Arm:
         Returns:
             jacobian
         """
+        theta = self._helper_ensure_theta_not_none(theta)
         end_effector_temp = self.FK(theta)
         end_effector_temp[3:6] = np.zeros(3)
         jacobian = self.jacobian(theta)
         return end_effector_temp.inv().adjoint() @ jacobian
 
-    def numericalJacobian(self, theta = None):
+    def numericalJacobian(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
         Calculates numerical Jacobian for given configuration
         Args:
@@ -1243,7 +1293,7 @@ class Arm:
             jacobian[0:6, i] = fmr.se3ToVec((inv_ee_t @ jac_re).T)
         return jacobian
 
-    def getManipulability(self, theta = None):
+    def getManipulability(self, theta : 'np.ndarray[float]' = None):
         """
         Calculates Manipulability at a given configuration
         Args:
@@ -1273,7 +1323,7 @@ class Arm:
     """
 
 
-    def addCamera(self, cam, end_effector_to_cam):
+    def addCamera(self, cam : Camera, end_effector_to_cam : tm) -> None:
         """
         adds a camera to the arm
         Args:
@@ -1281,12 +1331,12 @@ class Arm:
             end_effector_to_cam: end effector to camera transform
         """
         cam.moveCamera(self._end_effector_pos_global @ end_effector_to_cam)
-        img, joint_poses_home, suc = cam.getPhoto(self._end_effector_pos_global @
+        img, _, _ = cam.getPhoto(self._end_effector_pos_global @
             tm([0, 0, 1, 0, 0, 0]))
         camL = [cam, end_effector_to_cam, img]
         self.cameras.append(camL)
 
-    def updateCams(self):
+    def updateCams(self) -> None:
         """
         Updates camera locations
         """
@@ -1297,7 +1347,7 @@ class Arm:
     Class Methods
     """
 
-    def move(self, new_base_pos_global, stationary = False):
+    def move(self, new_base_pos_global : tm, stationary : bool = False) -> None:
         """
         Moves the arm to another location
         Args:
@@ -1676,8 +1726,6 @@ def loadArmFromURDF(file_name):
         return
 
     root = tree.getroot()
-    link_count = 0
-    joint_count = 0
     elements = []
 
     def extractOrigin(x_obj):
@@ -1725,7 +1773,7 @@ def loadArmFromURDF(file_name):
         Args:
             child: child xml object to be parsed
         """
-        type = 'box'
+        geometry_type = 'box'
         origin = tm()
         properties = []
         for grand_child in child:
@@ -1736,24 +1784,24 @@ def loadArmFromURDF(file_name):
                 geometry_parent = child.find('geometry')
                 for geometry in geometry_parent:
                     if geometry.tag == 'box':
-                        type = 'box'
+                        geometry_type = 'box'
                         properties = geometry.get('size').split()
                     elif geometry.tag == 'cylinder':
-                        type = 'cyl'
+                        geometry_type = 'cyl'
                         properties.append(geometry.get('radius'))
                         properties.append(geometry.get('length'))
                     elif geometry.tag == 'sphere':
-                        type = 'spr'
+                        geometry_type = 'spr'
                         properties = geometry.get('radius')
                     elif geometry.tag == 'mesh':
-                        type = 'msh'
+                        geometry_type = 'msh'
                         properties = []
                         properties.append(load_urdf_spec_file(file_name, geometry.get('filename')))
                         properties.append(geometry.get('scale'))
                         if properties[1] is None:
                             properties[1] = 1.0
 
-        return type, origin, properties
+        return geometry_type, origin, properties
 
 
     def completeLinkParse(new_element, parent):
@@ -1804,14 +1852,14 @@ def loadArmFromURDF(file_name):
                 new_element.max_effort = child.get('effort')
                 new_element.max_velocity = child.get('velocity')
 
-    def findNamedElement(named_element, type='all'):
+    def findNamedElement(named_element, element_type='all'):
         for element in elements:
             if element.name == named_element:
-                if type == 'all':
+                if element_type == 'all':
                     return element
-                if type == 'link' and element.type == 'link':
+                if element_type == 'link' and element.type == 'link':
                     return element
-                if type == 'joint' and element.type == 'joint':
+                if element_type == 'joint' and element.type == 'joint':
                     return element
 
     def totalChildren(element):

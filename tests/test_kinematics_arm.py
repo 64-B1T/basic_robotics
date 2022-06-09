@@ -200,8 +200,15 @@ class test_kinematics_arm(unittest.TestCase):
         self.assertNotEqual(theta.flatten()[0], ref_theta.flatten()[0])
 
     def test_kinematics_arm_constrainedIK(self):
-        #TODO
-        pass
+        random.seed(10)
+        test_tm = tm([1, 1, 3, 0, 0, 0])
+
+        ref_theta, suc = self.arm.constrainedIK(test_tm)
+
+        self.matrix_equality_assertion(test_tm.TM , self.arm.getEEPos().TM)
+
+        test_angs = np.array([np.pi/7, np.pi/5, -np.pi/8, np.pi/7, -np.pi/8, np.pi/10])
+        test_tm_2 = self.arm.FK(test_angs)
 
     #def test_kinematics_arm_IKForceOptimal(self):
     #    #TODO
@@ -302,16 +309,16 @@ class test_kinematics_arm(unittest.TestCase):
     def test_kinematics_arm_getJointTransforms(self):
         joint_transforms = self.arm.getJointTransforms()
         self.matrix_equality_assertion(joint_transforms[-1].gTM(), self.arm.getEEPos().gTM())
-        self.assertEqual(len(joint_transforms), 7)
+        self.assertEqual(len(joint_transforms), 8)
         L1 = 4.5
         L2 = 3.75
         L3 = 3.75
         W = 0.1
         ref_poses = np.array([[0, 0, 0],[0, 0, L1],[L2, 0, L1],[L2+L3, 0, L1],[L2+L3+W, 0, L1],[L2+L3+2*W, 0, L1]]).conj().T
         for i in range(6):
-            self.assertEqual(ref_poses[0,i], joint_transforms[i][0])
-            self.assertEqual(ref_poses[1,i], joint_transforms[i][1])
-            self.assertEqual(ref_poses[2,i], joint_transforms[i][2])
+            self.assertEqual(ref_poses[0,i], joint_transforms[i + 1][0])
+            self.assertEqual(ref_poses[1,i], joint_transforms[i + 1][1])
+            self.assertEqual(ref_poses[2,i], joint_transforms[i + 1][2])
         self.arm.FK(np.array([0, 0, 0, 0, 0, np.pi/2]))
         joint_transforms = self.arm.getJointTransforms()
         self.matrix_equality_assertion(joint_transforms[-1].gTM(), self.arm.getEEPos().gTM())
@@ -808,7 +815,7 @@ class test_kinematics_arm(unittest.TestCase):
                    [-3.0431],
                    [2.6713],
                    [np.pi/4]]).flatten()
-        Ftip, vel_dot_base = self.arm._inverseDynamicsCHelperSetup(A, G, param_a, np.zeros(3), np.zeros((6,1)))
+        Ftip, vel_dot_base = self.arm._inverseDynamicsCHelperSetup(param_a, np.zeros(3), np.zeros((6,1)))
         refFtip = np.array([[0],
                 [0],
                 [0],
@@ -1590,7 +1597,7 @@ class test_kinematics_arm(unittest.TestCase):
 
         arm.FK(np.array([np.pi/4, np.pi/3, np.pi/6, np.pi/8, np.pi/10, np.pi/16]))
         joint_transforms = arm.getJointTransforms()
-        self.assertEqual(7, len(joint_transforms))
+        self.assertEqual(8, len(joint_transforms))
         self.matrix_equality_assertion(joint_transforms[-1].gTM(), arm.getEEPos().gTM())
 
 
@@ -1637,5 +1644,5 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(ref.gTM(), arm.getEEPos().gTM(), 2)
         arm.FK(np.array([np.pi/4, np.pi/3, np.pi/6, np.pi/8, np.pi/10, np.pi/16]))
         joint_transforms = arm.getJointTransforms()
-        self.assertEqual(6, len(joint_transforms))
+        self.assertEqual(7, len(joint_transforms))
         self.matrix_equality_assertion(joint_transforms[-1].gTM(), arm.getEEPos().gTM())
