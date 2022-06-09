@@ -1,5 +1,9 @@
 import time
 import datetime
+
+TM_SYMBOLS = ['Xm', 'Ym', 'Zm', 'Xr', 'Yr', 'Zr']
+WR_SYMBOLS = ['Mx', 'My', 'Mz', 'Fx', 'Fy', 'Fz']
+
 def disp(matrix, title = "MATRIX", nd = 3, mode = 0, pdims = True, noprint = False):
     """
     Drop in replacement for python print. Operates like Matlab's disp() function.
@@ -51,17 +55,22 @@ def dispa(matrix, title = "MATRIX", nd = 3, pdims = True, h="", new = True):
         return dispa(matrix.TAA, title)
     if isinstance(matrix, list):
         alltf = True
+        all_wrench = True
         for mat in matrix:
             if not hasattr(mat, 'TM'):
                 alltf = False
-        if alltf == True:
+            if not hasattr(mat, 'wrench_arr'):
+                all_wrench = False
+        if alltf:
             return printTFlist(matrix, title, nd)
+        if all_wrench:
+            return printTFlist(matrix, title, nd, tm_names = False)
 
         i = 0
         str1 = (t_tl + "════════════" + " " + title + " BEGIN " + "════════════" + "╗\n")
         strm = ""
         for mat in matrix:
-            if ~isinstance(mat, list) and ~isinstance(mat, tuple) and hasattr(matrix, 'TM'):
+            if not isinstance(mat, list) and not isinstance(mat, tuple) and hasattr(matrix, 'TM'):
                 strm += (str(mat) + "\n")
             else:
                 if pdims:
@@ -206,8 +215,7 @@ def disptex(matrix, title,  nd = 3, pdims = True, h=""):
     strr+="\\end{tabular}\n\\caption{" + title + "}\n\\end{table}\n"
     return strr
 
-
-def printTFlist(matrix, title, nd):
+def printTFlist(matrix, title, nd, print_names = True, tm_names=True):
     """
     Prints a list of TM objects (TF was deprecated)
     Args:
@@ -217,28 +225,35 @@ def printTFlist(matrix, title, nd):
     Returns:
         String
     """
-    strr =  "╔"
+    ico_list = TM_SYMBOLS
+    if not tm_names:
+        ico_list = WR_SYMBOLS
+    print_saver = ""
+    if print_names:
+        print_saver = "═══"
     nTF = len(matrix)
-    tLen = (2 * nTF * (nd+1) + (2*nTF+1))
-    j = 0
-    for i in range(round((2 * nTF * (nd+1) + (2*nTF+1))/2 - len(title)/2 - 1)):
-        j+=1
-        strr+="═"
-    strr += (" " + title + " ")
-    j+= 2 + len(title)
-    for i in range(j, tLen):
-        strr+="═"
-    strr += "╗\n"
-    strr+= "╠═"
+    title_len = len(title)
+
+    title_len_base = 2 * nTF * (nd+1) + (2*nTF+1)
+    tLen = title_len_base + len(print_saver)
+    until_title = round(title_len_base/2 - title_len/2 - 1)
+    strr =  ("╔" + "═" * until_title + " " + title + " " 
+            +  "═" * (tLen - until_title - 2 - title_len) + "╗\n")
+    if print_names:
+        strr+= "╠══╦═"
+    else:
+        strr+= "╠═"
     for i in range(nTF):
         #strr +=  "╔"
-        for j in range(nd + 6):
-            strr+="═"
+        strr += "═" * (nd + 6)
         if i != nTF - 1:
             strr += "╦"
-    strr+="═╣\n"
+    strr+= "═╣\n"
     for j in range(6):
-        strr+= "║ "
+        if print_names:
+            strr+= "║" + ico_list[j] + "║ "
+        else:
+            strr+= "║ "
         for i in range(len(matrix)):
             t_nd = nd
             if (abs(matrix[i][j]) >= 9999):
@@ -252,18 +267,16 @@ def printTFlist(matrix, title, nd):
             if i != nTF - 1:
                 strr = strr + ","
         strr+=" ║\n"
-    strr+= "╠═"
+    if print_names:
+        strr+= "╚══╩═"
+    else:
+        strr+= "╚═"
     for i in range(nTF):
-        #strr +=  "╚"
-        for j in range(nd + 6):
-            strr+="═"
+        strr += "═" * (nd + 6)
         if i != nTF - 1:
             strr += "╩"
-    strr+="═╣\n"
-    strr +="╚"
-    for i in range(2 * nTF * (nd+1) + (2*nTF+1)):
-        strr+="═"
-    strr += "╝\n"
+    
+    strr+= "═╝\n"
     return strr
 
 def progressBar(iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '#', ETA=None):

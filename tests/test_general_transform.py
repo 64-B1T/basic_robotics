@@ -231,6 +231,14 @@ class test_general_tm(unittest.TestCase):
         tmc = tma * tmb
         #TODO Add more
 
+    def test_general_tm_eq(self):
+        tma = tm()
+        tmb = tm()
+
+        self.assertTrue(tma == tmb)
+
+        
+
 
 
 

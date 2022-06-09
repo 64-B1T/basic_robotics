@@ -1,3 +1,5 @@
+"""Extension of Modern Robotics Numba Version."""
+
 import numpy as np
 import numba
 from numba import jit
@@ -9,7 +11,7 @@ from ..modern_robotics_numba.modern_high_performance import *
 def IKinSpaceConstrained(screw_list, ee_home, ee_goal, theta_list,
         position_tolerance, rotation_tolerance, joint_mins, joint_maxs, max_iterations):
     """
-    Calculates IK to a certain goal within joint rotation constraints
+    Calculate IK to a certain goal within joint rotation constraints.
 
     Args:
         screw_list: screw list
@@ -61,7 +63,7 @@ def IKinSpaceConstrained(screw_list, ee_home, ee_goal, theta_list,
 def SPIKinSpace(bottom_transform, top_transform, bottom_joints,
         top_joints, bottom_joint_locations, top_joint_locations):
     """
-    Calculates IK for a stewart platform
+    Calculate IK for a stewart platform.
 
     Args:
         bottom_transform (ndarray): bottom plae transformation matrix
@@ -94,7 +96,7 @@ def SPFKinSpaceR(bottom_transform, leg_lengths,
         top_plate_init, bottom_joints_init,
         top_joints_init, max_iterations, tol_f, tol_a, leg_ext_min):
     """
-    Calculates FK for a stewart platform
+    Calculate FK for a stewart platform.
 
     Args:
         bottom_transform (ndarray): bottom transform of the platform.
@@ -184,7 +186,8 @@ def SPFKinSpaceR(bottom_transform, leg_lengths,
 @jit(nopython=True, cache=True)
 def TrVec(transformation_matrix, vector):
     """
-    Performs tv = TM*vec and removes the 1
+    Perform tv = TM*vec and remove the 1.
+    
     Args:
         transform (ndarray): transform to operate on
         vector (ndarray): vector to multipy

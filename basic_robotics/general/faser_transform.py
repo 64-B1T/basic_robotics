@@ -1,3 +1,5 @@
+"""Implement Transformations."""
+
 from ..modern_robotics_numba import modern_high_performance as mr
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -6,11 +8,14 @@ import traceback
 class tm:
     """
     Class to represent and manipulate 3d transformations easily.
+
     Utilizes Euler Angles and 4x4 Transformation Matrices
     """
+
     def __init__(self, initializer_array = np.eye((4)), rpy=False):
         """
-        Initializes a new Transformation object
+        Initialize a new Transformation object.
+
         If no initializer_array is supplied, an identity transform is returned
         initializer_array can be of the following types, with different behaviors
             1) tm: a copy of the tm object is returned
@@ -63,7 +68,8 @@ class tm:
                 return
 
     def from3DOF(self, initializer_array, rpy):
-        """Short summary.
+        """
+        Initialize from a 3DOF array.
 
         Args:
             initializer_array (type): Description of parameter `initializer_array`.
@@ -71,7 +77,6 @@ class tm:
 
         Returns:
             type: Description of returned object.
-
         """
         if rpy == False:
             self.TAA = np.array([0, 0, 0,
@@ -94,7 +99,6 @@ class tm:
 
         Returns:
             type: Description of returned object.
-
         """
         if rpy == False:
             self.TAA = np.array([initializer_array[0],
@@ -140,7 +144,8 @@ class tm:
 
     def spawnNew(self, init):
         """
-        Spawns a new TM object. Useful when tm is not speifically imported
+        Spawns a new TM object. Useful when tm is not speifically imported.
+
         Args:
             init: initialization argument
         Returns:
@@ -150,7 +155,8 @@ class tm:
 
     def transformSqueezedCopy(self, transform_matrix):
         """
-        In cases of dimension troubles, squeeze out the extra dimension
+        In cases of dimension troubles, squeeze out the extra dimension.
+
         Args:
             TM: input 4x4 matrix
         Returns:
@@ -164,7 +170,8 @@ class tm:
 
     def getQuat(self):
         """
-        Returns quaternion
+        Return quaternion.
+
         Returns:
             quaternion from euler
         """
@@ -172,7 +179,8 @@ class tm:
 
     def setQuat(self, quaternion):
         """
-        Sets TAA from quaternion
+        Set TAA from quaternion.
+
         Args:
             quat: input quaternion
         """
@@ -180,9 +188,7 @@ class tm:
         self.TMtoTAA()
 
     def angleMod(self):
-        """
-        Truncates excessive rotations
-        """
+        """Truncate excessive rotation."""
         refresh = 0
         for i in range(3, 6):
             if abs(self.TAA[i, 0]) > 2 * np.pi:
@@ -193,7 +199,8 @@ class tm:
 
     def tripleUnit(self, lv=1):
         """
-        Returns XYZ unit vectors based on current position
+        Return XYZ unit vectors based on current position.
+
         Args:
             lv: length to magnify by
         Returns:
@@ -216,18 +223,14 @@ class tm:
         return vec1, vec2, vec3
 
     def TAAtoTM(self):
-        """
-        Converts the TAA representation to TM representation to update the object
-        """
+        """Convert the TAA representation to TM representation to update the object."""
         self.TAA = self.TAA.reshape((6, 1))
         mres = mr.MatrixExp3(mr.VecToso3(self.TAA[3:6].flatten()))
         self.TM = np.vstack((np.hstack((mres, self.TAA[0:3])), np.array([0, 0, 0, 1])))
 
 
     def TMtoTAA(self):
-        """
-        Converts the TM representation to TAA representation and updates the object
-        """
+        """Convert the TM representation to TAA representation and updates the object."""
         rotation, transformation =  mr.TransToRp(self.TM)
         rotationAA = mr.so3ToVec(mr.MatrixLog3(rotation))
         self.TAA = np.vstack((transformation.reshape((3, 1)), (rotationAA.reshape((3, 1)))))
@@ -235,7 +238,8 @@ class tm:
     #Modern Robotics Ports
     def adjoint(self):
         """
-        Returns the adjoint representation of the 4x4 transformation matrix
+        Return the adjoint representation of the 4x4 transformation matrix.
+
         Returns:
             Adjoint
         """
@@ -243,7 +247,8 @@ class tm:
 
     def exp6(self):
         """
-        Returns the matrix exponential of the TAA
+        Return the matrix exponential of the TAA.
+
         Returns:
             Matrix exponential
         """
@@ -251,7 +256,8 @@ class tm:
 
     def gRot(self):
         """
-        Returns the rotation matrix component of the 4x4 transformation matrix
+        Return the rotation matrix component of the 4x4 transformation matrix.
+
         Returns:
             3x3 rotation matrix
         """
@@ -259,7 +265,8 @@ class tm:
 
     def gTAA(self):
         """
-        Returns the TAA representation of the tm object
+        Return the TAA representation of the tm object.
+
         Returns:
             TAA
         """
@@ -267,7 +274,8 @@ class tm:
 
     def gTM(self):
         """
-        Returns the 4x4 transformation matrix representation of the tm object
+        Return the 4x4 transformation matrix representation of the tm object.
+
         Returns:
             4x4 tm
         """
@@ -275,7 +283,8 @@ class tm:
 
     def gPos(self):
         """
-        Returns the len(3) XYZ position of the transforamtion
+        Return the len(3) XYZ position of the transforamtion.
+
         Returns:
             position
         """
@@ -283,7 +292,8 @@ class tm:
 
     def sTM(self, TM):
         """
-        Sets the 4x4 transformation matrix and updates the object
+        Set the 4x4 transformation matrix and updates the object.
+
         Args:
             TM: 4x4 transformation matrix to be set
         """
@@ -292,7 +302,8 @@ class tm:
 
     def sTAA(self, TAA):
         """
-        Sets the TAA version of the object and updates
+        Set the TAA version of the object and updates.
+
         Args:
             TAA: New TAA to be set
         """
@@ -302,7 +313,8 @@ class tm:
     #Regular Transpose
     def T(self):
         """
-        Returns the transpose version of the tm
+        Return the transpose version of the tm.
+
         Returns:
             tm.T
         """
@@ -312,7 +324,8 @@ class tm:
     #Conjugate Transpose
     def cT(self):
         """
-        Returns the conjugate transpose if transpose doesn't work, use this.
+        Return the conjugate transpose if transpose doesn't work, use this.
+
         Returns:
             TM.conj().T
         """
@@ -321,7 +334,8 @@ class tm:
 
     def inv(self):
         """
-        Returns the inverse of the transform
+        Return the inverse of the transform.
+
         Returns:
             tm^-1
         """
@@ -331,7 +345,8 @@ class tm:
 
     def pinv(self):
         """
-        Returns the pseudoinverse of the transform
+        Return the pseudoinverse of the transform.
+
         Returns:
             psudo inverse
         """
@@ -341,7 +356,8 @@ class tm:
 
     def copy(self):
         """
-        Returns a deep copy of the object
+        Return a deep copy of the object.
+
         Returns:
             copy
         """
@@ -352,7 +368,8 @@ class tm:
 
     def set(self, ind, val):
         """
-        Sets a specific index of the TAA to a value and then updates
+        Set a specific index of the TAA to a value and then update.
+
         Args:
             ind: index to set
             val: val to set
@@ -365,7 +382,8 @@ class tm:
 
     def approx(self, nplaces=10):
         """
-        Rounds self to 10 decimal places
+        Round self to 10 decimal places.
+
         Returns:
             rounded TAA representation
         """
@@ -376,7 +394,8 @@ class tm:
     #OVERLOADED FUNCTIONS
     def __getitem__(self, ind):
         """
-        Get an indexed slice of the TAA representation
+        Get an indexed slice of the TAA representation.
+
         Args:
             ind: slice
         Returns:
@@ -389,7 +408,8 @@ class tm:
 
     def __setitem__(self, ind, val):
         """
-        Sets an indexed slice of the TAA representation and updates
+        Set an indexed slice of the TAA representation and updates.
+
         Args:
             ind: slice
             val: value(s)
@@ -402,7 +422,8 @@ class tm:
 
     def __floordiv__(self, other_object):
         """
-        PERFORMS RIGHT MATRIX DIVISION IF A IS A MATRIX
+        PERFORM RIGHT MATRIX DIVISION IF A IS A MATRIX.
+
         Otherwise performs elementwise floor division
         Args:
             other_object : object to divide by
@@ -419,7 +440,8 @@ class tm:
 
     def __abs__(self):
         """
-        Returns absolute valued variant of transform
+        Return absolute valued variant of transform.
+
         Returns:
             |TAA|
         """
@@ -427,7 +449,8 @@ class tm:
 
     def __sum__(self):
         """
-        Returns sum of the values of the TAA representation
+        Return sum of the values of the TAA representation.
+
         Returns:
             sum(TAA)
         """
@@ -435,7 +458,8 @@ class tm:
 
     def __add__(self, other_object):
         """
-        Adds a value to a TM
+        Add a value to a TM.
+
         If it is another TM, adds the two TAA representations together and updates
         If it is an array of 6 values, adds to the TAA and updates
         If it is a scalar, adds the scalar to each element of the TAA and updates
@@ -457,7 +481,8 @@ class tm:
 
     def __sub__(self, other_object):
         """
-        Adds a value to a TM
+        Subract a value from a TM.
+
         If it is another TM, subs a from TAA and updates
         If it is an array of 6 values, subs a from TAA and updates
         If it is a scalar, subs the scalar from each element of the TAA and updates
@@ -479,7 +504,8 @@ class tm:
 
     def __matmul__(self, other_object):
         """
-        Performs matrix multiplication on 4x4 TAA objects
+        Perform matrix multiplication on 4x4 TAA objects.
+
         Accepts either another tm, or a matrix
         Args:
             other_object : thing to multiply by
@@ -494,7 +520,8 @@ class tm:
 
     def __rmatmul__(self, other_object):
         """
-        Performs right matrix multiplication on 4x4 TAA objects
+        Perform right matrix multiplication on 4x4 TAA objects.
+
         Accepts either another tm, or a matrix
         Args:
             other_object : thing to multiply by
@@ -510,7 +537,8 @@ class tm:
 
     def __mul__(self, other_object):
         """
-        Multiplies by a matrix or scalar
+        Multiply by a matrix or scalar.
+
         Args:
             other_object : other value
         Returns:
@@ -525,7 +553,8 @@ class tm:
 
     def __rmul__(self, other_object):
         """
-        Performs right multiplication by a matrix or scalar
+        Perform right multiplication by a matrix or scalar.
+
         Args:
             other_object : thing to multiply by
         Returns:
@@ -540,7 +569,8 @@ class tm:
 
     def __truediv__(self, other_object):
         """
-        Performs elementwise division across a TAA object
+        Perform elementwise division across a TAA object.
+
         Args:
             other_object : value to divide by
         Returns
@@ -551,23 +581,25 @@ class tm:
 
     def __eq__(self, other_object):
         """
-        Checks for equality with another tm
+        Check for equality with another tm.
+
         Args:
             other_object : Another object
         Returns:
             boolean
         """
-        if ~isinstance(other_object, tm):
+        if not isinstance(other_object, tm):
             return False
-        if np.allclose(self.TAA,other_object.TAA, rtol=0, atol=1e-8): #Why AllClose?
-            return True # Floats Are Evil
-        return False # RTOL Being Zero means only Absolute Tolerance of 1e-8
+        return np.allclose(self.TAA,other_object.TAA, rtol=0, atol=1e-8) #Why AllClose?
+        # Floats Are Evil
+         # RTOL Being Zero means only Absolute Tolerance of 1e-8
         # So at an RTOL 1e-8, a maximum m deviation of 10 nanometers
         # So at an RTOL 1e-9, a maximum r deviation of 5.7e-7 degrees
 
     def __gt__(self, other_object):
         """
-        Checks for greater than another tm
+        Check for greater than another tm.
+
         Args:
             other_object : Another object
         Returns:
@@ -583,7 +615,8 @@ class tm:
 
     def __lt__(self, other_object):
         """
-        Checks for less than another tm
+        Check for less than another tm.
+
         Args:
             other_object : Another object
         Returns:
@@ -599,7 +632,8 @@ class tm:
 
     def __le__(self, other_object):
         """
-        Checks for less than or equa to another tm
+        Check for less than or equa to another tm.
+
         Args:
             other_object : Another object
         Returns:
@@ -611,7 +645,8 @@ class tm:
 
     def __ge__(self, other_object):
         """
-        Checks for greater than or equal to another tm
+        Check for greater than or equal to another tm.
+
         Args:
             other_object : Another object
         Returns:
@@ -623,7 +658,8 @@ class tm:
 
     def __ne__(self, other_object):
         """
-        Checks for not equality with another tm
+        Check for not equality with another tm.
+
         Args:
             other_object : Another object
         Returns:
@@ -633,7 +669,8 @@ class tm:
 
     def __str__(self, dlen=6):
         """
-        Creates a string from a tm object
+        Create a string from a tm object.
+
         Returns:
             String: representation of transform
         """
@@ -642,38 +679,3 @@ class tm:
          ", "+ fst % (self.TAA[2, 0]) + ", "+ fst % (self.TAA[3, 0]) +
          ", "+ fst % (self.TAA[4, 0]) + ", "+ fst % (self.TAA[5, 0])+ " ]")
 
-    # Deprecated Function Handles
-    def TransformSqueezedCopy(self, transform_matrix):  # pragma: no cover
-        """Deprecation notice function. Please use indicated correct function"""
-        print(self.TransformSqueezedCopy.__name__ + ' is deprecated, use ' +
-                self.transformSqueezedCopy.__name__ + ' instead')
-        traceback.print_stack(limit=2)
-        return self.transformSqueezedCopy(transform_matrix)
-
-    def AngleMod(self):  # pragma: no cover
-        """Deprecation notice function. Please use indicated correct function"""
-        print(self.AngleMod.__name__ + ' is deprecated, use ' +
-                self.angleMod.__name__ + ' instead')
-        traceback.print_stack(limit=2)
-        return self.angleMod()
-
-    def TripleUnit(self, lv=1):  # pragma: no cover
-        """Deprecation notice function. Please use indicated correct function"""
-        print(self.TripleUnit.__name__ + ' is deprecated, use ' +
-                self.tripleUnit.__name__ + ' instead')
-        traceback.print_stack(limit=2)
-        return self.tripleUnit(lv)
-
-    def Adjoint(self):  # pragma: no cover
-        """Deprecation notice function. Please use indicated correct function"""
-        print(self.Adjoint.__name__ + ' is deprecated, use ' +
-                self.adjoint.__name__ + ' instead')
-        traceback.print_stack(limit=2)
-        return self.adjoint()
-
-    def Exp6(self):  # pragma: no cover
-        """Deprecation notice function. Please use indicated correct function"""
-        print(self.Exp6.__name__ + ' is deprecated, use ' +
-                self.exp6.__name__ + ' instead')
-        traceback.print_stack(limit=2)
-        return self.exp6()

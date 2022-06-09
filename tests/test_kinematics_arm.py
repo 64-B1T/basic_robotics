@@ -418,8 +418,8 @@ class test_kinematics_arm(unittest.TestCase):
 
     def test_kinematics_arm_staticForcesWithLinkMasses(self):
         arm = loadArmFromURDF('./tests/test_helpers/ur5.urdf')
-        tau = arm.staticForcesWithLinkMasses(np.zeros(6), fsr.makeWrench(tm(), [0, 0, -9.81], 5))
-        tau2 = arm.staticForces(np.zeros(6), fsr.makeWrench(tm(), [0, 0, -9.81], 5))
+        tau = arm.staticForcesWithLinkMasses(np.zeros(6), fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5.0))
+        tau2 = arm.staticForces(np.zeros(6), fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5))
         self.assertEqual(tau[5], tau2[5])
 
 

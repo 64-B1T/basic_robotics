@@ -304,10 +304,10 @@ class test_general_fsr(unittest.TestCase):
         wrench2 = fsr.makeWrench(tmp, f, v)
 
         for i in range(6):
-            self.assertEqual(wrench[i][0], wrench2[i][0])
+            self.assertEqual(wrench[i], wrench2[i])
 
-        self.assertAlmostEqual(wrench[0,0], -392.4)
-        self.assertAlmostEqual(wrench[5,0], -196.2)
+        self.assertAlmostEqual(wrench[0], -392.4)
+        self.assertAlmostEqual(wrench[5], -196.2)
 
     def test_general_fsr_transformWrenchFrame(self):
         frame_a = tm()
@@ -322,7 +322,7 @@ class test_general_fsr(unittest.TestCase):
         wrench_c_a_p = fsr.transformWrenchFrame(wrench_c_c, frame_c, frame_a)
 
         for i in range(6):
-            self.assertEqual(wrench_c_a[i][0], wrench_c_a_p[i][0])
+            self.assertEqual(wrench_c_a[i], wrench_c_a_p[i])
             #self.assertNotEqual(wrench_c_a[i][0], wrench_c_c[i][0])
 
         wrench_b_a = fsr.makeWrench(frame_b, f, v)
@@ -330,7 +330,7 @@ class test_general_fsr(unittest.TestCase):
         wrench_b_c = fsr.makeWrench(frame_b_c, f, v)
         wrench_b_a_p = fsr.transformWrenchFrame(wrench_b_c, frame_c, frame_a)
         for i in range(6):
-            self.assertEqual(wrench_b_a[i][0], wrench_b_a_p[i][0])
+            self.assertEqual(wrench_b_a[i], wrench_b_a_p[i])
 
     def test_general_fsr_twistToScrew(self):
         #Test derived from L7.m 2018 Robotics Control Class

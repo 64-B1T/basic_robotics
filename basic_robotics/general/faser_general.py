@@ -1,70 +1,20 @@
+"""General toolbox for mathematical functions."""
+
 import math
 from . import faser_high_performance as mr
 import numpy as np
 import scipy as sci
 import scipy.linalg as ling
+from .basic_helpers import *
 from .faser_transform import tm
+from .faser_wrench import Wrench
 
-#TRANSFORMATION MATRIX MANIPULATIONS
-def TAAtoTM(taa_format):
-    """
-    Converts Translation Axis Angle to Transformation Matrix
-    Args:
-        taa_format (ndarray): TAA representation of given transformation.
-    Returns:
-        transformation_matrix: 4x4 transformation matrix representation
-    """
-    taa_format = taa_format.reshape((6))
-    mres = mr.MatrixExp3(mr.VecToso3(taa_format[3:6]))
-    #return mr.RpToTrans(mres, transaa[0:3])
-    taa_format = taa_format.reshape((6, 1))
-    transform = np.vstack((np.hstack((mres, taa_format[0:3])), np.array([0, 0, 0, 1])))
-    #print(tm)
-    return transform
-
-def TMtoTAA(transformation_matrix):
-    """
-    Converts a 4x4 transformation matrix to TAA representation
-    Args:
-        transformation_matrix: transformation matrix to be converted
-    Returns:
-        TAA representation
-    """
-    rotation_matrix, position =  mr.TransToRp(transformation_matrix)
-    rotation_array = mr.so3ToVec(mr.MatrixLog3(rotation_matrix))
-    return np.vstack((position.reshape((3, 1)), angleMod(rotation_array.reshape((3, 1)))))
-
-#Change of Frames
-def localToGlobal(reference, rel):
-    """
-    Converts a transform in a local frame to the global frame
-
-    Args:
-        reference (temp): Transform of frame A to frame B
-        rel (tm): Transform of object 1 in frame B
-
-    Returns:
-        tm: Transform of object 1 in frame A
-
-    """
-    return tm(mr.LocalToGlobal(reference.gTAA(), rel.gTAA()))
-
-def globalToLocal(reference, rel):
-    """
-    Convert a transform in a global frame to a local frame
-
-    Args:
-        reference (tm): Transform of frame A to frame B
-        rel (tm): Transform of object 1 in frame A
-    Returns:
-        tm: Transform of object 1 in frame B
-    """
-    return tm(mr.GlobalToLocal(reference.gTAA(), rel.gTAA()))
 
 #Transformation Matrix Group Functions
 def planeFromThreePoints(ref_point_1, ref_point_2, ref_point_3):
     """
-    Creates the equation of a plane from three points
+    Create the equation of a plane from three points.
+
     Args:
         ref_point_1: tm or vector for point 1
         ref_point_2: tm or vector for point 2
@@ -91,7 +41,8 @@ def planeFromThreePoints(ref_point_1, ref_point_2, ref_point_3):
 
 def planePointsFromTransform(ref_point_1):
     """
-    Create plane TM points from one Transform (using unit vectors)
+    Create plane TM points from one Transform (using unit vectors).
+
     Args:
         ref_point_1: transform to place plane on
     Returns:
@@ -102,7 +53,8 @@ def planePointsFromTransform(ref_point_1):
 
 def mirror(origin, mirror_point):
     """
-    Mirrors a point about a plane
+    Mirror a point about a plane.
+
     Args:
         origin: mirror plane (XY local to that tm)
         mirror_point: tm describing point to be mirrored over plane
@@ -125,7 +77,7 @@ def mirror(origin, mirror_point):
 
 def adjustRotationToMidpoint(active_point, ref_point_1, ref_point_2, mode = 0):
     """
-    Applies the midpoint transform of reference points 1 and 2 to an active point
+    Appliy the midpoint transform of reference points 1 and 2 to an active point.
 
     Args:
         active_point (tm): Point to be modified
@@ -147,7 +99,7 @@ def adjustRotationToMidpoint(active_point, ref_point_1, ref_point_2, mode = 0):
 
 def tmAvgMidpoint(ref_point_1, ref_point_2):
     """
-    Simplest version of a midpoint calculation. Simply the average of two positions
+    Simplest version of a midpoint calculation. Simply the average of two positions.
 
     Args:
         ref_point_1 (tm): position 1
@@ -159,7 +111,7 @@ def tmAvgMidpoint(ref_point_1, ref_point_2):
 
 def tmInterpMidpoint(ref_point_1, ref_point_2):
     """
-    Better version of midpoint calculation
+    Better version of midpoint calculation.
 
     Position is stil average of positions 1 and 2
     but rotation is calculated as a proper interpolation
@@ -180,7 +132,19 @@ def tmInterpMidpoint(ref_point_1, ref_point_2):
     taar[3:6] = mr.so3ToVec(mr.MatrixLog3((rmid))).reshape((3, 1))
     return tm(taar)
 
-def getSurfaceNormal(tri, object_center = None):
+def getSurfaceNormal(tri : list['np.ndarray[float]'], 
+        object_center : tm = None) -> tuple[tm, 'np.ndarray[float]']:
+    """
+    Return surface normal vector of set of three points.
+
+    Args:
+        tri (list[np.ndarray[float]]): Array of three points
+        object_center (tm, optional): Centerpoint of surface normal to apply at
+
+    Returns:
+       center (tm) : centerpoint 
+       unit_out (np.array[float]) : unit vector out
+    """    
     u = tri[1] - tri[0]
     v = tri[2] - tri[0]
     x = u[1] * v[2] - u[2] * v[1]
@@ -203,7 +167,8 @@ def getSurfaceNormal(tri, object_center = None):
 #Rotations/Viewers
 def rotationFromVector(ref_point_1, ref_point_2):
     """
-    Reorients ref_point_1 such that its z axis is pointing towards ref_point_2
+    Reorient ref_point_1 such that its z axis is pointing towards ref_point_2.
+
     looAt is faster and probably better except in colinear global Z cases.
     Args:
         ref_point_1 (tm): position 1
@@ -223,7 +188,8 @@ def rotationFromVector(ref_point_1, ref_point_2):
 
 def lookAt(ref_point_1, ref_point_2):
     """
-    Alternate version of RotFromVec, however rotation *about* z axis may be more random
+    Alternate version of RotFromVec, however rotation *about* z axis may be more random.
+
     Does not depend on sci optimize fmin
 
     Args:
@@ -257,7 +223,7 @@ def lookAt(ref_point_1, ref_point_2):
     #Error and Distance Functions
 def poseError(ref_point_1, ref_point_2):
     """
-    Provides absolute error between two transformations
+    Provide absolute error between two transformations.
 
     Args:
         ref_point_1 (tm): Reference point 1
@@ -271,7 +237,7 @@ def poseError(ref_point_1, ref_point_2):
 
 def geometricError(ref_point_1, ref_point_2):
     """
-    Provides geometric error between two points
+    Provide geometric error between two points.
 
     Args:
         ref_point_1 (tm): Reference point 1
@@ -285,7 +251,7 @@ def geometricError(ref_point_1, ref_point_2):
 
 def distance(ref_point_1, ref_point_2):
     """
-    Calculates straight line distance between two points (2d or 3d (tm))
+    Calculate straight line distance between two points (2d or 3d (tm)).
 
     Args:
         ref_point_1 (tm): Reference point 1
@@ -303,7 +269,8 @@ def distance(ref_point_1, ref_point_2):
 
 def arcDistance(ref_point_1, ref_point_2):
     """
-    Calculates the arc distance between two points
+    Calculate the arc distance between two points.
+
     (magnitude average of geometric error)
 
     Args:
@@ -321,7 +288,7 @@ def arcDistance(ref_point_1, ref_point_2):
 #Gap Closure
 def closeLinearGap(origin_point, goal_point, delta):
     """
-    Close linear gap between two points by delta amount
+    Close linear gap between two points by delta amount.
 
     Args:
         origin_point (tm): Current point in trajectory
@@ -347,7 +314,7 @@ def closeLinearGap(origin_point, goal_point, delta):
 
 def closeArcGap(origin_point, goal_point, delta):
     """
-    Closes gap to goal using arc method instead of linear
+    Close gap to goal using arc method instead of linear.
 
     Args:
         origin_point (tm): Current point in trajectory
@@ -373,7 +340,7 @@ def closeArcGap(origin_point, goal_point, delta):
 
 def IKPath(initial, goal, steps):
     """
-    Creates a simple path from origin to goal with a given number of steps
+    Create a simple path from origin to goal with a given number of steps.
 
     Args:
         initial (tm): Initial Position
@@ -393,55 +360,10 @@ def IKPath(initial, goal, steps):
     return pose_list
 
 
-#ANGLE HELPERS
-def deg2Rad(deg):
-    """
-    Convert degrees to radians
-    Args:
-        deg (float): measure of angles in degrees
-    Returns:
-        float: measure of angles in radians
-    """
-    return deg * np.pi / 180
-
-def rad2Deg(rad):
-    """
-    Converts radians to degrees
-    Args:
-        rad (float): measure of angles in radians
-    Returns:
-        float: measure of angles in degrees
-    """
-    return rad * 180 / np.pi
-
-def angleMod(rad):
-    """
-    Cuts angles in radians such that they don't exceed 2pi absolute
-    Args:
-        rad (float): angle or angles
-    Returns:
-        float: cut down angle or angles
-    """
-    if isinstance(rad, tm):
-        rad.angleMod()
-        return rad
-    if np.size(rad) == 1:
-        if abs(rad) > 2 * np.pi:
-            rad = rad % (2 * np.pi)
-        return rad
-    if np.size(rad) == 6:
-        for i in range(3, 6):
-            if abs(rad[i]) > 2 * np.pi:
-                rad[i] = rad[i] % (2 * np.pi)
-        return rad
-    for i in range(np.size(rad)):
-        if abs(rad[i]) > 2 * np.pi:
-            rad[i] = rad[i] % (2 * np.pi)
-    return rad
-
 def angleBetween(ref_point_1, ref_point_2, ref_point_3):
     """
-    Calculates the interior angle between points 1, 2, and 3
+    Calculate the interior angle between points 1, 2, and 3.
+
     Args:
         ref_point_1 (tm): Reference point 1
         ref_point_2 (tm): Reference point 2
@@ -463,7 +385,8 @@ def angleBetween(ref_point_1, ref_point_2, ref_point_3):
 #Wrench Operations
 def makeWrench(position_applied, force, force_direction_vector):
     """
-    Generates a new wrench
+    Generate a new wrench.
+
     Args:
         position_applied: relative position ation of wrench
         force: magnitude of force applied (or mass if force_direction_vector is a gravity vector)
@@ -471,14 +394,16 @@ def makeWrench(position_applied, force, force_direction_vector):
     Returns:
         wrench
     """
-    forcev = np.array(force_direction_vector) * force #Force vector (negative Z)
+    forcev = np.array(force_direction_vector) * force
+    return Wrench(forcev, position_applied)
     t_wren = np.cross(position_applied[0:3].reshape((3)), forcev) #Calculate moment based on position and action
     wrench = np.array([t_wren[0], t_wren[1], t_wren[2], forcev[0], forcev[1], forcev[2]]).reshape((6, 1)) #Create Complete Wrench
     return wrench
 
 def transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):
     """
-    Translates one wrench frame to another
+    Translate one wrench frame to another.
+
     Args:
         wrench: original wrench to be translated
         old_wrench_frame: the original frame that the wrench was in (tm)
@@ -486,6 +411,8 @@ def transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):
     Returns:
         new Wrench in the frame of new_wrench_frame
     """
+    wrench.changeFrame(new_wrench_frame, old_wrench_frame)
+    return wrench
     ref = globalToLocal(old_wrench_frame, new_wrench_frame)
     return  ref.adjoint().T @ wrench
 
@@ -494,7 +421,7 @@ def transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):
 
 def twistToGoal(start_transform, end_transform):
     """
-    Returns a twist describing motion from start_transform to end_transform
+    Return a twist describing motion from start_transform to end_transform.
 
     Args:
         start_transform (tm): Starting Transform
@@ -509,7 +436,8 @@ def twistToGoal(start_transform, end_transform):
 
 def twistToScrew(input_twist):
     """
-    Converts a twist to a screw
+    Convert a twist to a screw.
+
     Args:
         input_twist (ndarray): Twist
     Returns:
@@ -531,7 +459,8 @@ def twistToScrew(input_twist):
 
 def normalizeTwist(twist):
     """
-    Normalize a Twist
+    Normalize a Twist.
+
     Args:
         tw (ndarray): Input twist
     Returns:
@@ -545,7 +474,8 @@ def normalizeTwist(twist):
 
 def twistFromTransform(input_transform):
     """
-    Creates twist from transform (tm)
+    Create twist from transform (tm).
+
     Args:
         input_transform (tm): input transform
     Returns:
@@ -556,7 +486,8 @@ def twistFromTransform(input_transform):
 
 def transformFromTwist(input_twist):
     """
-    Converts a twist to a transformation matrix
+    Convert a twist to a transformation matrix.
+
     Args:
         input_twist (ndarray): Input twist to be transformed
     Returns:
@@ -570,7 +501,8 @@ def transformFromTwist(input_twist):
 
 def transformByVector(transform, vec):
     """
-    Performs tv = TM*vec and removes the 1
+    Perform tv = TM*vec and removes the 1.
+
     Args:
         transform (tm): transform to operate on
         vec (ndarray): vector to multipy
@@ -578,7 +510,6 @@ def transformByVector(transform, vec):
     Returns:
         ndarray: vector product
     """
-
     transform_matrix = transform.TM
     b = np.array([1.0])
     n = np.concatenate((vec, b))
@@ -592,7 +523,8 @@ def transformByVector(transform, vec):
 # Unit Vectors
 def fiboSphere(num_points):
     """
-    Create Fibonacci points on the surface of a sphere
+    Create Fibonacci points on the surface of a sphere.
+
     #https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
     Args:
         num_points: number of points
@@ -610,7 +542,8 @@ def fiboSphere(num_points):
 
 def unitSphere(num_points, return_azel=False):
     """
-    Generates a "unit sphere" with an approximate number of points
+    Generate a "unit sphere" with an approximate number of points.
+
     numActual = round(num_points)^2
     Args:
         num_points: Approximate number of points to collect
@@ -648,7 +581,8 @@ def unitSphere(num_points, return_azel=False):
 
 def getUnitVec(ref_point_1, ref_point_2, distance = 1.0, return_dist = False):
     """
-    Returns a vector of a given length pointed from point 1 to point 2
+    Return a vector of a given length pointed from point 1 to point 2.
+
     Args:
         ref_point_1 (tm): Reference point 1
         ref_point_2 (tm): Reference point 2
@@ -668,7 +602,8 @@ def getUnitVec(ref_point_1, ref_point_2, distance = 1.0, return_dist = False):
 #Jacobians
 def chainJacobian(screws, theta):
     """
-    Chain Jacobian
+    Chain Jacobian.
+
     Args:
         Screws: screw list
         theta: theta to evaluate at
@@ -686,7 +621,8 @@ def chainJacobian(screws, theta):
 
 def numericalJacobian(function_handle, x_init, delta):
     """
-    Calculates a numerical jacobian
+    Calculate a numerical jacobian.
+
     Args:
         function_handle: function handle (FK)
         x_init: initial value
@@ -723,7 +659,7 @@ def numericalJacobian(function_handle, x_init, delta):
 #Misc
 def boxSpatialInertia(m, l, w, h):
     """
-    Calculates spatial inertial properties of a box
+    Calculate spatial inertial properties of a box.
 
     Args:
         m (float): mass of box
@@ -743,7 +679,7 @@ def boxSpatialInertia(m, l, w, h):
 
 def setElements(data, inds, vals):
     """
-    Sets the elements in data specified by inds with the values in vals
+    Set the elements in data specified by inds with the values in vals.
 
     Args:
         data (ndarray): data to edit
@@ -763,187 +699,187 @@ def setElements(data, inds, vals):
 # DEPRECATED FUNCTION HANDLES
 import traceback
 def LocalToGlobal(reference, rel):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(LocalToGlobal.__name__ + ' is deprecated, use ' + localToGlobal.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return localToGlobal(reference, rel)
 
 def GlobalToLocal(reference, rel):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(GlobalToLocal.__name__ + ' is deprecated, use ' + globalToLocal.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return globalToLocal(reference, rel)
 
 def PlaneFrom3Tms(ref_point_1, ref_point_2, ref_point_3):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(PlaneFrom3Tms.__name__ + ' is deprecated, use ' + planeFromThreePoints.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return planeFromThreePoints(ref_point_1, ref_point_2, ref_point_3)
 
 def PlaneTMSFromOne(ref_point_1):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(PlaneTMSFromOne.__name__ + ' is deprecated, use ' + planePointsFromTransform.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return planePointsFromTransform(ref_point_1)
 
 def Mirror(origin, mirror_plane):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(Mirror.__name__ + ' is deprecated, use ' + mirror.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return mirror(origin, mirror_plane)
 
 def TMMidRotAdjust(active_point, ref_point_1, ref_point_2, mode = 0):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TMMidRotAdjust.__name__ + ' is deprecated, use ' + adjustRotationToMidpoint.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return adjustRotationToMidpoint(active_point, ref_point_1, ref_point_2, mode = mode)
 
 def TMMidPointEx(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TMMidPointEx.__name__ + ' is deprecated, use ' + tmAvgMidpoint.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return tmAvgMidpoint(ref_point_1, ref_point_2)
 
 def TMMidPoint(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TMMidPoint.__name__ + ' is deprecated, use ' + tmInterpMidpoint.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return tmInterpMidpoint(ref_point_1, ref_point_2)
 
 def RotFromVec(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(RotFromVec.__name__ + ' is deprecated, use ' + rotationFromVector.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return rotationFromVector(ref_point_1, ref_point_2)
 
 def lookat(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(lookat.__name__ + ' is deprecated, use ' + lookAt.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return lookAt(ref_point_1, ref_point_2)
 
 def Error(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(Error.__name__ + ' is deprecated, use ' + poseError.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return poseError(ref_point_1, ref_point_2)
 
 def GeometricError(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(GeometricError.__name__ + ' is deprecated, use ' + geometricError.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return geometricError(ref_point_1, ref_point_2)
 
 def Distance(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(Distance.__name__ + ' is deprecated, use ' + distance.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return distance(ref_point_1, ref_point_2)
 
 def ArcDistance(ref_point_1, ref_point_2):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(ArcDistance.__name__ + ' is deprecated, use ' + arcDistance.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return arcDistance(ref_point_1, ref_point_2)
 
 def CloseGap(origin_point, goal_point, delta):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(CloseGap.__name__ + ' is deprecated, use ' + closeLinearGap.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return closeLinearGap(origin_point, goal_point, delta)
 
 def ArcGap(origin_point, goal_point, delta):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(ArcGap.__name__ + ' is deprecated, use ' + closeArcGap.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return closeArcGap(origin_point, goal_point, delta)
 
 def Deg2Rad(deg):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(Deg2Rad.__name__ + ' is deprecated, use ' + deg2Rad.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return deg2Rad(deg)
 
 def Rad2Deg(rad):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(Rad2Deg.__name__ + ' is deprecated, use ' + rad2Deg.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return rad2Deg(rad)
 
 def AngleMod(rad):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(AngleMod.__name__ + ' is deprecated, use ' + angleMod.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return angleMod(rad)
 
 def AngleBetween(ref_point_1, ref_point_2, ref_point_3):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(AngleBetween.__name__ + ' is deprecated, use ' + angleBetween.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return angleBetween(ref_point_1, ref_point_2, ref_point_3)
 
 def GenForceWrench(position_applied, force, force_direction_vector):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(GenForceWrench.__name__ + ' is deprecated, use ' + makeWrench.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return makeWrench(position_applied, force, force_direction_vector)
 
 def TransformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TransformWrenchFrame.__name__ + ' is deprecated, use ' + transformWrenchFrame.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return transformWrenchFrame(wrench, old_wrench_frame, new_wrench_frame)
 
 def TwistToScrew(input_twist):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TwistToScrew.__name__ + ' is deprecated, use ' + twistToScrew.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return twistToScrew(input_twist)
 
 def NormalizeTwist(twist):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(NormalizeTwist.__name__ + ' is deprecated, use ' + normalizeTwist.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return normalizeTwist(twist)
 
 def TwistFromTransform(input_transform):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TwistFromTransform.__name__ + ' is deprecated, use ' + twistFromTransform.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return twistFromTransform(input_transform)
 
 def TransformFromTwist(input_twist):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TransformFromTwist.__name__ + ' is deprecated, use ' + transformFromTwist.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return transformFromTwist(input_twist)
 
 def TrVec(transform, vec):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(TrVec.__name__ + ' is deprecated, use ' + transformByVector.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return transformByVector(transform, vec)
 
 def ChainJacobian(screws, theta):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(ChainJacobian.__name__ + ' is deprecated, use ' + chainJacobian.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return chainJacobian(screws, theta)
 
 def NumJac(f, x0, h):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(NumJac.__name__ + ' is deprecated, use ' + numericalJacobian.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return numericalJacobian(f, x0, h)
 
 def BoxSpatialInertia(m, l, w, h):  # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(BoxSpatialInertia.__name__ + ' is deprecated, use ' + boxSpatialInertia.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return boxSpatialInertia(m, l, w, h)
 
 def SetElements(data, inds, vals):   # pragma: no cover
-    """Deprecation notice function. Please use indicated correct function"""
+    """Notify deprecated function. Please use indicated correct function."""
     print(SetElements.__name__ + ' is deprecated, use ' + setElements.__name__ + ' instead')
     traceback.print_stack(limit=2)
     return setElements(data, inds, vals)
