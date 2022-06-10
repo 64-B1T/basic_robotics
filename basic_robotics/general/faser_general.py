@@ -11,7 +11,8 @@ from .faser_wrench import Wrench
 
 
 #Transformation Matrix Group Functions
-def planeFromThreePoints(ref_point_1, ref_point_2, ref_point_3):
+def planeFromThreePoints(ref_point_1 : tm, ref_point_2 : tm, 
+        ref_point_3 :tm) -> tuple[float, float, float, float]:
     """
     Create the equation of a plane from three points.
 
@@ -39,7 +40,7 @@ def planeFromThreePoints(ref_point_1, ref_point_2, ref_point_3):
 
     return a, b, c, d
 
-def planePointsFromTransform(ref_point_1):
+def planePointsFromTransform(ref_point_1 : tm) -> tuple[tm, tm, tm]:
     """
     Create plane TM points from one Transform (using unit vectors).
 
@@ -51,7 +52,7 @@ def planePointsFromTransform(ref_point_1):
     a, b, _ = ref_point_1.tripleUnit()
     return ref_point_1, a, b
 
-def mirror(origin, mirror_point):
+def mirror(origin : tm, mirror_point :tm) -> tm:
     """
     Mirror a point about a plane.
 
@@ -75,7 +76,8 @@ def mirror(origin, mirror_point):
     z3 = 2 * z2-z1
     return tm([x3, y3, z3, 0, 0, 0])
 
-def adjustRotationToMidpoint(active_point, ref_point_1, ref_point_2, mode = 0):
+def adjustRotationToMidpoint(active_point : tm, 
+        ref_point_1 : tm, ref_point_2 : tm, mode : int = 0) -> tm:
     """
     Appliy the midpoint transform of reference points 1 and 2 to an active point.
 

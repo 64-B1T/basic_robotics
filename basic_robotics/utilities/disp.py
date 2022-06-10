@@ -1,5 +1,6 @@
 import time
 import datetime
+import math
 
 TM_SYMBOLS = ['Xm', 'Ym', 'Zm', 'Xr', 'Yr', 'Zr']
 WR_SYMBOLS = ['Mx', 'My', 'Mz', 'Fx', 'Fy', 'Fz']
@@ -59,7 +60,7 @@ def dispa(matrix, title = "MATRIX", nd = 3, pdims = True, h="", new = True):
         for mat in matrix:
             if not hasattr(mat, 'TM'):
                 alltf = False
-            if not hasattr(mat, 'wrench_arr'):
+            if not hasattr(mat, 'position_applied'):
                 all_wrench = False
         if alltf:
             return printTFlist(matrix, title, nd)
@@ -119,7 +120,10 @@ def dispa(matrix, title = "MATRIX", nd = 3, pdims = True, h="", new = True):
         for i in range(shape[0]):
             t_nd = nd
             if (abs(matrix[i]) >= 9999):
-                nm = len(str(abs(round(matrix[i]))))
+                if math.isinf(matrix[i]):
+                    nm = 3
+                else:
+                    nm = len(str(abs(round(matrix[i]))))
                 while t_nd > 0 and nm > 6:
                     t_nd = t_nd - 1
                     nm = nm - 1

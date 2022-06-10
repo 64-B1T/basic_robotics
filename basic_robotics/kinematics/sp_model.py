@@ -568,7 +568,7 @@ class SP:
             #Call the actual algorithm from the high performance faser library
             #Pass in initial lengths, guess, bottom and top plate positions,
             #max iterations, tolerances, and minimum leg lengths
-            attempt, iteration = fmr.SPFKinSpaceR(bottom_plate_pos, L, attempt,
+            attempt, iteration = fmr.SPFKinSpaceR(L, attempt,
                 self.bottom_joints_init, self.top_joints_init,
                 self.max_iterations, self.tol_f, self.tol_a, self.leg_ext_min)
 
@@ -577,7 +577,7 @@ class SP:
                 for i in range(6):
                     attempt = self.aux_inits[i].TAA.flatten()
                     #attempt[2] = self.nominal_height
-                    attempt, iteration = fmr.SPFKinSpaceR(bottom_plate_pos, L, attempt,
+                    attempt, iteration = fmr.SPFKinSpaceR(L, attempt,
                         self.bottom_joints_init, self.top_joints_init,
                         self.max_iterations, self.tol_f, self.tol_a, self.leg_ext_min)
                     if iteration == self.max_iterations:

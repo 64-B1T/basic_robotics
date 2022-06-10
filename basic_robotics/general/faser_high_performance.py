@@ -92,14 +92,14 @@ def SPIKinSpace(bottom_transform, top_transform, bottom_joints,
 
 #Majority of following section adapted from work by Jak-O-Shadows, Under MIT License
 @jit(nopython=True, cache=True)
-def SPFKinSpaceR(bottom_transform, leg_lengths,
-        top_plate_init, bottom_joints_init,
-        top_joints_init, max_iterations, tol_f, tol_a, leg_ext_min):
+def SPFKinSpaceR(leg_lengths : 'np.ndarray[float]',
+        top_plate_init : 'np.ndarray[float]', bottom_joints_init : 'np.ndarray[float]',
+        top_joints_init : 'np.ndarray[float]', max_iterations : int, 
+        tol_f : float, tol_a : float, leg_ext_min : float) -> tuple['np.ndarray[float]', int]:
     """
     Calculate FK for a stewart platform.
 
     Args:
-        bottom_transform (ndarray): bottom transform of the platform.
         leg_lengths (ndarray): leg lengths to calculate for
         top_plate_inith (ndarray): top plate initial guess position
         bottom_joints_init (ndarray): bottom joints local to bottom plate
@@ -184,10 +184,10 @@ def SPFKinSpaceR(bottom_transform, leg_lengths,
 #Performs tv = transformation_matrix*vec and removes the 1
 #TrVec can keep name to keep constant with modern robotics naming scheme
 @jit(nopython=True, cache=True)
-def TrVec(transformation_matrix, vector):
+def TrVec(transformation_matrix : 'np.ndarray[float]', vector) -> 'np.ndarray[float]':
     """
     Perform tv = TM*vec and remove the 1.
-    
+
     Args:
         transform (ndarray): transform to operate on
         vector (ndarray): vector to multipy

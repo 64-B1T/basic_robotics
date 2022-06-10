@@ -39,88 +39,109 @@ class test_general_wrench(unittest.TestCase):
         self.assertEqual(force[2], -9.81*5)
 
     def test_general_wrench_flatten(self):
-        #TODO
-        pass
+        test_wrench = Wrench(np.array([0, 0, -9.81]) * 5)
+        flat_wrench = test_wrench.flatten()
+        self.assertFalse(isinstance(flat_wrench, Wrench))
+        self.assertEqual(len(flat_wrench.shape), 1)
 
     def test_general_wrench_changeFrame(self):
         wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
         wrench_b = Wrench(np.array([0, 0, -9.81]) * 5, tm([1, 0, -5, 0, 0, 0]), tm([-1, 0, 5, 0, 0, 0]))
         self.assertNotEqual(wrench_a[1], wrench_b[1])
         wrench_b.changeFrame(tm())
-        self.matrix_equality_assertion(wrench_a.wrench_arr, wrench_b.wrench_arr)
+        self.matrix_equality_assertion(wrench_a.getData(), wrench_b.getData())
+
+
+        wrench_c = wrench_a.copy()
+        wrench_c.changeFrame(tm())
+        self.matrix_equality_assertion(wrench_a.getData(), wrench_c.getData())
 
     def test_general_wrench_copy(self):
-        #TODO
-        pass
+        wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
+        wrench_b = wrench_a.copy()
+        wrench_c = wrench_a
+
+        wrench_c[2] = 5 
+        wrench_b[1] = 10
+
+        self.assertEqual(wrench_c[2], 5)
+        self.assertEqual(wrench_a[2], 5)
+        self.assertEqual(wrench_b[2], 0)
+        self.assertEqual(wrench_b[1], 10)
+        
+        wrench_a.frame_applied[2] = 3
+        self.assertEqual(wrench_c.frame_applied[2], 3)
+        self.assertEqual(wrench_b.frame_applied[2], 0)
     
-    def test_general_wrench_getitem(self):
-        #TODO
-        pass
-
-    def test_general_wrench_setitem(self):
-        #TODO
-        pass
-
-    def test_general_wrench_floordiv(self):
-        #TODO
-        pass
 
     def test_general_wrench_abs(self):
-        #TODO
-        pass
-
-    def test_general_wrench_sum(self):
-        #TODO
-        pass
+        wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
+        wrench_abs = abs(wrench_a)
+        self.assertAlmostEqual(wrench_abs[5], 49.05)
 
     def test_general_wrench_add(self):
-        #TODO
-        pass
+        wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
+        wrench_b = Wrench(np.array([0, 0, -9.81]) * 5, tm([1, 0, -5, 0, 0, 0]), tm([-1, 0, 5, 0, 0, 0]))
+
+        wrench_c_test = wrench_a + wrench_b
+        self.assertTrue(isinstance(wrench_c_test, Wrench))
+        self.assertNotEqual(wrench_a[1], wrench_b[1])
+
+        wrench_b.changeFrame(tm())
+        wrench_c_ref = wrench_a + wrench_b
+        self.matrix_equality_assertion(wrench_c_test.getData(), wrench_c_ref.getData())
 
     def test_general_wrench_sub(self):
-        #TODO
-        pass
+        wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
+        wrench_b = Wrench(np.array([0, 0, -9.81]) * 5, tm([1, 0, -5, 0, 0, 0]), tm([-1, 0, 5, 0, 0, 0]))
 
-    def test_general_wrench_matmul(self):
-        #TODO
-        pass
+        wrench_c_test = wrench_a - wrench_b
+        self.assertTrue(isinstance(wrench_c_test, Wrench))
+        self.assertNotEqual(wrench_a[1], wrench_b[1])
 
-    def test_general_wrench_rmatmul(self):
-        #TODO
-        pass
+        wrench_b.changeFrame(tm())
+        wrench_c_ref = wrench_a - wrench_b
+        self.matrix_equality_assertion(wrench_c_ref.getData(), np.zeros((6,1)))
 
     def test_general_wrench_mul(self):
-        #TODO
-        pass
+        wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
 
-    def test_general_wrench_rmul(self):
-        #TODO
-        pass
+        wrench_b = Wrench(np.array([0, 0, -9.81]) * 10)
+
+        wrench_c = wrench_a * 2
+        wrench_d = 2 * wrench_a
+
+        self.matrix_equality_assertion(wrench_c.getData(), wrench_d.getData())
+        self.matrix_equality_assertion(wrench_b.getData(), wrench_d.getData())
+
+
+        test_m = np.ones((6,6))
+        self.assertFalse(isinstance(test_m * wrench_c, Wrench))
 
     def test_general_wrench_truediv(self):
-        #TODO
+        wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
+
+        wrench_b = Wrench(np.array([0, 0, -9.81]) * 10)
+        wrench_b_ref = Wrench(np.array([0, 0, -9.81]) * 10)
+
+        self.matrix_equality_assertion(wrench_b.getData(), wrench_b_ref.getData())
+        wrench_c = wrench_b / 2
+        self.matrix_equality_assertion(wrench_b.getData(), wrench_b_ref.getData())
+        wrench_d = 2 / wrench_b 
+
+        self.matrix_equality_assertion(wrench_c.getData(), wrench_a.getData())
+        self.assertAlmostEqual(wrench_d[5], 2/(-98.1))
         pass
 
     def test_general_wrench_eq(self):
-        #TODO
-        pass
+        wrench_a = Wrench(np.array([0, 0, -9.81]) * 5)
+        wrench_b = Wrench(np.array([0, 0, 0, 0, 0, 0]))
+        self.assertTrue(wrench_a != wrench_b)
 
-    def test_general_wrench_gt(self):
-        #TODO
-        pass
+        wrench_c = Wrench(np.array([0.0, 0.0, 0.0, 0.0, 0.0, -49.05]))
+        self.assertTrue(wrench_a == wrench_c)
 
-    def test_general_wrench_lt(self):
-        #TODO
-        pass
+        wrench_d = Wrench(np.array([0, 0, 0, 0, 0, -49.05]), frame_applied = tm([1, 2, 3, 4, 5, 6]))
+        self.assertTrue(wrench_a != wrench_d)
 
-    def test_general_wrench_le(self):
-        #TODO
-        pass
-
-    def test_general_wrench_ge(self):
-        #TODO
-        pass
-
-    def test_general_wrench_str(self):
-        #TODO
-        pass
+        self.assertFalse(wrench_a == tm())

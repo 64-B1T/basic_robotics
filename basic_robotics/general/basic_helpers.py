@@ -4,14 +4,14 @@ from . import faser_high_performance as mr
 from .faser_transform import tm
 
 #TRANSFORMATION MATRIX MANIPULATIONS
-def TAAtoTM(taa_format):
+def TAAtoTM(taa_format : 'np.ndarray[float]') -> 'np.ndarray[float]':
     """
     Convert Translation Axis Angle to Transformation Matrix.
 
     Args:
-        taa_format (ndarray): TAA representation of given transformation.
+        taa_format (np.ndarray[float]): TAA representation of given transformation.
     Returns:
-        transformation_matrix: 4x4 transformation matrix representation
+        transformation_matrix (np.ndarray[float]): 4x4 transformation matrix representation
     """
     taa_format = taa_format.reshape((6))
     mres = mr.MatrixExp3(mr.VecToso3(taa_format[3:6]))
@@ -21,26 +21,26 @@ def TAAtoTM(taa_format):
     #print(tm)
     return transform
 
-def TMtoTAA(transformation_matrix):
+def TMtoTAA(transformation_matrix :  'np.ndarray[float]') ->  'np.ndarray[float]':
     """
     Convert a 4x4 transformation matrix to TAA representation.
 
     Args:
-        transformation_matrix: transformation matrix to be converted
+        transformation_matrix (np.ndarray[float]): transformation matrix to be converted
     Returns:
-        TAA representation
+        TAA representation (np.ndarray[float])
     """
     rotation_matrix, position =  mr.TransToRp(transformation_matrix)
     rotation_array = mr.so3ToVec(mr.MatrixLog3(rotation_matrix))
     return np.vstack((position.reshape((3, 1)), angleMod(rotation_array.reshape((3, 1)))))
 
 #Change of Frames
-def localToGlobal(reference, rel):
+def localToGlobal(reference : tm, rel :tm) -> tm:
     """
     Convert a transform in a local frame to the global frame.
 
     Args:
-        reference (temp): Transform of frame A to frame B
+        reference (tm): Transform of frame A to frame B
         rel (tm): Transform of object 1 in frame B
 
     Returns:
@@ -49,7 +49,7 @@ def localToGlobal(reference, rel):
     """
     return tm(mr.LocalToGlobal(reference.gTAA(), rel.gTAA()))
 
-def globalToLocal(reference, rel):
+def globalToLocal(reference : tm, rel : tm) -> tm:
     """
     Convert a transform in a global frame to a local frame.
 
@@ -62,7 +62,7 @@ def globalToLocal(reference, rel):
     return tm(mr.GlobalToLocal(reference.gTAA(), rel.gTAA()))
 
 #ANGLE HELPERS
-def deg2Rad(deg):
+def deg2Rad(deg : float) -> float:
     """
     Convert degrees to radians.
 
@@ -73,7 +73,7 @@ def deg2Rad(deg):
     """
     return deg * np.pi / 180
 
-def rad2Deg(rad):
+def rad2Deg(rad : float) -> float:
     """
     Convert radians to degrees.
 
@@ -84,10 +84,10 @@ def rad2Deg(rad):
     """
     return rad * 180 / np.pi
 
-def angleMod(rad):
+def angleMod(rad : float) -> float:
     """
     Cut angles in radians such that they don't exceed 2pi absolute.
-    
+
     Args:
         rad (float): angle or angles
     Returns:
