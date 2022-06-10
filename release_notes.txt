@@ -1,0 +1,15 @@
+More complete implementation of Screw Theory. Numerous Bug Fixes 
+
+This corresponds to beta release 0.3.16
+
+The Screw Update!
+Base class "Screw" implements robotics definition of screw. Inherited by:
+    - Wrench 
+    - Twist
+Features of Screw-derived classes:
+    - Intelligent frame matching to operand (a in a + b) for addition, multiplication, subtraction, etc.
+    - Automatic application of cross and dot products between Screws for relevant operations 
+        - ScrewA @ ScrewB = ScrewA . (ScrewB)
+        - ScrewA * ScrewB = ScrewA x ScrewB
+    - State memory of applied frame
+    - Get pitch of screw from getPitch
