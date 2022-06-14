@@ -1,21 +1,59 @@
-Version 0.3.17 - Hotfix Release
-Screw Math 
-    - Fixes for built in functions for screw and derived classes
-    - More tests 
-Arm
-    - reversed order of arguments for jacobianLink, made theta optional
-    - more functions will also evetually get theta argument reversal, making use easier.
-    - More tests
-Plotting 
-    - Draw functions updated for Arm and SP for new private variables 
-    - DrawArm rewritten to support new convention on getJointPositions
-Examples 
-    - Checked over examples in ReadME and updated, also added all under /examples directory 
-PathPlanner 
-    - Updated references to deprecated functions
-    - Removed naive obstruction function, instead relying on pure line in box algorithm for basic obstructions
-General 
-    - Tested and bumped supported numpy version to 1.22.4
+Version 0.3.18 - New Features... 
+"The Robot Generalization Update"
 
+Implemented Robot base class "Robot" presenting a series of methods applicable to the generalized robot, 
+somewhat standardizing interfaces between stewart platforms, serial arms, and any potential future robot model 
+class that implements the methods in class "Robot"
 
+Robot Super Class! 
+    - Includes handles for:
+        - Forward and Inverse Kinematics 
+        - Space and Body Forward and Inverse Jacobians 
+        - Space and Body Forward and Inverse Static Forces
+        - Getting End Effector and Base Positions 
+        - And more....
+    - Can fill in if some functions are not defined in a new robot model, such as deriving the 
+            following capabilities from just jacobian or inverse jacobian defined:
+        - StaticForces (Forward and Inverse, Body and Space)
+        - Jacobian (inverse of defined, space and body)
 
+Arm 
+    - Some functions and variables moved to Robot superclass in unionization effort, but compatability is unchanged.
+
+Stewart Platforms received a lot of love for this update, bringing some changes
+    - Internal handler _setPlatePos used for all state changes of both plates
+    - Reversed ordering of arguments in IK, IKHelper ... such that the top_plate_pos argument is first. 
+        This enables simple calling of IK without named arguments, with one argument only, inline with the format in Serial Arm
+        Example: sp.IK(goal) instead of sp.IK(top_plate_pos=goal) or sp.IK(tm(), goal)
+    - Changed structure of 'reverse' for Forward Kinematics, removed unused reverse parameter from FKSolve and FKRaphson
+    - Documentation
+        - Typehints added to all functions both in function definitions and docstrings
+    - Misc Tweaks 
+        - Removed unused protection argument from IKHelper
+        - reoirentTopPlate deleted, functionality integrated into fixUpsideDown
+
+    - Function Definitions Changed
+        - inverseJacobianSpace (and all jacobian functions) order changed to top_plate, bottom_plate
+
+    - Functions Deleted:
+        - jacobianSpace -> handled by base class Robot (under handle jacobian)
+        - altInverseJacobianSpace -> top down inverse jacobian is directly related to bottom up
+        - measureForcesFromWrenchEE -> Redundant
+        - carryMassCalcUp -> Niche/Redundant
+        - measureForcesFromBottomEE -> Niche/Redundant 
+        - wrenchBottomFromMeasuredForces -> Niche/Redundant
+
+    - Functions with Changed Names:
+        - measureForcesAtEENew -> staticForces (to conform to base class Robot)
+        - measureForcesFromWrenchEE -> staticForces (to conform to base class Robot)
+        - measureForcesFromBottomEE -> staticForces(reverse = True)
+        - wrenchEEFromMeasuredForces -> staticForcesInv (to conform to base class Robot)
+
+    - Functions made private:
+            - IKHelper -> _IKHelper 
+            - FKSolve -> _FKSolve (Access through FK with appropriate mode switch)
+            - FKRaphson -> _FKRaphson (Access through FK with appropriate mode switch)
+            - lambdaTopPlateReorientation -> _lambdaTopPlateReorientation
+            - fixUpsideDown -> _fixUpsideDown
+
+    

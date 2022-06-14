@@ -8,6 +8,7 @@ import scipy.integrate as integrate
 import scipy.linalg as ling
 from sqlalchemy import true
 
+from .robot_model import Robot
 from ..general import fmr, fsr, tm
 from ..metrology.virtual_vision import Camera
 from ..plotting.Draw import DrawArm  # , DrawRectangle
@@ -15,7 +16,7 @@ from ..utilities.disp import disp
 from .visual_info import vis_info
 
 
-class Arm:
+class Arm(Robot):
     #Conventions:
     #Filenames:  snake_case
     #Variables: snake_case
@@ -42,7 +43,7 @@ class Arm:
         self.num_dof = np.shape(screw_list)[1]
 
         # Names
-        self.name = "Arm"
+        super().__init__("Arm")
         self.link_names = []
         self.joint_names = []
         self.setNames()
@@ -75,6 +76,7 @@ class Arm:
         self._theta = np.zeros(self.num_dof) # Current Theta
         self._base_pos_global = base_pos_global # Current Base Position
         self._end_effector_pos_global = end_effector_home.copy() # Current EE Position
+        self._last_tau = np.zeros(self.num_dof)
         self.fail_count = 0
         self._reversable = False
 
@@ -86,7 +88,7 @@ class Arm:
         self.cameras = []
 
     # Initialization
-
+        self.screw_list_body = np.zeros((6, self.num_dof))
         self.initialize(base_pos_global, screw_list, end_effector_home, joint_poses_home)
 
         for i in range(0, self.num_dof):
@@ -101,7 +103,7 @@ class Arm:
             self.original_joint_axes = joint_axes
 
     # Backups
-        self.original_screw_list = self.screw_list
+        self.original_screw_list = screw_list
         self.FK(np.zeros((self.num_dof)))
 
     def initialize(self, base_pos_global : 'tm', screw_list : 'np.ndarray[float]', 
@@ -131,8 +133,6 @@ class Arm:
             self._joint_homes_global = self._joint_homes_global[1:]
         self.original_joint_poses_home = joint_poses_home
         self.joint_poses_home = np.zeros((3, self.num_dof))
-        self.screw_list_body = np.zeros((6, self.num_dof))
-
         if joint_poses_home.size > 1:
             for i in range(0, self.num_dof):
                 self.joint_poses_home[0:3, i] = fsr.transformByVector(
@@ -825,12 +825,6 @@ class Arm:
         self._end_effector_home = self.original_end_effector_home
         self._helper_determine_eef_to_last_joint()
 
-    def getEEPos(self) -> tm:
-        """
-        Gets End Effector Position
-        """
-        return self._end_effector_pos_global.copy()
-
     def getScrewList(self) -> 'np.ndarray[float]':
         """
         Returns screw list in space
@@ -866,32 +860,6 @@ class Arm:
         # MR 5.16
         end_effector_vels = self.jacobian(theta) @ joint_velocities.reshape((6, 1))
         return end_effector_vels
-
-    def staticForces(self, theta : 'np.ndarray[float]',
-            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
-        """
-        Calculate forces on each link of the serial arm
-        Args:
-            theta: Current position of the arm
-            end_effector_wrench: end effector wrench (space frame)
-        Returns:
-            forces in newtons on each joint
-        """
-        return self._helper_relate_eef_to_joints(end_effector_wrench, theta)
-
-    def staticForcesInv(self, theta : 'np.ndarray[float]',
-            tau : 'np.ndarray[float]') -> 'np.ndarray[float]':
-        """
-        Given a position on the arm and forces for each joint,
-        calculate the wrench on the end effector
-        Args:
-            theta: current joint positions of the arm
-            tau: forces on the joints of the arm in Newtons
-        Returns:
-            wrench on the end effector of the arm
-        """
-        wrench = np.linalg.pinv(self.jacobian(theta).T) @ tau
-        return wrench
 
     def staticForcesWithLinkMasses(self, theta : 'np.ndarray[float]',
             end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
@@ -1217,8 +1185,6 @@ class Arm:
         return self.inverseDynamics(theta, 0*theta, 0*theta,
                 np.zeros((3)), end_effector_wrench)[0]
 
-
-
     """
     Jacobian Calculations
     """
@@ -1360,7 +1326,7 @@ class Arm:
         """
         curpos = self._end_effector_pos_global.copy()
         curth = self._theta.copy()
-        self.initialize(new_base_pos_global, self.original_screw_list_body,
+        self.initialize(new_base_pos_global, self.original_screw_list,
             self._end_effector_home_local, self.original_joint_poses_home)
         if stationary == False:
             self.FK(self._theta)
@@ -1401,9 +1367,7 @@ class Arm:
         print(old_name + ' is deprecated. Please use ' + use_name + ' instead.')
 
     def RandomPos(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('RandomPos', 'randomPos')
         return self.randomPos()
 
@@ -1415,174 +1379,124 @@ class Arm:
 #        self.reverse()
 
     def vServoSP(self, target, tol = 2, ax = 0, plt = 0, fig = 0):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('vServoSP', 'visualServoToTarget')
         return self.visualServoToTarget(target, tol, ax, plt, fig)
 
     def SetDynamicsProperties(self, _Mlinks = None, _Mhome = None, _Glinks = None, _Dims = None):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('SetDynamicsProperties', 'setDynamicsProperties')
         return self.setDynamicsProperties(_Mlinks, _Mhome, _Glinks, _Dims)
 
     def TestArmValues(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('TestArmValues', 'testArmValues')
         return self.testArmValues()
 
     def SetArbitraryHome(self, theta,T):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('SetArbitraryHome', 'setArbitraryHome')
         return self.setArbitraryHome(theta, T)
 
     def RestoreOriginalEE(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('RestoreOriginalEE', 'restoreOriginalEE')
         return self.restoreOriginalEE()
 
     def StaticForces(self, theta, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('StaticForces', 'staticForces')
         return self.staticForces(theta, wrenchEE)
 
     def StaticForcesInv(self, theta, tau):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('StaticForcesInv', 'staticForcesInv')
         return self.staticForcesInv(theta, tau)
 
     def InverseDynamics(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('InverseDynamics', 'inverseDynamics')
         return self.inverseDynamics(theta, thetadot, thetadotdot, grav, wrenchEE)
 
     def InverseDynamicsEMR(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('InverseDynamicsEMR', 'inverseDynamicsEMR')
         return self.inverseDynamicsEMR(theta, thetadot, thetadotdot, grav, wrenchEE)
 
     def InverseDynamicsE(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('InverseDynamicsE', 'inverseDynamicsE')
         return self.inverseDynamics(theta, thetadot, thetadotdot, grav, wrenchEE)
 
     def InverseDynamicsC(self, theta, thetadot, thetadotdot, grav, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('InverseDynamicsC', 'inverseDynamicsC')
         return self.inverseDynamicsC(theta, thetadot, thetadotdot, grav, wrenchEE)
 
     def ForwardDynamicsE(self, theta, thetadot, tau, grav, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('ForwardDynamicsE', 'forwardDynamicsE')
         return self.forwardDynamicsE(theta, thetadot, tau, grav, wrenchEE)
 
     def ForwardDynamics(self, theta, thetadot, tau, grav, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('ForwardDynamics', 'forwardDynamics')
         return self.forwardDynamics(theta, thetadot, tau, grav, wrenchEE)
 
     def MassMatrix(self, theta):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('MassMatrix', 'massMatrix')
         return self.massMatrix(theta)
     def CoriolisGravity(self, theta, thetadot, grav):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('CoriolisGravity', 'coriolisGravity')
         return self.coriolisGravity(theta, thetadot, grav)
     def EndEffectorForces(self, theta, wrenchEE):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('EndEffectorForces', 'endEffectorForces')
         return self.endEffectorForces(theta, wrenchEE)
     def Jacobian(self, theta):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('Jacobian', 'jacobian')
         return self.jacobian(theta)
 
     def JacobianBody(self, theta):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('JacobianBody', 'jacobianBody')
         return self.jacobianBody(theta)
 
     def JacobianLink(self, theta, i):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('JacobianLink', 'jacobianLink')
         return self.jacobianLink(i, theta)
 
     def jacobianEE(self, theta):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('JacobianEE', 'jacobianBody')
         return self.jacobianBody(theta)
 
     def JacobianEE(self, theta):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('JacobianEE', 'jacobianBody')
         return self.jacobianBody(theta)
 
     def JacobianEEtrans(self, theta):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('JacobianEEtrans', 'jacobianEETrans')
         return self.jacobianEETrans(theta)
 
     def NumericalJacobian(self, theta):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('NumericalJacobian', 'numericalJacobian')
         return self.numericalJacobian(theta)
 
     def GetManipulability(self, theta = None):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('GetManipulability', 'getManipulability')
         return self.getManipulability(theta)
 
     def Draw(self, ax):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('Draw', 'draw')
         return self.draw(ax)
 

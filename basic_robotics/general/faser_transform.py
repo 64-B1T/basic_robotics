@@ -46,6 +46,10 @@ class tm:
             elif init_arr_len == 3:
                 # Generate rotation from 3DOF list
                 return self.from3DOF(initializer_array, rpy)
+            elif init_arr_len == 2:
+                return self.from6DOF([initializer_array[0][0], initializer_array[0][1], 
+                        initializer_array[0][2], initializer_array[1][0], 
+                        initializer_array[1][2], initializer_array[1][2]], rpy)
         else:
             if init_arr_len == 6:
                 # Generate rotation adn translation from 6dof array

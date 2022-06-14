@@ -1,4 +1,6 @@
-from ..general import tm, fmr, fsr
+from tokenize import String
+from .robot_model import Robot
+from ..general import tm, fmr, fsr, Wrench
 from ..utilities.disp import disp
 import numpy as np
 import scipy as sci
@@ -6,15 +8,16 @@ import scipy.linalg as ling
 import copy
 import json
 
-class SP:
+class SP(Robot):
     #Conventions:
     #Filenames:  snake_case
     #Variables: snake_case
     #Functions: camelCase
     #ClassNames: CapsCase
     #Docstring: Google
-    def __init__(self, bottom_joints, top_joints, bT, tT, leg_ext_min,
-        leg_ext_max, bottom_plate_thickness, top_plate_thickness, name):
+    def __init__(self, bottom_joints : 'np.ndarray[float]', top_joints : 'np.ndarray[float]', 
+            bT : tm , tT : tm, leg_ext_min : float, leg_ext_max : float, 
+            bottom_plate_thickness : float, top_plate_thickness : float, name : str) -> 'SP':
         """
         Initialize a new Stewart Platform Object.
 
@@ -32,12 +35,14 @@ class SP:
             SP: sp model object
 
         """
+        super().__init__(name)
+
         self._bottom_joints_local = np.copy(bottom_joints)
         self._top_joints_local = np.copy(top_joints)
         self._bottom_joints_init = self._bottom_joints_local.conj().transpose()
         self._top_joints_init = self._top_joints_local.conj().transpose()
-        self._bottom_plate_pos = bT.copy()
-        self._top_plate_pos = tT.copy()
+        self._base_pos_global = bT.copy()
+        self._end_effector_pos_global = tT.copy()
         self._current_plate_transform_local = tm()
         self.bottom_joints_space = np.zeros((3, 6))
         self.top_joints_space = np.zeros((3, 6))
@@ -74,9 +79,7 @@ class SP:
         self.act_motor_radius = 0
 
         #Empty array indicates these values haven't been populated yet
-        self.leg_forces =  np.zeros(1)
-        self.top_plate_wrench =  np.zeros(1)
-        self.bottom_plate_wrench =  np.zeros(1)
+        self._last_tau =  np.zeros(6)
 
         #Mass values from bottom mass, top mass, and actuator portion masses can be set directly.
         self.bottom_plate_mass = 0
@@ -103,7 +106,7 @@ class SP:
         self.fk_mode = 1
         self.validation_error = ""
 
-        self.IK(bT, tT, protect = True)
+        self.IK(top_plate_pos = tT, bottom_plate_pos = bT, protect = True)
 
         self._bottom_joint_angles_init = [None] * 6
         self.bottom_joint_angles = [None] * 6
@@ -132,30 +135,27 @@ class SP:
 
         #Compatibility
         self._plate_thickness_avg = (self.top_plate_thickness + self.bottom_plate_thickness) / 2
-        self._nominal_plate_transform = tm([0, 0, self._plate_thickness_avg, 0, 0, 0])
+        #self._nominal_plate_transform = tm([0, 0, self._plate_thickness_avg, 0, 0, 0])
 
         #Validation Settings
 
 
     """
-       _____      _   _                                     _    _____      _   _
-      / ____|    | | | |                    /\             | |  / ____|    | | | |
-     | |  __  ___| |_| |_ ___ _ __ ___     /  \   _ __   __| | | (___   ___| |_| |_ ___ _ __ ___
-     | | |_ |/ _ \ __| __/ _ \ '__/ __|   / /\ \ | '_ \ / _` |  \___ \ / _ \ __| __/ _ \ '__/ __|
-     | |__| |  __/ |_| ||  __/ |  \__ \  / ____ \| | | | (_| |  ____) |  __/ |_| ||  __/ |  \__ \
-      \_____|\___|\__|\__\___|_|  |___/ /_/    \_\_| |_|\__,_| |_____/ \___|\__|\__\___|_|  |___/
-
+    Getters and Setters
     """
-    def setMasses(self, plate_mass_general, act_shaft_mass,
-        act_motor_mass, grav=9.81, top_plate_mass=0):
+
+    def setMasses(self, plate_mass_general : float, 
+        act_shaft_mass : float, act_motor_mass : float, 
+        grav : 'np.ndarray[float]' = np.array([0, 0, -9.81]), top_plate_mass : float = 0.0) -> None:
         """
-        Set masses for each SP in the Assembler, note that because central platforms
+        Set SP Masses and gravity vector.
+
         share plates, these weights are halved with respect to end plates
         Args:
             plate_mass_general (float): mass of bottom plate (both if top is not specified) (kg)
             act_shaft_mass (float): mass of actuator shaft (kg)
             act_motor_mass (float): mass of actuator motor (kg)
-            grav (float):  [Optional, default 9.81] acceleration due to gravity
+            grav (np.ndarray[float]):  [Optional, default 9.81] acceleration due to gravity
             top_plate_mass (float): [Optional, default 0] top plate mass (kg)
         """
         self.bottom_plate_mass = plate_mass_general
@@ -167,20 +167,10 @@ class SP:
         self.act_shaft_mass = act_shaft_mass
         self.act_motor_mass = act_motor_mass
 
+    def setCOG(self, motor_grav_center : float, shaft_grav_center : float) -> None:
+        """
+        Set the centers of gravity for actuator components.
 
-    def setGrav(self, grav=np.array([0, 0, -9.81])):
-        """
-        Sets Gravity
-        Args:
-            grav (float): Acceleration due to gravity
-        Returns:
-            None: None
-        """
-        self.grav = grav
-
-    def setCOG(self, motor_grav_center, shaft_grav_center):
-        """
-        Sets the centers of gravity for actuator components
         Args:
             motor_grav_center (float): distance from top of actuator to actuator shaft COG
             shaft_grav_center (float): distance from bottom of actuator to actuator motor COG
@@ -188,15 +178,16 @@ class SP:
         self.act_shaft_grav_center = shaft_grav_center
         self.act_motor_grav_center = motor_grav_center
 
-    def setMaxAngleDev(self, max_angle_dev=55):
+    def setMaxAngleDev(self, max_angle_dev : float = 55.0) -> None:
         """
-        Set the maximum angle joints can deflect before failure
+        Set the maximum angle joints can deflect before failure.
+
         Args:
             max_angle_dev (float): maximum deflection angle (degrees)
         """
         self.joint_deflection_max = max_angle_dev*np.pi/180
 
-    def setMaxPlateRotation(self, max_plate_rotation=60):
+    def setMaxPlateRotation(self, max_plate_rotation : float = 60.0) -> None:
         """
         Set the maximum angle the plate can rotate before failure
 
@@ -205,8 +196,8 @@ class SP:
         """
         self.plate_rotation_limit = np.cos(max_plate_rotation * np.pi / 180)
 
-    def setDrawingDimensions(self, outer_top_radius,
-        outer_bottom_radius, act_shaft_radius, act_motor_radius):
+    def setDrawingDimensions(self, outer_top_radius : float,
+        outer_bottom_radius : float, act_shaft_radius: float, act_motor_radius : float) -> None:
         """
         Set Drawing Dimensions
         Args:
@@ -220,7 +211,7 @@ class SP:
         self.act_shaft_radius = act_shaft_radius
         self.act_motor_radius = act_motor_radius
 
-    def setPlatePos(self, bottom_plate_pos, top_plate_pos):
+    def _setPlatePos(self, bottom_plate_pos : tm, top_plate_pos : tm) -> None:
         """
         Set plate positions. called internally
         Args:
@@ -228,11 +219,11 @@ class SP:
             top_plate_pos (tm): top plate transformation in space frame
         """
         if bottom_plate_pos is not None:
-            self._bottom_plate_pos = bottom_plate_pos
+            self._base_pos_global = bottom_plate_pos
         if top_plate_pos is not None:
-            self._top_plate_pos = top_plate_pos
+            self._end_effector_pos_global = top_plate_pos
 
-    def getBottomJoints(self):
+    def getBottomJoints(self) -> 'np.ndarray[float]':
         """
         get the bottom joint positions in space. Not orientations
         Returns:
@@ -241,7 +232,7 @@ class SP:
         """
         return self.bottom_joints_space
 
-    def getTopJoints(self):
+    def getTopJoints(self) -> 'np.ndarray[float]':
         """
         get the top joint positions in space. Not orientations
         Returns:
@@ -250,24 +241,24 @@ class SP:
         """
         return self.top_joints_space
 
-    def getCurrentLocalTransform(self):
+    def getCurrentLocalTransform(self) -> tm:
         """
         Get the current local transform between bottom and top plate
         Returns:
             tm: Top plate relative to bottom plate
 
         """
-        return self._current_plate_transform_local
+        return self._current_plate_transform_local.copy()
 
-    def getLegForces(self):
+    def getLegForces(self) -> 'np.ndarray[float]':
         """
         Return calculated leg forces
         Returns:
             ndarray(Float): Leg forces (N)
         """
-        return self.leg_forces
+        return self._last_tau
 
-    def getLens(self):
+    def getLens(self) -> 'np.ndarray[float]':
         """
         Get Leg Lengths
         Returns:
@@ -275,35 +266,37 @@ class SP:
         """
         return self.lengths.copy()
 
-    def getTopT(self):
+    def getTopT(self) -> float:
         """
         Return the transform of the top plate
         Returns:
             tm: top plate transform in space frame
         """
-        return self._top_plate_pos.copy()
+        return self._end_effector_pos_global.copy()
 
-    def getBottomT(self):
+    def getBottomT(self) -> float:
         """
         Return the transform of the bottom plate
         Returns:
             tm: bottom plate transform in space frame
         """
-        return self._bottom_plate_pos.copy()
+        return self._base_pos_global.copy()
 
-    def getActuatorLoc(self, num, type = 'm'):
+    def getActuatorLoc(self, num : int, type  : str = 'm') -> tm:
         """
-        Returns the position of a specified actuator. Takes in an actuator number and a type.
+        Return the position of a specified actuator in the global (space) frame.
+
+        Takes in an actuator number and a type.
         m for actuator midpoint
         b for actuator motor position
         t for actuator top position
 
         Args:
             num (Int): number of actuator to return
-            type (Char): property of actuator to return
+            type (Str): property of actuator to return
 
         Returns:
-            ndarray(Float): location of desired point
+           tm: location of desired point
         """
         pos = 0
         if type == 'm':
@@ -327,20 +320,31 @@ class SP:
         new_position = tm([pos[0], pos[1], pos[2], 0, 0, 0])
         return new_position
 
-    def spinCustom(self, rot):
+    """ 
+    Kinematics 
+    """
+
+    def spinCustom(self, rot : float, degrees : bool = False) -> None:
         """
-        Rotates plate to meet desired transform
+        Rotate platform by radian amount while maintaining orientation in global space.
+
+        This function is useful for setting an initial coordinate alignment with the platform relative
+        to global space that is not generated by default upon loading the platform.
+        This function is NOT absolute, instead relative, so to undo a rotation, one would 
+        Need to apply the inverse rotation (e.g. -pi/4 to counteract a pi/4 rotation.)
         Args:
-            rot (Float): rotation in radians
+            rot (Float): rotation in radians (clockwise)
+            degrees (bool) : use degrees instead of radians
         """
+        if degrees:
+            rot = fsr.deg2Rad(rot)
         old_base_pos = self.getBottomT()
         self.move(tm())
-        current_top_pos = self.getTopT()
         top_joints_copy = self.top_joints_space.copy()
         bottom_joints_copy = self.bottom_joints_space.copy()
         top_joints_origin_copy = self._top_joints_local[2, 0:6]
         bottom_joints_origin_copy = self._bottom_joints_local[2, 0:6]
-        rotation_transform = tm([0, 0, 0, 0, 0, rot * np.pi / 180])
+        rotation_transform = tm([0, 0, 0, 0, 0, rot])
         self.move(rotation_transform)
         top_joints_space_new = self.top_joints_space.copy()
         bottom_joints_space_new = self.bottom_joints_space.copy()
@@ -356,27 +360,26 @@ class SP:
         self.move(old_base_pos)
 
 
-    def IK(self, bottom_plate_pos=None, top_plate_pos=None, protect=False):
+    def IK(self, top_plate_pos : tm = None, bottom_plate_pos : tm = None, 
+            protect : bool = False) -> tuple['np.ndarray[float]' , bool]:
         """
-        Calculate inverse kinematics for given goals
+        Calculate inverse kinematics for given goals.
+
         Args:
-            bottom_plate_pos (tm): bottom plate position
             top_plate_pos (tm): top plate position
-            protect (Bool): If true, bypass any safeties
+            bottom_plate_pos (tm): bottom plate position
+            protect (bool): If true, bypass any safeties
         Returns:
-            ndarray(Float): leg lengths
-            Bool: validity of pose
-
+            ndarray(float): leg lengths
+            bool: validity of pose
         """
-
         bottom_plate_pos, top_plate_pos = self.bottomTopCheck(bottom_plate_pos, top_plate_pos)
 
-        leg_lengths, bottom_plate_pos, top_plate_pos = self.IKHelper(
-            bottom_plate_pos, top_plate_pos, protect)
+        leg_lengths, bottom_plate_pos, top_plate_pos = self._IKHelper(
+            top_plate_pos, bottom_plate_pos)
         #Determine current transform
 
-        self._bottom_plate_pos = bottom_plate_pos.copy()
-        self._top_plate_pos = top_plate_pos.copy()
+        self._setPlatePos(bottom_plate_pos, top_plate_pos)
 
         #Ensure a valid position
         valid = True
@@ -384,7 +387,8 @@ class SP:
             valid = self.validate()
         return leg_lengths, valid
 
-    def IKHelper(self, bottom_plate_pos=None, top_plate_pos=None, protect=False):
+    def _IKHelper(self, top_plate_pos : tm = None, 
+            bottom_plate_pos : tm = None) -> tuple['np.ndarray[float]', tm, tm]:
         """
         Calculates Inverse Kinematics for a single stewart plaform.
         Takes in bottom plate transform, top plate transform, protection paramter, and direction
@@ -392,7 +396,6 @@ class SP:
         Args:
             bottom_plate_pos (tm): bottom plate position
             top_plate_pos (tm): top plate position
-            protect (Bool): If true, bypass any safeties
 
         Returns:
             ndarray(Float): lengths of legs in meters
@@ -406,8 +409,8 @@ class SP:
         #Poses which would be valid by leg length
         #But would result in singularity
         #Set bottom and top transforms
-        #self._bottom_plate_pos = bottom_plate_pos
-        #self._top_plate_pos = top_plate_pos
+        #self._base_pos_global = bottom_plate_pos
+        #self._end_effector_pos_global = top_plate_pos
 
         #Call the IK method from the JIT numba file (FASER HIGH PER)
         #Shoulda just called it HiPer FASER. Darn.
@@ -422,13 +425,14 @@ class SP:
                 bottom_plate_pos, top_plate_pos)
         return np.copy(self.lengths), bottom_plate_pos, top_plate_pos
 
-    def FK(self, L, bottom_plate_pos =None, reverse = False, protect=False):
+    def FK(self, L, plate_pos = None, reverse = False, 
+            protect = False, fk_mode = None) -> tuple[tm, bool]:
         """
-        Calculate Forward Kinematics for desired leg lengths
+        Calculate Forward Kinematics for desired leg lengths.
 
         Args:
             L (ndarray(Float)): Goal leg lengths
-            bottom_plate_pos (tm): bottom plate position
+            plate_pos (tm): Fixed plate location
             reverse (Bool): Boolean to reverse action. If true, treat the top plate as stationary.
             protect (Bool): Boolean to bypass error detection and correction. Bypass if True
 
@@ -437,36 +441,53 @@ class SP:
             Bool: validity
 
         """
+        if fk_mode is None: 
+            fk_mode = self.fk_mode
+        if plate_pos is None or reverse:
+            #If no bottom pose is supplied, use the last known.
+            bottom_plate_pos = self.getBottomT()
+            if reverse: 
+                plate_pos = self.getTopT()
+        else:
+            bottom_plate_pos = plate_pos
         #FK host function, calls subfunctions depedning on the value of fk_mode
         #return self.FKSciRaphson(L, bottom_plate_pos, reverse, protect)
         #bottom_plate_pos, n = self._applyPlateTransform(bottom_plate_pos = bottom_plate_pos)
-        if self.fk_mode == 0:
-            bottom, top = self.FKSolve(L, bottom_plate_pos, reverse, protect)
+        if fk_mode == 0:
+            bottom, top = self._FKSolve(L, bottom_plate_pos, protect)
         else:
-            bottom, top = self.FKRaphson(L, bottom_plate_pos, reverse, protect)
+            bottom, top = self._FKRaphson(L, bottom_plate_pos, protect)
 
         if not self.continuousTranslationConstraint():
             if self.debug:
                 disp("FK Resulted In Inverted Plate Alignment. Repairing...")
             #self.IK(top_plate_pos = self.getBottomT() @ tm([0, 0, self._nominal_height, 0, 0, 0]))
             #self.FK(L, protect = True)
-            self.fixUpsideDown()
+            self._fixUpsideDown()
         self._current_plate_transform_local = fsr.globalToLocal(bottom, top)
         #self._undoPlateTransform(bottom, top)
+
         valid = True
         if not protect:
             valid = self.validate()
+        
+        if reverse:
+            self.IK(plate_pos, plate_pos @ self._current_plate_transform_local.inv())
+
         return top, valid
 
-    def FKSolve(self, L, bottom_plate_pos=None, reverse=False, protect=False):
+    def _FKSolve(self, L : 'np.ndarray[float]', plate_pos : tm = None, 
+            protect : bool = False) -> tuple[tm, tm]:
         """
-        Older version of python solver, no jacobian used. Takes in length list,
-        optionally bottom position, reverse parameter, and protection
+        Solve FK using an older version of python solver, no jacobian used.
+        
+        Takes in length list,optionally bottom position, reverse parameter, and protection
+        plate_pos refers to the the bottom plate position (stationary plate)
+        If reversed, the parameter plate_pos refers to the top plate which is then stationary.
 
         Args:
             L (ndarray(Float)): Goal leg lengths
             bottom_plate_pos (tm): bottom plate transformation in space frame
-            reverse (Bool): Boolean to reverse action. If true, treat the top plate as stationary.
             protect (Bool): Boolean to bypass error detection and correction. Bypass if True
 
         Returns:
@@ -477,47 +498,37 @@ class SP:
         #Or accurate than Raphson, but much simpler to look at
         L = L.reshape((6, 1))
         self.lengths = L.reshape((6, 1)).copy()
-        #jac = lambda x : self.inverseJacobianSpace(top_plate_pos = x)
+        #jac = lambda x : self.inverseJacobian(top_plate_pos = x)
 
         #Slightly different if the platform is supposed to be "reversed"
-        if reverse:
-            if bottom_plate_pos == None:
-                top_plate_pos = self.getTopT()
-            else:
-                top_plate_pos = bottom_plate_pos
-            fk = lambda x : (self.IK(tm(x), top_plate_pos, protect = True) - L).reshape((6))
-            sol = tm(sci.optimize.fsolve(fk, self.getTopT().gTAA()))
-            #self._top_plate_pos = bottom_plate_pos
-        else:
-            #General calls will go here.
-            if bottom_plate_pos == None:
-                #If no bottom pose is supplied, use the last known.
-                bottom_plate_pos = self.getBottomT()
-            #Find top pose that produces the desired leg lengths.
-            fk = lambda x : (self.IKHelper(bottom_plate_pos, tm(x),
-                protect = True)[0] - L).reshape((6))
 
-            #solres = sci.optimize.fmin(fkprime, self.getTopT().TAA, disp=True)
-            init = self.getTopT().TAA
-            found_sol = True
-            solres = sci.optimize.fsolve(fk, init)
-            sol = tm(solres)
-            sol.angleMod()
-            sol.TMtoTAA()
-            self.IK(bottom_plate_pos, sol, True)
-            nLens = self.getLens()
-            for j in range(6):
-                if abs(abs(L[j]) - abs(nLens[j])) > 0.00001 or not self.validate(True):
-                    return self.FKRaphson(L, bottom_plate_pos, reverse, protect)
+        #Find top pose that produces the desired leg lengths.
+        fk = lambda x : (self._IKHelper(tm(x), plate_pos)[0] - L).reshape((6))
+
+        #solres = sci.optimize.fmin(fkprime, self.getTopT().TAA, disp=True)
+        init = self.getTopT().TAA
+        found_sol = True
+        solres = sci.optimize.fsolve(fk, init)
+        sol = tm(solres)
+        sol.angleMod()
+        sol.TMtoTAA()
+        self.IK(top_plate_pos = sol, bottom_plate_pos = plate_pos, protect = True)
+        nLens = self.getLens()
+        for j in range(6):
+            if abs(abs(L[j]) - abs(nLens[j])) > 0.00001 or not self.validate(True):
+                return self._FKRaphson(L, plate_pos, protect)
         #If not "Protected" from recursion, call IK.
         if not protect:
             self.IK(protect = True)
-        return bottom_plate_pos, sol
+        return plate_pos, sol
 
 
-    def FKRaphson(self, L, bottom_plate_pos =None, reverse=False, protect=False):
+    def _FKRaphson(self, L : 'np.ndarray[float]', 
+            bottom_plate_pos : tm = None, protect : bool = False) -> tuple[tm, tm]:
         """
-        FK Solver
+        Solve FK using Newton Raphson method.
+
+        This method is much more stable than FKSolve. 
         Adapted from the work done by
         #http://jak-o-shadows.github.io/electronics/stewart-gough/stewart-gough.html
         Args:
@@ -533,8 +544,6 @@ class SP:
         if self.debug:
             disp("Starting Raphson FK")
         #^Look here for the original code and paper describing how this works.
-        if bottom_plate_pos == None:
-            bottom_plate_pos = self.getBottomT()
         success = True
         L = L.reshape((6))
         self.lengths = L.copy()
@@ -573,8 +582,10 @@ class SP:
                         if self.debug:
                             print("Raphson Failed to Converge")
                         self.fail_count += 1
-                        self.IK(bottom_plate_pos_backup,
-                            bottom_plate_pos_backup @ self._nominal_plate_transform, protect = True)
+                        self.IK(
+                                top_plate_pos = (bottom_plate_pos_backup @ 
+                                self._nominal_plate_transform), 
+                                bottom_plate_pos = bottom_plate_pos_backup, protect = True)
                         return self.getBottomT(), self.getTopT()
                     else:
                         break
@@ -586,35 +597,35 @@ class SP:
             # @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
 
             #Disabling these cause unknown issues so far.
-            #self._bottom_plate_pos = bottom_plate_pos_backup
-            #self._top_plate_pos = coords
+            #self._base_pos_global = bottom_plate_pos_backup
+            #self._end_effector_pos_global = coords
 
 
-            self.IKHelper(bottom_plate_pos_backup, coords, protect = True)
-            self._bottom_plate_pos = bottom_plate_pos_backup
+            self._IKHelper(coords, bottom_plate_pos_backup)
+            #self._base_pos_global = bottom_plate_pos_backup
             #@ tm([0, 0, self.bottom_plate_thickness, 0, 0, 0])
-            self._top_plate_pos = coords #@ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
+            #self._end_effector_pos_global = coords #@ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
+            self._setPlatePos(bottom_plate_pos_backup, coords)
             if self.debug:
                 disp("Returning from Raphson FK")
-            return bottom_plate_pos_backup, tm(coords)
+            return bottom_plate_pos_backup, coords
         except Exception as e:
 
             if self.debug:
                 disp("Raphson FK Failed due to: " + str(e))
             self.fail_count+=1
-            return self.FKSolve(L, bottom_plate_pos_backup, reverse, protect)
+            return self._FKSolve(L, bottom_plate_pos_backup, protect)
 
 
-    def lambdaTopPlateReorientation(self, stopt):
+    def _lambdaTopPlateReorientation(self, stopt : tm) -> 'np.ndarray[float]':
         """
-        Only used as an assistance function for fixing plate alignment
+        Return distance of top plate to reorientation reference points.
 
+        Only used as an assistance function for fixing plate alignment
         Args:
             stopt (tm): top transform in space frame.
-
         Returns:
             ndarray(Float): distances array
-
         """
         reorient_helper_1 = fsr.localToGlobal(stopt, self.reorients[0])
         reorient_helper_2 = fsr.localToGlobal(stopt, self.reorients[1])
@@ -634,39 +645,15 @@ class SP:
             self.top_joints_space[2, 4], 0, 0, 0]))
         return np.array([d1 , d2 , d3])
 
-    def reorientTopPlate(self):
+    def _fixUpsideDown(self) -> None:
         """
-        Subfunction of fixUpsideDown,
-        responsible for orienting the top plate transform after mirroring
-        """
-        top_true = self.getTopT() @ tm([0, 0, -self.top_plate_thickness, 0, 0, 0])
-        res = lambda x : self.lambdaTopPlateReorientation(
-            tm([top_true[0], top_true[1], top_true[2], x[0], x[1], x[2]]))
-        x_init = self.getTopT()[3:6].flatten()
-        solution = sci.optimize.fsolve(res, x_init)
-        top_true[3:6] = solution
-        self._top_plate_pos = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
-        #disp(self.lambdaTopPlateReorientation(self.getTopT() @
-        #   tm([0, 0, -self.top_plate_thickness, 0, 0, 0])))
+        Correct position and orientation of top plate when inversed due to computational error.
 
-
-    def fixUpsideDown(self):
-        """
         In situations where the top plate is inverted underneath
         the bottom plate, yet lengths are valid,
         This function can be used to mirror all the joint locations and "fix" the resultant problem
         """
-        #print(self.getTopT())
-        #print('fixing upside down!')
         for num in range(6):
-            #reversable = fsr.globalToLocal(tm([self.top_joints_space[0, num],
-            #    self.top_joints_space[1, num], self.top_joints_space[2, num], 0, 0, 0]),
-            #    tm([self.bottom_joints_space[0, num],
-            #    self.bottom_joints_space[1, num],
-            #    self.bottom_joints_space[2, num], 0, 0, 0]))
-            #newTJ = tm([self.bottom_joints_space[0, num],
-            #    self.bottom_joints_space[1, num],
-            #    self.bottom_joints_space[2, num], 0, 0, 0]) @ reversable
             newTJ = fsr.mirror(self.getBottomT() @
                 tm([0, 0, -self.bottom_plate_thickness, 0, 0, 0]),
                 tm([self.top_joints_space[0, num],
@@ -680,10 +667,16 @@ class SP:
         top_true = fsr.mirror(self.getBottomT() @ tm([0, 0, -self.bottom_plate_thickness, 0, 0, 0]),
             self.getTopT() @ tm([0, 0, -self.top_plate_thickness, 0, 0, 0]))
         top_true[3:6] = self.getTopT()[3:6] * -1
-        self._top_plate_pos = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
-        self.reorientTopPlate()
+        self._end_effector_pos_global = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
+        top_true = self.getTopT() @ tm([0, 0, -self.top_plate_thickness, 0, 0, 0])
+        res = lambda x : self._lambdaTopPlateReorientation(
+            tm([top_true[0], top_true[1], top_true[2], x[0], x[1], x[2]]))
+        x_init = self.getTopT()[3:6].flatten()
+        solution = sci.optimize.fsolve(res, x_init)
+        top_true[3:6] = solution
+        self._end_effector_pos_global = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
 
-    def validateLegs(self, valid = True, donothing = False):
+    def validateLegs(self, valid : bool = True, donothing : bool = False) -> bool:
         """
         Validates leg lengths against leg minimums and maximums
         Args:
@@ -707,7 +700,7 @@ class SP:
                 valid = self.validate(True, 1)
         return valid
 
-    def validateContinuousTranslation(self, valid=True, donothing = False):
+    def validateContinuousTranslation(self, valid : bool = True, donothing :bool = False) -> bool:
         """
         Ensures that the top plate is always locally above the bottom plate
         Args:
@@ -731,7 +724,7 @@ class SP:
                 valid = self.validate(True, 2)
         return valid
 
-    def validateInteriorAngles(self, valid = True, donothing = False):
+    def validateInteriorAngles(self, valid : bool = True, donothing :bool = False) -> bool:
         """
         Ensures that interior angles do not violate angular limits
         Args:f
@@ -751,12 +744,13 @@ class SP:
             if not temp_valid and not donothing:
                 if self.debug:
                     disp("Executing Interior Angles Corrective Action...")
-                self.IK(self.getBottomT(), self.getBottomT() @
-                    self._nominal_plate_transform, protect = True)
+                self.IK(top_plate_pos = self.getBottomT() @
+                    self._nominal_plate_transform, 
+                    bottom_plate_pos = self.getBottomT(), protect = True)
                 valid = self.validate(True, 3)
         return valid
 
-    def validatePlateRotation(self, valid = True, donothing = False):
+    def validatePlateRotation(self, valid : bool = True, donothing :bool = False) -> bool:
         """
         Ensures plate rotation does not validate limits
         Args:
@@ -777,12 +771,12 @@ class SP:
                 if self.debug:
                     disp("Executing Plate Rotation Corrective Action By Resetting Platform")
                 #disp(self._nominal_plate_transform)
-                self.IK(self.getBottomT(),(self.getBottomT() @
-                    self._nominal_plate_transform), protect = True)
+                self.IK(top_plate_pos = self.getBottomT() @ self._nominal_plate_transform, 
+                        bottom_plate_pos = self.getBottomT(), protect = True)
                 valid = self.validate(True, 4)
         return valid
 
-    def validate(self, donothing = False, validation_limit = 4):
+    def validate(self, donothing :bool = False, validation_limit : int = 4) -> bool:
         """
         Validate the current configuration of the stewart platform
         Args:
@@ -811,7 +805,7 @@ class SP:
 
         return valid
 
-    def plateRotationConstraint(self):
+    def plateRotationConstraint(self) -> bool:
         """
         Constraint for plate rotations. Assesses validity
         Returns:
@@ -828,7 +822,7 @@ class SP:
                 valid = False
         return valid
 
-    def legLengthConstraint(self):
+    def legLengthConstraint(self) -> bool:
         """
         Evaluate Leg Length Limitations of Stewart Platform
         Returns:
@@ -840,7 +834,7 @@ class SP:
             valid = False
         return valid
 
-    def rescaleLegLengths(self, current_leg_min, current_leg_max):
+    def _rescaleLegLengths(self, current_leg_min : float, current_leg_max : float) -> None:
         """
         Rescale leg lengths to meet minimums
         Args:
@@ -855,7 +849,7 @@ class SP:
                 max(self.leg_ext_min, current_leg_min)) +
                 max(self.leg_ext_min, current_leg_min))
 
-    def addLegsToMinimum(self, current_leg_min, current_leg_max):
+    def _addLegsToMinimum(self, current_leg_min : float) -> None:
         """
         Adds the difference to the leg below minimum to preserve end effector orientation
         Args:
@@ -867,7 +861,7 @@ class SP:
             print("Boost Amount: " + str(boost_amount))
         self.lengths += boost_amount
 
-    def subLegsToMaximum(self, current_leg_min, current_leg_max):
+    def _subLegsToMaximum(self, current_leg_max : float) -> None:
         """
         Subtracts the difference to the leg above maximum to preserve end effector orientation
         Args:
@@ -880,7 +874,7 @@ class SP:
         self.lengths -= ((current_leg_max - self.leg_ext_max)+self._leg_ext_safety)
         #print(self.lengths)
 
-    def lengthCorrectiveAction(self):
+    def lengthCorrectiveAction(self) -> None:
         """
         Make an attempt to correct leg lengths that are out of bounds.
         Will frequently result in a home-like position
@@ -900,20 +894,20 @@ class SP:
         #    max(self.leg_ext_min, current_leg_min)) +
         #    max(self.leg_ext_min, current_leg_min))
         if current_leg_min < self.leg_ext_min and current_leg_max > self.leg_ext_max:
-            self.rescaleLegLengths(current_leg_min, current_leg_max)
+            self._rescaleLegLengths(current_leg_min, current_leg_max)
             self.validation_error+= " CMethod: Rescale, "
         elif (current_leg_min < self.leg_ext_min and
             current_leg_max + (self.leg_ext_min - current_leg_min) +
             self._leg_ext_safety < self.leg_ext_max):
-            self.addLegsToMinimum(current_leg_min, current_leg_max)
+            self._addLegsToMinimum(current_leg_min)
             self.validation_error+= " CMethod: Boost, "
         elif (current_leg_max > self.leg_ext_max and
             current_leg_min - (current_leg_max - self.leg_ext_max) -
             self._leg_ext_safety > self.leg_ext_min):
             self.validation_error+= " CMethod: Subract, "
-            self.subLegsToMaximum(current_leg_min, current_leg_max)
+            self._subLegsToMaximum(current_leg_max)
         else:
-            self.rescaleLegLengths(current_leg_min, current_leg_max)
+            self._rescaleLegLengths(current_leg_min, current_leg_max)
             self.validation_error+= " CMethod: Unknown Rescale, "
 
         #self.lengths[np.where(self.lengths > self.leg_ext_max)] = self.leg_ext_max
@@ -924,7 +918,7 @@ class SP:
         self.FK(self.lengths.copy(), protect = True)
         #print(self.lengths)
 
-    def continuousTranslationConstraint(self):
+    def continuousTranslationConstraint(self) -> bool:
         """
         Ensure that the plate is above the prior
 
@@ -939,13 +933,13 @@ class SP:
                 valid = False
         return valid
 
-    def continuousTranslationCorrectiveAction(self):
+    def continuousTranslationCorrectiveAction(self) -> None:
         """
         Resets to home position
         """
         self.IK(top_plate_pos = self.getBottomT() @ self._nominal_plate_transform, protect = True)
 
-    def interiorAnglesConstraint(self):
+    def interiorAnglesConstraint(self) -> bool:
         """
         Ensures no invalid internal angles
         Returns:
@@ -958,7 +952,7 @@ class SP:
             return False
         return True
 
-    def getJointAnglesFromNorm(self):
+    def getJointAnglesFromNorm(self) -> 'np.ndarray[float]':
         """
         Returns the angular deviation of each angle socket from its nominal position in radians
 
@@ -1015,7 +1009,7 @@ class SP:
             #DeltAnglesB are the Angles from Norm TOp
         return np.hstack((delta_angles_bottom, delta_angles_top))
 
-    def getJointAnglesFromVertical(self):
+    def getJointAnglesFromVertical(self) -> tuple['np.ndarray[float]', 'np.ndarray[float]']:
         """
         Calculate joint angles from vertical at each joint
         Returns:
@@ -1043,16 +1037,54 @@ class SP:
         return top_down, bottom_up
 
     """
-      ______                                        _   _____                              _
-     |  ____|                                      | | |  __ \                            (_)
-     | |__ ___  _ __ ___ ___  ___    __ _ _ __   __| | | |  | |_   _ _ __   __ _ _ __ ___  _  ___ ___
-     |  __/ _ \| '__/ __/ _ \/ __|  / _` | '_ \ / _` | | |  | | | | | '_ \ / _` | '_ ` _ \| |/ __/ __|
-     | | | (_) | | | (_|  __/\__ \ | (_| | | | | (_| | | |__| | |_| | | | | (_| | | | | | | | (__\__ \
-     |_|  \___/|_|  \___\___||___/  \__,_|_| |_|\__,_| |_____/ \__, |_| |_|\__,_|_| |_| |_|_|\___|___/
-                                                                __/ |
-                                                               |___/
+    Jacobian Functions
     """
-    def componentForces(self, tau):
+    def inverseJacobian(self, top_plate_pos : tm = None, 
+            bottom_plate_pos : tm = None, protect : bool = True) -> 'np.ndarray[float]':
+        """
+        Calculate Inverse Jacobian for stewart platform. Optionally use top and bottom transforms.
+
+        Args:
+            bottom_plate_pos (tm): bottom plate transformation in space frame
+            top_plate_pos (tm): top plate transformation in space frame
+            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
+
+        Returns:
+            ndarray(Float): Inverse Jacobian for current configuration
+
+        """
+        #Ensure everything is kosher with the plates
+        bottom_plate_pos, top_plate_pos = self.bottomTopCheck(bottom_plate_pos, top_plate_pos)
+
+        #Store old values
+        old_bottom_plate_transform = self.getBottomT()
+        old_top_plate_transform = self.getTopT()
+
+        #Perform IK on bottom and top
+        self.IK(top_plate_pos = top_plate_pos, bottom_plate_pos = bottom_plate_pos, protect = protect)
+
+        #Create Jacobian
+        inverse_jacobian_transpose = np.zeros((6, 6))
+        for i in range(6):
+            #todo check sign on nim,
+            ni = fmr.Normalize(self.top_joints_space[:, i]-self.bottom_joints_space[:, i])
+             #Reverse for upward forces?
+            qi = self.bottom_joints_space[:, i]
+            col = np.hstack((np.cross(qi, ni), ni))
+            inverse_jacobian_transpose[:, i] = col
+        inverse_jacobian = inverse_jacobian_transpose.T
+
+        #Restore original Values
+        self.IK(top_plate_pos = old_top_plate_transform, 
+                bottom_plate_pos = old_bottom_plate_transform, protect = protect)
+        return inverse_jacobian
+
+    """ 
+    Force Calculations
+    """
+
+    def componentForces(self, tau : 
+            'np.ndarray[float]') -> tuple['np.ndarray[float]', 'np.ndarray[float]']:
         """
         Calculate force components for given leg forces
         Args:
@@ -1078,7 +1110,7 @@ class SP:
             horizontal_components[i] = horizontal_force
         return vertical_components, horizontal_components
 
-    def bottomTopCheck(self, bottom_plate_pos, top_plate_pos):
+    def bottomTopCheck(self, bottom_plate_pos : tm, top_plate_pos :tm) -> tuple[tm, tm]:
         """
         Checks to make sure that a bottom and top provided are not null
 
@@ -1097,95 +1129,8 @@ class SP:
             top_plate_pos = self.getTopT()
         return bottom_plate_pos, top_plate_pos
 
-    def jacobianSpace(self, bottom_plate_pos = None, top_plate_pos = None):
-        """
-        Calculates space jacobian for stewart platform. Takes in bottom transform and top transform
-
-        Args:
-            bottom_plate_pos (tm): bottom plate transformation in space frame
-            top_plate_pos (tm): top plate transformation in space frame
-
-        Returns:
-            ndarray(Float): Jacobian for current configuration
-
-        """
-        #If not supplied paramters, draw from stored values
-        bottom_plate_pos, top_plate_pos = self.bottomTopCheck(bottom_plate_pos, top_plate_pos)
-        #Just invert the inverted
-        inverse_jacobian = self.inverseJacobianSpace(bottom_plate_pos, top_plate_pos)
-        return ling.pinv(inverse_jacobian)
-
-
-    def inverseJacobianSpace(self, bottom_plate_pos = None, top_plate_pos = None, protect = True):
-        """
-        Calculates Inverse Jacobian for stewart platform. Takes in bottom and top transforms
-
-        Args:
-            bottom_plate_pos (tm): bottom plate transformation in space frame
-            top_plate_pos (tm): top plate transformation in space frame
-            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
-
-        Returns:
-            ndarray(Float): Inverse Jacobian for current configuration
-
-        """
-        #Ensure everything is kosher with the plates
-        bottom_plate_pos, top_plate_pos = self.bottomTopCheck(bottom_plate_pos, top_plate_pos)
-
-        #Store old values
-        old_bottom_plate_transform = self.getBottomT()
-        old_top_plate_transform = self.getTopT()
-
-        #Perform IK on bottom and top
-        self.IK(bottom_plate_pos, top_plate_pos, protect = protect)
-
-        #Create Jacobian
-        inverse_jacobian_transpose = np.zeros((6, 6))
-        for i in range(6):
-            #todo check sign on nim,
-            ni = fmr.Normalize(self.top_joints_space[:, i]-self.bottom_joints_space[:, i])
-             #Reverse for upward forces?
-            qi = self.bottom_joints_space[:, i]
-            col = np.hstack((np.cross(qi, ni), ni))
-            inverse_jacobian_transpose[:, i] = col
-        inverse_jacobian = inverse_jacobian_transpose.T
-
-        #Restore original Values
-        self.IK(old_bottom_plate_transform, old_top_plate_transform, protect = protect)
-        return inverse_jacobian
-
-    #Returns Top Down Jacobian instead of Bottom Up
-    def altInverseJacobianSpace(self,
-        bottom_plate_pos = None, top_plate_pos = None, protect = True):
-        """
-        Returns top down jacobian instead of bottom up
-
-        Args:
-            bottom_plate_pos (tm): bottom plate transformation in space frame
-            top_plate_pos (tm): top plate transformation in space frame
-            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
-
-        Returns:
-            ndarray(Float): top down Jacobian Space
-
-        """
-        bottom_plate_pos, top_plate_pos = self.bottomTopCheck(bottom_plate_pos, top_plate_pos)
-        old_bottom_plate_transform = copy.copy(bottom_plate_pos)
-        old_top_plate_transform = copy.copy(top_plate_pos)
-        self.IK(bottom_plate_pos, top_plate_pos)
-        inverse_jacobian_transpose = np.zeros((6, 6))
-        for i in range(6):
-            ni = fmr.Normalize(self.bottom_joints_space[:, i]-self.top_joints_space[:, i])
-            qi = self.top_joints_space[:, i]
-            inverse_jacobian_transpose[:, i] = np.hstack((np.cross(qi, ni), ni))
-        inverse_jacobian = inverse_jacobian_transpose.conj().transpose()
-
-        self.IKHelper(old_bottom_plate_transform, old_top_plate_transform)
-
-        return inverse_jacobian
-
-    #Adds in actuator and plate forces, useful for finding forces on a full stack assembler
-    def carryMassCalc(self, twrench, protect=False):
+    def carryMassCalc(self, twrench : Wrench, 
+            protect : bool = False) -> tuple['np.ndarray[float]', Wrench]:
         """
         Calculates the forces on each leg given their masses,
         masses of plates, and a wrench on the end effector.
@@ -1201,8 +1146,7 @@ class SP:
         wrench = twrench.copy()
         wrench = wrench + fsr.makeWrench(self.getTopT(),
             self.top_plate_mass, self.grav)
-        tau = self.measureForcesFromWrenchEE(self.getBottomT(),
-            self.getTopT(), wrench, protect = protect)
+        tau = self.staticForces(wrench, protect = protect)
         for i in range(6):
             #print(self.getActuatorLoc(i, 't'))
             wrench += fsr.makeWrench(self.getActuatorLoc(i, 't'),
@@ -1213,7 +1157,8 @@ class SP:
             self.bottom_plate_mass, self.grav)
         return tau, wrench
 
-    def carryMassCalcLocal(self, twrench, protect = False):
+    def carryMassCalcLocal(self, twrench : Wrench, 
+            protect : bool = False) -> tuple['np.ndarray[float]', Wrench]:
         """
         Perform force mass calculations in local frame
         Args:
@@ -1227,7 +1172,7 @@ class SP:
         #We will here assume that the wrench is in the local frame of the top platform.
         wrench = twrench.copy()
         wrench = wrench + fsr.makeWrench(tm(), self.top_plate_mass, self.grav)
-        tau = self.measureForcesAtEENew(wrench, protect = protect)
+        tau = self.staticForcesBody(wrench, protect = protect)
         wrench_local_frame = fsr.transformWrenchFrame(wrench, self.getTopT(), self.getBottomT())
 
         for i in range(6):
@@ -1247,160 +1192,18 @@ class SP:
             self.bottom_plate_mass, self.grav)
         return tau, wrench_local_frame
 
-    def measureForcesAtEENew(self, wrench, protect = False):
-        """
-        Measure forces based on end effector wrench
-        Args:
-            wrench (ndarray(Float)): Description of parameter `wrench`.
-            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
-
-        Returns:
-            ndarray(Float): forces in Newtons for each leg
-
-        """
-        jacobian_space = ling.pinv(
-            self.inverseJacobianSpace(self.getBottomT(), self.getTopT(), protect = protect))
-        tau = jacobian_space.T @ wrench
-        self.leg_forces = tau
-        return tau
-
-    def carryMassCalcUp(self, twrench, protect = False):
-        """
-        Carry masses from bottom up
-        Args:
-            twrench (ndarray(Float)): input wrench for configuration
-            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
-
-        Returns:
-            ndarray(Float): forces in Newtons for each leg
-            ndarray(Float): wrench to carry
-
-        """
-        wrench = twrench.copy()
-        wrench = wrench + fsr.makeWrench(self.getBottomT(),
-            self.bottom_plate_mass, self.grav)
-        tau = self.measureForcesFromBottomEE(
-            self.getBottomT(), self.getTopT(), wrench, protect = protect)
-        for i in range(6):
-            wrench += fsr.makeWrench(
-                self.getActuatorLoc(i, 't'), self.act_shaft_mass, self.grav)
-            wrench += fsr.makeWrench(
-                self.getActuatorLoc(i, 'b'), self.act_motor_mass, self.grav)
-        wrench = wrench + fsr.makeWrench(
-            self.getTopT(), self.top_plate_mass * self.grav)
-        return tau, wrench
-
-    #Get Force wrench from the End Effector Force
-    def measureForcesFromWrenchEE(self, bottom_plate_pos = np.zeros((1)),
-        top_plate_pos = np.zeros((1)), top_plate_wrench = np.zeros((1)), protect = True):
-        """
-        Calculates forces on legs given end effector wrench
-
-        Args:
-            bottom_plate_pos (tm): bottom plate transformation in space frame
-            top_plate_pos (tm): top plate transformation in space frame
-            top_plate_wrench (ndarray(Float)): input wrench for configuration
-            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
-
-        Returns:
-            tau: forces in Newtons for each leg
-
-        """
-        bottom_plate_pos, top_plate_pos = self.bottomTopCheck(bottom_plate_pos, top_plate_pos)
-        if top_plate_wrench.size < 6:
-            disp("Please Enter a Wrench")
-        #top_wrench = fmr.Adjoint(ling.inv(top_plate_pos)).conj().transpose() @ top_plate_wrench
-        #Modern Robotics 3.95 Fb = Ad(Tba)^T * Fa
-        #top_wrench = top_plate_pos.inv().Adjoint().T @ top_plate_wrench
-        top_wrench = fsr.transformWrenchFrame(top_plate_wrench, tm(), top_plate_pos)
-        jacobian_space = ling.pinv(
-            self.inverseJacobianSpace(bottom_plate_pos, top_plate_pos, protect = protect))
-        tau = jacobian_space.T @ top_wrench
-        self.leg_forces = tau
-        return tau
-
-    def measureForcesFromBottomEE(self, bottom_plate_pos = np.zeros((1)),
-        top_plate_pos = np.zeros((1)), top_plate_wrench = np.zeros((1)), protect = True):
-        """
-        Calculates forces on legs given end effector wrench
-
-        Args:
-            bottom_plate_pos (tm): bottom plate transformation in space frame
-            top_plate_pos (tm): top plate transformation in space frame
-            top_plate_wrench (ndarray(Float)): input wrench for configuration
-            protect (Bool): Boolean to bypass error detection and correction. Bypass if True
-
-        Returns:
-            tau: forces in Newtons for each leg
-
-        """
-        bottom_plate_pos, top_plate_pos = self._bttomTopCheck(bottom_plate_pos, top_plate_pos)
-        if top_plate_wrench.size < 6:
-            disp("Please Enter a Wrench")
-        #top_wrench = fmr.Adjoint(ling.inv(top_plate_pos)).conj().transpose() @ top_plate_wrench
-        bottom_wrench = bottom_plate_pos.inv().Adjoint().T @ top_plate_wrench
-        jacobian_space = ling.pinv(
-            self.inverseJacobianSpace(bottom_plate_pos, top_plate_pos, protect = protect))
-        tau = jacobian_space.T @ bottom_wrench
-        self.leg_forces = tau
-        return tau
-
-    def wrenchEEFromMeasuredForces(self, bottom_plate_pos, top_plate_pos, tau):
-        """
-        Calculates wrench on end effector from leg forces
-
-        Args:
-            bottom_plate_pos (tm): bottom plate transformation in space frame
-            top_plate_pos (tm): top plate transformation in space frame
-            tau (ndarray(Float)): force exerted through each leg in Newtons.
-
-        Returns:
-            ndarray(Float): top plate wrench
-            ndarray(Float): top wrench (local)
-            ndarray(Float): jacobian
-
-        """
-        self.leg_forces = tau
-        jacobian_space = ling.pinv(self.inverseJacobianSpace(bottom_plate_pos, top_plate_pos))
-        top_wrench = ling.inv(jacobian_space.conj().transpose()) @ tau
-        #self.top_plate_wrench = fmr.Adjoint(top_plate_pos).conj().transpose() @ top_wrench
-        self.top_plate_wrench = top_plate_pos.Adjoint().conj().transpose() @ top_wrench
-        return self.top_plate_wrench, top_wrench, jacobian_space
-
-    def wrenchBottomFromMeasuredForces(self, bottom_plate_pos, top_plate_pos, tau):
-        """
-        Unused. Calculates wrench on the bottom plate from leg forces
-
-        Args:
-            bottom_plate_pos (tm): bottom plate transformation in space frame
-            top_plate_pos (tm): top plate transformation in space frame
-            tau (ndarray(Float)): force exerted through each leg in Newtons.
-
-        Returns:
-            ndarray(Float): bottom plate wrench
-            ndarray(Float): bottom wrench (local)
-            ndarray(Float): jacobian
-
-        """
-        self.leg_forces = tau
-        jacobian_space = ling.pinv(self.altInverseJacobianSpace(bottom_plate_pos, top_plate_pos))
-        bottom_wrench = ling.inv(jacobian_space.conj().transpose()) @ tau
-        #self.bottom_plate_wrench = fmr.Adjoint(bottom_plate_pos).conj().transpose() @ bottom_wrench
-        self.bottom_plate_wrench = bottom_plate_pos.Adjoint().conj().transpose() @ bottom_wrench
-        return self.bottom_plate_wrench, bottom_wrench, jacobian_space
-
-    def sumActuatorWrenches(self, forces = None):
+    def sumActuatorWrenches(self, forces : 'np.ndarray[float]' = None) -> Wrench:
         """
         Sum all actuator wrenches to produce bottom wrench
+
         Args:
             forces (ndarray(Float)): leg forces in Newtons
 
         Returns:
             ndarray(Float): bottom plate wrench
-
         """
         if forces is None:
-            forces = self.leg_forces
+            forces = self._last_tau
 
         wrench = fsr.makeWrench(tm(), 0, [0, 0, -1])
         for i in range(6):
@@ -1410,7 +1213,7 @@ class SP:
         return wrench
 
 
-    def move(self, T, protect = False):
+    def move(self, T : tm, protect : bool = False) -> None:
         """
         Move entire Assembler Stack to another location and orientation
         This function and syntax are shared between all kinematic structures.
@@ -1422,7 +1225,7 @@ class SP:
 
 
         self._current_plate_transform_local = fsr.globalToLocal(self.getBottomT(), self.getTopT())
-        self._bottom_plate_pos = T.copy()
+        self._base_pos_global = T.copy()
         self.IK(
             top_plate_pos = fsr.localToGlobal(self.getBottomT(),
                     self._current_plate_transform_local),
@@ -1438,230 +1241,141 @@ class SP:
         print(old_name + " is deprecated. Please use " + use_name + " instead.")
 
     def SetMasses(self, plateMass, actuatorTop, actuatorBottom, grav = 9.81, tPlateMass = 0):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SetMasses", "setMasses")
         return self.setMasses(plateMass, actuatorTop, actuatorBottom, grav, tPlateMass)
     def SetGrav(self, grav = 9.81):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SetGrav", "setGrav")
         return self.setGrav(grav)
     def SetCOG(self, motor_grav_center, shaft_grav_center):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SetCOG", "setCOG")
         return self.setCOG(motor_grav_center, shaft_grav_center)
     def SetAngleDev(self, MaxAngleDev = 55):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SetAngleDev", "setMaxAngleDev")
         return self.setMaxAngleDev(MaxAngleDev)
     def SetPlateAngleDev(self, MaxPlateDev = 60):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SetPlateAngleDev", "setMaxPlateRotation")
         return self.setMaxPlateRotation(MaxPlateDev)
     def SetDrawingDimensions(self, OuterTopRad, OuterBotRad, ShaftRad, MotorRad):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SetDrawingDimensions", "setDrawingDimensions")
         return self.setDrawingDimensions( OuterTopRad, OuterBotRad, ShaftRad, MotorRad)
-    def _setPlatePos(self, bottomT, topT):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("_setPlatePos", "setPlatePos")
-        return self.setPlatePos(bottomT, topT)
+    def setPlatePos(self, bottomT, topT):  # pragma: no cover
+        """Return Deprecation Notice and Function Call. Don't Use."""
+        self.printOutOfDateFunction("setPlatePos", "_setPlatePos")
+        return self._setPlatePos(bottomT, topT)
     def gLens(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("gLens", "getLens")
         return self.getLens()
     def gtopT(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("gtopT", "getTopT")
         return self.getTopT()
     def gbottomT(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("gbottomT", "getBottomT")
         return self.getBottomT()
     def GetActuatorUnit(self, p1, p2, dist):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("GetActuatorUnit", "fsr.getUnitVec")
         return fsr.getUnitVec(p1, p2, dist)
     def SpinCustom(self, rot):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SpinCustom", "spinCustom")
         return self.spinCustom(rot)
     def LambdaRTP(self, stopt):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("LambdaRTP", "lambdaTopPlateReorientation")
-        return self.lambdaTopPlateReorientation(stopt)
-    def ReorientTopPlate(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("ReorientTopPlate", "reorientTopPlate")
-        return self.reorientTopPlate()
+        """Return Deprecation Notice and Function Call. Don't Use."""
+        self.printOutOfDateFunction("LambdaRTP", "_lambdaTopPlateReorientation")
+        return self._lambdaTopPlateReorientation(stopt)
+
     def _legLengthConstraint(self, donothing):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("_legLengthConstraint", "legLengthConstraint")
         return self.legLengthConstraint()
     def _resclLegs(self, cMin, cMax):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("_resclLegs", "rescaleLegLengths")
-        return self.rescaleLegLengths(cMin, cMax)
+        return self._rescaleLegLengths(cMin, cMax)
     def _addLegs(self, cMin, cMax):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("_addLegs", "addLegsToMinimum")
-        return self.addLegsToMinimum(cMin, cMax)
+        return self._addLegsToMinimum(cMin, cMax)
     def _subLegs(self, cMin, cMax):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("_subLegs", "subLegsToMaximum")
-        return self.subLegsToMaximum(cMin, cMax)
+        return self._subLegsToMaximum(cMin, cMax)
     def _lengthCorrectiveAction(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("_lengthCorrectiveAction", "lengthCorrectiveAction")
         return self.lengthCorrectiveAction()
     def _continuousTranslationConstraint(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction(
             "_continuousTranslationConstraint", "continuousTranslationConstraint")
         return self.continuousTranslationConstraint()
     def _continuousTranslationCorrectiveAction(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction(
             "_continuousTranslationCorrectiveAction", "continuousTranslationCorrectiveAction")
         return self.continuousTranslationCorrectiveAction()
     def _interiorAnglesConstraint(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("_interiorAnglesConstraint", "interiorAnglesConstraint")
         return self.interiorAnglesConstraint()
     def AngleFromNorm(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("AngleFromNorm", "getJointAnglesFromNorm")
         return self.getJointAnglesFromNorm()
     def AngleFromVertical(self):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("AngleFromVertical", "getJointAnglesFromVertical")
         return self.getJointAnglesFromVertical()
     def _bottomTopCheck(self, bottomT, topT):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("_bottomTopCheck", "bottomTopCheck")
         return self.bottomTopCheck(bottomT, topT)
     def JacobianSpace(self, bottomT = None, topT = None):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("JacobianSpace", "jacobianSpace")
-        return self.jacobianSpace(bottomT, topT)
+        """Return Deprecation Notice and Function Call. Don't Use."""
+        self.printOutOfDateFunction("JacobianSpace", "jacobian")
+        return self.jacobian(bottomT, topT)
     def InverseJacobianSpace(self, bottomT = None, topT = None, protect = True):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("InverseJacobianSpace", "inverseJacobianSpace")
-        return self.inverseJacobianSpace(bottomT, topT, protect)
-    def AltInverseJacobianSpace(self, bottomT = None, topT = None, protect = True):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("AltInverseJacobianSpace", "altInverseJacobianSpace")
-        return self.altInverseJacobianSpace(bottomT, topT, protect)
+        """Return Deprecation Notice and Function Call. Don't Use."""
+        self.printOutOfDateFunction("InverseJacobianSpace", "inverseJacobian")
+        return self.inverseJacobian(topT, bottomT, protect)
     def CarryMassCalc(self, twrench, protect = False):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("CarryMassCalc", "carryMassCalc")
         return self.carryMassCalc(twrench, protect)
     def CarryMassCalcNew(self, twrench, protect = False):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("CarryMassCalcNew", "carryMassCalcLocal")
         return self.carryMassCalcLocal(twrench, protect)
     def MeasureForcesAtEENew(self, wrench, protect = False):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("MeasureForcesAtEENew", "measureForcesAtEENew")
-        return self.measureForcesAtEENew(wrench, protect)
+        return self.staticForces(wrench, protect)
     def CarryMassCalcUp(self, twrench, protect = False):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("CarryMassCalcUp", "carryMassCalcUp")
         return self.carryMassCalcUp(twrench, protect)
-    def MeasureForcesFromWrenchEE(self, bottomT = np.zeros((1)) ,  # pragma: no cover
-        topT = np.zeros((1)), topWEE = np.zeros((1)), protect = True):
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("MeasureForcesFromWrenchEE", "measureForcesFromWrenchEE")
-        return self.measureForcesFromWrenchEE(bottomT, topT, topWEE, protect)
     def MeasureForcesFromBottomEE(self, bottomT = np.zeros((1)) ,  # pragma: no cover
         topT = np.zeros((1)), topWEE = np.zeros((1)), protect = True):
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("MeasureForcesFromBottomEE", "measureForcesFromBottomEE")
         return self.measureForcesFromBottomEE(bottomT, topT, topWEE, protect)
-    def WrenchEEFromMeasuredForces(self, bottomT, topT, tau):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
-        self.printOutOfDateFunction("WrenchEEFromMeasuredForces", "wrenchEEFromMeasuredForces")
-        return self.wrenchEEFromMeasuredForces(bottomT, topT, tau)
+
     def WrenchBottomFromMeasuredForces(self, bottomT, topT, tau):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction(
             "WrenchBottomFromMeasuredForces", "wrenchBottomFromMeasuredForces")
         return self.wrenchBottomFromMeasuredForces(bottomT, topT, tau)
     def SumActuatorWrenches(self, forces = None):  # pragma: no cover
-        """
-        Deprecated. Don't Use
-        """
+        """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction("SumActuatorWrenches", "sumActuatorWrenches")
         return self.sumActuatorWrenches(forces)
 

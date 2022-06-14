@@ -1,6 +1,6 @@
 import numpy as np
 from basic_robotics.general import tm, fsr
-from basic_robotics.kinematics import Arm, loadArmFromURDF
+from basic_robotics.kinematics import Robot, Arm, loadArmFromURDF
 from basic_robotics.plotting.Draw import *
 from basic_robotics.utilities.disp import disp
 from basic_robotics.modern_robotics_numba import mr
@@ -393,17 +393,43 @@ class test_kinematics_arm(unittest.TestCase):
             [-9.8724],
             [-1.1878],
             [-1.0605]])
-        tau_arm = self.arm.staticForces(test_theta, wrench_ref)
+        tau_arm = self.arm.staticForces(wrench_ref, test_theta)
         tau_ref = np.array([[5.223],
             [33.1211],
             [8.0504],
             [0],
             [7.9936e-15],
             [3.3307e-16]])
-
         self.matrix_equality_assertion(tau_arm, tau_ref)
 
+        test_theta = np.array([-1.0, 2.0, -3, 4, -5, 6])
+        wrench_ref = np.array([[55.6422],
+                      [28.636],
+                      [0],
+                      [0],
+                      [0],
+                      [-49.05]])
+        tau_ref = np.array([[0],
+                  [62.2934],
+                  [138.8384],
+                  [3.2241],
+                  [-20.2582],
+                  [-28.9437]])
 
+        tau_arm = self.arm.staticForces(wrench_ref, test_theta)
+        self.matrix_equality_assertion(tau_arm, tau_ref)
+
+        self.arm.move(tm([1, 2, 3, 0, 0, 0]))
+        wrench_ref = np.array([[-42.4578],
+                      [77.686],
+                      [0],
+                      [0],
+                      [0],
+                      [-49.05]])
+        tau_arm = self.arm.staticForces(wrench_ref, test_theta)
+        self.matrix_equality_assertion(tau_arm, tau_ref)
+
+        
     def test_kinematics_arm_staticForcesInv(self):
         test_theta = np.array([np.pi/16, np.pi/5, -np.pi/6, np.pi/9, -np.pi/14, np.pi/7])
         tau_ref = np.array([[5.223],
@@ -419,7 +445,7 @@ class test_kinematics_arm(unittest.TestCase):
             [-1.1878],
             [-1.0605]])
 
-        wrench_arm = self.arm.staticForcesInv(test_theta, tau_ref)
+        wrench_arm = self.arm.staticForcesInv(tau_ref, test_theta)
 
         self.matrix_equality_assertion(wrench_arm, wrench_ref)
 
@@ -427,7 +453,7 @@ class test_kinematics_arm(unittest.TestCase):
     def test_kinematics_arm_staticForcesWithLinkMasses(self):
         arm = loadArmFromURDF('./tests/test_helpers/ur5.urdf')
         tau = arm.staticForcesWithLinkMasses(np.zeros(6), fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5.0))
-        tau2 = arm.staticForces(np.zeros(6), fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5))
+        tau2 = arm.staticForces(fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5), np.zeros(6))
         self.assertEqual(tau[5], tau2[5])
 
 
@@ -1380,6 +1406,17 @@ class test_kinematics_arm(unittest.TestCase):
 
         self.matrix_equality_assertion(arm_jac, ref_jac)
 
+        test_theta = np.array([-1, 2, -3, 4, -5, 6])
+        arm_jac = self.arm.jacobian(test_theta)
+        ref_jac = np.array([[0, 0.84147, 0.84147, 0.29193, -0.20594, -0.81283],
+               [0, 0.5403, 0.5403, -0.45465, -0.88904, -0.077256],
+               [1, 0, 0, 0.84147, -0.4089, 0.57735],
+               [0, -2.4314, -0.589, 1.6006, 4.0281, 0.082062],
+               [0, 3.7866, 0.91732, 1.0277, -0.77689, -3.6815],
+               [0, 0, -1.5606, 3.4694e-16, -0.33964, -0.37709]])
+        self.matrix_equality_assertion(arm_jac, ref_jac)
+
+
 
     def test_kinematics_arm_jacobianBody(self):
         test_theta = np.array([[-0.7854],
@@ -1654,3 +1691,33 @@ class test_kinematics_arm(unittest.TestCase):
         joint_transforms = arm.getJointTransforms()
         self.assertEqual(7, len(joint_transforms))
         self.matrix_equality_assertion(joint_transforms[-1].gTM(), arm.getEEPos().gTM())
+
+    def test_kinematics_arm_jacobianRelationships(self):
+        test_theta = np.array([-1, 2, -3, 4, -5, 6])
+        self.arm.FK(test_theta)
+        jac_space_1 = self.arm.jacobian()
+        jac_body_1 = self.arm.jacobianBody()
+        
+        t_bs = self.arm.getEEPos()
+        jac_body_2 = t_bs.inv().adjoint() @ jac_space_1
+        jac_space_2 = t_bs.adjoint() @ jac_body_1
+        self.matrix_equality_assertion(jac_space_1, jac_space_2)
+        self.matrix_equality_assertion(jac_body_1, jac_body_2)
+
+        self.arm.move(tm([1, 2, 3, 0, 0, 0]))
+        self.arm.FK(test_theta)
+        jac_space_3 = self.arm.jacobian()
+        jac_body_3 = self.arm.jacobianBody()
+        
+        t_bs = self.arm.getEEPos()
+        jac_body_4 = t_bs.inv().adjoint() @ jac_space_3
+        jac_space_4 = t_bs.adjoint() @ jac_body_3
+        self.matrix_equality_assertion(jac_space_3, jac_space_4)
+        self.matrix_equality_assertion(jac_body_3, jac_body_4)
+        self.matrix_equality_assertion(jac_body_1, jac_body_3)
+
+        inverse_translated = self.arm.inverseJacobianBody()
+        inverse_actual = np.linalg.inv(self.arm.jacobianBody())
+        self.matrix_equality_assertion(inverse_actual, inverse_translated)
+
+ 
