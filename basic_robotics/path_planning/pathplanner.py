@@ -1,5 +1,4 @@
-from ..general import FASER as fsr
-from ..general import tm
+from ..general import fsr, tm
 import numpy as np
 from rtree import index
 import random
@@ -528,28 +527,6 @@ class RRTStar:
         else:
             self.r6_tree_graph.place(PathNode(tm()))
 
-    def obstructed(self, node, node2):
-        """
-        Return if path between nodes is obstructed
-        Args:
-            node (PathNode): PathNode to operate on
-            node2 (PathNode): Desired second node
-
-        Returns:
-            Bool: Whether or not given node pairing is obstructed
-
-        """
-        for obstruction in self.obstructions:
-            pos = node.getPosition()
-            if (pos[0] >= obstruction[0][0] and pos[0] <= obstruction[1][0]
-             and pos[1] >= obstruction[0][1] and pos[1] <= obstruction[1][1]
-             and pos[2] >= obstruction[0][2] and pos[2] <= obstruction[1][2]
-             and pos[3] >= obstruction[0][3] and pos[3] <= obstruction[1][3]
-             and pos[4] >= obstruction[0][4] and pos[4] <= obstruction[1][4]
-             and pos[5] >= obstruction[0][5] and pos[5] <= obstruction[1][5]):
-                return True
-        return False
-
     def obstruction(self, n1, n2):
         """
         return if path between nodes is obstructed
@@ -625,9 +602,9 @@ class RRTStar:
         degrees_of_freedom = arm.getScrewList().shape[1]
         for i in range(start_index, degrees_of_freedom):
             try:
-                link_to_link_next_midpoint = fsr.TMMidPoint(poses[i], poses[i+1])
-                link_midpoint_facing_next = fsr.TMMidRotAdjust(
-                        link_to_link_next_midpoint, poses[i], poses[i+1], mode = 1)
+                link_to_link_next_midpoint = fsr.tmInterpMidpoint(poses[i], poses[i+1])
+                link_midpoint_facing_next = fsr.lookAt(
+                        link_to_link_next_midpoint, poses[i+1])
                 link_dimensions_next = link_dimensions[i+1, 0:3]
                 dx = link_dimensions_next[0]
                 dy = link_dimensions_next[1]
@@ -724,9 +701,9 @@ class RRTStar:
 
         """
         if self.dmode == 1:
-            return fsr.ArcDistance(pos1, pos2)
+            return fsr.arcDistance(pos1, pos2)
         else:
-            return fsr.Distance(pos1, pos2)
+            return fsr.distance(pos1, pos2)
 
     def generalGenerateTree(self, randomGenerator, distanceFunction, collisionDetector):
         """
@@ -795,7 +772,7 @@ class RRTStar:
             progressBar(i, self.iterations)
             new_node = self.randomPos()
             nearest = self.r6_tree_graph.nearestNeighbors(new_node, 1)
-            while (not self.obstructed(new_node)
+            while (not self.obstructed(nearest, new_node)
                     or self.distance(new_node.getPosition(),
                     nearest[0].object.getPosition()) > self.maximum_distance):
                 new_node = self.randomPos()

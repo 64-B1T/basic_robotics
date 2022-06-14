@@ -1,10 +1,13 @@
+from itertools import combinations
+
+import numpy as np
 import trimesh
 from trimesh.collision import CollisionManager
-from ..general import tm, fsr
+
+from ..general import fsr, tm
 from ..kinematics import Arm
 from ..plotting.Draw import drawMesh
-from itertools import combinations
-import numpy as np
+
 
 def createBox(position, dims):
     """Creates a trimesh representation of a box
@@ -249,13 +252,13 @@ class ColliderArm(ColliderObject):
             p = props[i]
             self.old_transforms.append(tm())
             if p[0] == 'box':
-                new_obj = createBox(tm(), p[2])
+                new_obj = createBox(tm(), p.box_size)
             elif p[0] == 'cyl':
-                new_obj = createCylinder(tm(), p[2][0], p[2][1])
+                new_obj = createCylinder(tm(), p.radius, p.length)
             elif p[0] == 'spr':
-                new_obj = createSphere(tm(), p[2])
+                new_obj = createSphere(tm(), p.radius)
             elif p[0] == 'msh':
-                new_obj = createMesh(tm(), p[2][0])
+                new_obj = createMesh(p.origin, p.file_name)
             self.addMesh(link_name, new_obj)
         self.update()
 

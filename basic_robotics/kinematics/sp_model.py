@@ -16,7 +16,7 @@ class SP:
     def __init__(self, bottom_joints, top_joints, bT, tT, leg_ext_min,
         leg_ext_max, bottom_plate_thickness, top_plate_thickness, name):
         """
-        Initializes a new Stewart Platform Object
+        Initialize a new Stewart Platform Object.
 
         Args:
             bottom_joints (ndarray): Bottom joint positions of the stewart platform
@@ -32,18 +32,18 @@ class SP:
             SP: sp model object
 
         """
-        self.bottom_joints = np.copy(bottom_joints)
-        self.top_joints = np.copy(top_joints)
-        self.bottom_joints_init = self.bottom_joints.conj().transpose()
-        self.top_joints_init = self.top_joints.conj().transpose()
-        self.bottom_plate_pos = bT.copy()
-        self.top_plate_pos = tT.copy()
+        self._bottom_joints_local = np.copy(bottom_joints)
+        self._top_joints_local = np.copy(top_joints)
+        self._bottom_joints_init = self._bottom_joints_local.conj().transpose()
+        self._top_joints_init = self._top_joints_local.conj().transpose()
+        self._bottom_plate_pos = bT.copy()
+        self._top_plate_pos = tT.copy()
+        self._current_plate_transform_local = tm()
         self.bottom_joints_space = np.zeros((3, 6))
         self.top_joints_space = np.zeros((3, 6))
-        self.current_plate_transform_local = tm()
 
         #Debug
-        self.leg_ext_safety = .001
+        self._leg_ext_safety = .001
         self.debug = 0
 
         #Physical Parameters
@@ -56,15 +56,15 @@ class SP:
         self.leg_ext_max = leg_ext_max
 
         #Reserve Val
-        self.nominal_height = fsr.distance(bT, tT)
-        self.nominal_plate_transform = tm([0, 0, self.nominal_height, 0, 0, 0])
+        self._nominal_height = fsr.distance(bT, tT)
+        self._nominal_plate_transform = tm([0, 0, self._nominal_height, 0, 0, 0])
 
-        self.aux_inits = [
-            self.nominal_plate_transform,
-            self.nominal_plate_transform @ tm([np.pi/8, 0, 0]),
-            self.nominal_plate_transform @ tm([0, -np.pi/8, 0]),
-            self.nominal_plate_transform @ tm([-np.pi/8, 0, np.pi/8]),
-            self.nominal_plate_transform @ tm([.25, .25, -.25, np.pi/10, 0, .001])
+        self._aux_inits = [
+            self._nominal_plate_transform,
+            self._nominal_plate_transform @ tm([np.pi/8, 0, 0]),
+            self._nominal_plate_transform @ tm([0, -np.pi/8, 0]),
+            self._nominal_plate_transform @ tm([-np.pi/8, 0, np.pi/8]),
+            self._nominal_plate_transform @ tm([.25, .25, -.25, np.pi/10, 0, .001])
         ]
 
         #Drawing Characteristics
@@ -83,24 +83,19 @@ class SP:
         self.top_plate_mass = 0
         self.act_shaft_mass = 0
         self.act_motor_mass = 0
-        self.act_shaft_newton_force = 0
-        self.act_motor_newton_force = 0
-        self.top_plate_newton_force = 0
-        self.bottom_plate_newton_force = 0
-        self.grav = 9.81
-        self.dir = np.array([0, 0, -1])
+        self.grav = np.array([0, 0, -9.81])
         self.act_shaft_grav_center = 0
         self.act_motor_grav_center = 0
-        self.force_limit= 0
+        self.force_limit = 0
 
         #Tolerances and Limits
         self.joint_deflection_max = 140/2*np.pi/180#2*np.pi/5
         self.plate_rotation_limit = np.cos(60*np.pi/180)
 
         #Newton Settings
-        self.tol_f = 1e-5/2
-        self.tol_a = 1e-5/2
-        self.max_iterations = 1e4
+        self._tol_f = 1e-5/2
+        self._tol_a = 1e-5/2
+        self._max_iterations = 1e4
 
         #Errors and Counts
         self.fail_count = 0
@@ -110,13 +105,10 @@ class SP:
 
         self.IK(bT, tT, protect = True)
 
-        self.bottom_joint_angles_init = self.top_joints_space.T.copy()
-        self.bottom_joint_angles = self.bottom_joints_space.T.copy()
-
-        self.bottom_joint_angles_init = [None] * 6
+        self._bottom_joint_angles_init = [None] * 6
         self.bottom_joint_angles = [None] * 6
         for i in range(6):
-            self.bottom_joint_angles_init[i] = fsr.globalToLocal(self.getBottomT(),
+            self._bottom_joint_angles_init[i] = fsr.globalToLocal(self.getBottomT(),
                 tm([self.top_joints_space.T[i][0], self.top_joints_space.T[i][1],
                 self.top_joints_space.T[i][2], 0, 0, 0]))
             self.bottom_joint_angles[i] = fsr.globalToLocal(self.getTopT(),
@@ -139,8 +131,8 @@ class SP:
 
 
         #Compatibility
-        self.plate_thickness_avg = (self.top_plate_thickness + self.bottom_plate_thickness) / 2
-        self.nominal_plate_transform = tm([0, 0, self.plate_thickness_avg, 0, 0, 0])
+        self._plate_thickness_avg = (self.top_plate_thickness + self.bottom_plate_thickness) / 2
+        self._nominal_plate_transform = tm([0, 0, self._plate_thickness_avg, 0, 0, 0])
 
         #Validation Settings
 
@@ -174,12 +166,9 @@ class SP:
         self.setGrav(grav)
         self.act_shaft_mass = act_shaft_mass
         self.act_motor_mass = act_motor_mass
-        self.act_motor_newton_force = self.act_motor_mass * self.grav
-        self.act_shaft_newton_force = self.act_shaft_mass * self.grav
-        self.top_plate_newton_force = self.top_plate_mass * self.grav
-        self.bottom_plate_newton_force = self.bottom_plate_mass * self.grav
 
-    def setGrav(self, grav=9.81):
+
+    def setGrav(self, grav=np.array([0, 0, -9.81])):
         """
         Sets Gravity
         Args:
@@ -239,9 +228,9 @@ class SP:
             top_plate_pos (tm): top plate transformation in space frame
         """
         if bottom_plate_pos is not None:
-            self.bottom_plate_pos = bottom_plate_pos
+            self._bottom_plate_pos = bottom_plate_pos
         if top_plate_pos is not None:
-            self.top_plate_pos = top_plate_pos
+            self._top_plate_pos = top_plate_pos
 
     def getBottomJoints(self):
         """
@@ -268,7 +257,7 @@ class SP:
             tm: Top plate relative to bottom plate
 
         """
-        return self.current_plate_transform_local
+        return self._current_plate_transform_local
 
     def getLegForces(self):
         """
@@ -292,7 +281,7 @@ class SP:
         Returns:
             tm: top plate transform in space frame
         """
-        return self.top_plate_pos.copy()
+        return self._top_plate_pos.copy()
 
     def getBottomT(self):
         """
@@ -300,7 +289,7 @@ class SP:
         Returns:
             tm: bottom plate transform in space frame
         """
-        return self.bottom_plate_pos.copy()
+        return self._bottom_plate_pos.copy()
 
     def getActuatorLoc(self, num, type = 'm'):
         """
@@ -349,8 +338,8 @@ class SP:
         current_top_pos = self.getTopT()
         top_joints_copy = self.top_joints_space.copy()
         bottom_joints_copy = self.bottom_joints_space.copy()
-        top_joints_origin_copy = self.top_joints[2, 0:6]
-        bottom_joints_origin_copy = self.bottom_joints[2, 0:6]
+        top_joints_origin_copy = self._top_joints_local[2, 0:6]
+        bottom_joints_origin_copy = self._bottom_joints_local[2, 0:6]
         rotation_transform = tm([0, 0, 0, 0, 0, rot * np.pi / 180])
         self.move(rotation_transform)
         top_joints_space_new = self.top_joints_space.copy()
@@ -360,8 +349,8 @@ class SP:
         bottom_joints_copy[2, 0:6] = bottom_joints_origin_copy
         top_joints_copy[2, 0:6] = top_joints_origin_copy
         self.move(tm())
-        self.bottom_joints = bottom_joints_copy
-        self.top_joints = top_joints_copy
+        self._bottom_joints_local = bottom_joints_copy
+        self._top_joints_local = top_joints_copy
         self.bottom_joints_space = bottom_joints_space_new
         self.top_joints_space = top_joints_space_new
         self.move(old_base_pos)
@@ -386,8 +375,8 @@ class SP:
             bottom_plate_pos, top_plate_pos, protect)
         #Determine current transform
 
-        self.bottom_plate_pos = bottom_plate_pos.copy()
-        self.top_plate_pos = top_plate_pos.copy()
+        self._bottom_plate_pos = bottom_plate_pos.copy()
+        self._top_plate_pos = top_plate_pos.copy()
 
         #Ensure a valid position
         valid = True
@@ -417,19 +406,19 @@ class SP:
         #Poses which would be valid by leg length
         #But would result in singularity
         #Set bottom and top transforms
-        #self.bottom_plate_pos = bottom_plate_pos
-        #self.top_plate_pos = top_plate_pos
+        #self._bottom_plate_pos = bottom_plate_pos
+        #self._top_plate_pos = top_plate_pos
 
         #Call the IK method from the JIT numba file (FASER HIGH PER)
         #Shoulda just called it HiPer FASER. Darn.
         self.lengths, self.bottom_joints_space, self.top_joints_space = fmr.SPIKinSpace(
                 bottom_plate_pos.gTM(),
                 top_plate_pos.gTM(),
-                self.bottom_joints,
-                self.top_joints,
+                self._bottom_joints_local,
+                self._top_joints_local,
                 self.bottom_joints_space,
                  self.top_joints_space)
-        self.current_plate_transform_local = fsr.globalToLocal(
+        self._current_plate_transform_local = fsr.globalToLocal(
                 bottom_plate_pos, top_plate_pos)
         return np.copy(self.lengths), bottom_plate_pos, top_plate_pos
 
@@ -459,10 +448,10 @@ class SP:
         if not self.continuousTranslationConstraint():
             if self.debug:
                 disp("FK Resulted In Inverted Plate Alignment. Repairing...")
-            #self.IK(top_plate_pos = self.getBottomT() @ tm([0, 0, self.nominal_height, 0, 0, 0]))
+            #self.IK(top_plate_pos = self.getBottomT() @ tm([0, 0, self._nominal_height, 0, 0, 0]))
             #self.FK(L, protect = True)
             self.fixUpsideDown()
-        self.current_plate_transform_local = fsr.globalToLocal(bottom, top)
+        self._current_plate_transform_local = fsr.globalToLocal(bottom, top)
         #self._undoPlateTransform(bottom, top)
         valid = True
         if not protect:
@@ -498,7 +487,7 @@ class SP:
                 top_plate_pos = bottom_plate_pos
             fk = lambda x : (self.IK(tm(x), top_plate_pos, protect = True) - L).reshape((6))
             sol = tm(sci.optimize.fsolve(fk, self.getTopT().gTAA()))
-            #self.top_plate_pos = bottom_plate_pos
+            #self._top_plate_pos = bottom_plate_pos
         else:
             #General calls will go here.
             if bottom_plate_pos == None:
@@ -556,11 +545,11 @@ class SP:
 
         #Initial Guess Position
         #a = fsr.TMtoTAA(bottom_plate_pos @
-        #   fsr.TM([0, 0, self.nominal_height, 0, 0, 0])).reshape((6))
+        #   fsr.TM([0, 0, self._nominal_height, 0, 0, 0])).reshape((6))
         #disp(a, "Attempt")
         try:
-            #ap = (fsr.localToGlobal(tm([0, 0, self.nominal_height, 0, 0, 0]), tm()))
-            ap = (fsr.localToGlobal(self.current_plate_transform_local, tm())).gTAA().reshape((6))
+            #ap = (fsr.localToGlobal(tm([0, 0, self._nominal_height, 0, 0, 0]), tm()))
+            ap = (fsr.localToGlobal(self._current_plate_transform_local, tm())).gTAA().reshape((6))
             attempt = np.zeros((6), dtype=float)
             for i in range(6):
                 attempt[i] = ap[i]
@@ -569,23 +558,23 @@ class SP:
             #Pass in initial lengths, guess, bottom and top plate positions,
             #max iterations, tolerances, and minimum leg lengths
             attempt, iteration = fmr.SPFKinSpaceR(L, attempt,
-                self.bottom_joints_init, self.top_joints_init,
-                self.max_iterations, self.tol_f, self.tol_a, self.leg_ext_min)
+                self._bottom_joints_init, self._top_joints_init,
+                self._max_iterations, self._tol_f, self._tol_a, self.leg_ext_min)
 
             #If the algorithm failed, try again, but this time set initial position to neutral
-            if iteration == self.max_iterations:
+            if iteration == self._max_iterations:
                 for i in range(6):
-                    attempt = self.aux_inits[i].TAA.flatten()
-                    #attempt[2] = self.nominal_height
+                    attempt = self._aux_inits[i].TAA.flatten()
+                    #attempt[2] = self._nominal_height
                     attempt, iteration = fmr.SPFKinSpaceR(L, attempt,
-                        self.bottom_joints_init, self.top_joints_init,
-                        self.max_iterations, self.tol_f, self.tol_a, self.leg_ext_min)
-                    if iteration == self.max_iterations:
+                        self._bottom_joints_init, self._top_joints_init,
+                        self._max_iterations, self._tol_f, self._tol_a, self.leg_ext_min)
+                    if iteration == self._max_iterations:
                         if self.debug:
                             print("Raphson Failed to Converge")
                         self.fail_count += 1
                         self.IK(bottom_plate_pos_backup,
-                            bottom_plate_pos_backup @ self.nominal_plate_transform, protect = True)
+                            bottom_plate_pos_backup @ self._nominal_plate_transform, protect = True)
                         return self.getBottomT(), self.getTopT()
                     else:
                         break
@@ -597,14 +586,14 @@ class SP:
             # @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
 
             #Disabling these cause unknown issues so far.
-            #self.bottom_plate_pos = bottom_plate_pos_backup
-            #self.top_plate_pos = coords
+            #self._bottom_plate_pos = bottom_plate_pos_backup
+            #self._top_plate_pos = coords
 
 
             self.IKHelper(bottom_plate_pos_backup, coords, protect = True)
-            self.bottom_plate_pos = bottom_plate_pos_backup
+            self._bottom_plate_pos = bottom_plate_pos_backup
             #@ tm([0, 0, self.bottom_plate_thickness, 0, 0, 0])
-            self.top_plate_pos = coords #@ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
+            self._top_plate_pos = coords #@ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
             if self.debug:
                 disp("Returning from Raphson FK")
             return bottom_plate_pos_backup, tm(coords)
@@ -656,7 +645,7 @@ class SP:
         x_init = self.getTopT()[3:6].flatten()
         solution = sci.optimize.fsolve(res, x_init)
         top_true[3:6] = solution
-        self.top_plate_pos = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
+        self._top_plate_pos = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
         #disp(self.lambdaTopPlateReorientation(self.getTopT() @
         #   tm([0, 0, -self.top_plate_thickness, 0, 0, 0])))
 
@@ -691,7 +680,7 @@ class SP:
         top_true = fsr.mirror(self.getBottomT() @ tm([0, 0, -self.bottom_plate_thickness, 0, 0, 0]),
             self.getTopT() @ tm([0, 0, -self.top_plate_thickness, 0, 0, 0]))
         top_true[3:6] = self.getTopT()[3:6] * -1
-        self.top_plate_pos = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
+        self._top_plate_pos = top_true @ tm([0, 0, self.top_plate_thickness, 0, 0, 0])
         self.reorientTopPlate()
 
     def validateLegs(self, valid = True, donothing = False):
@@ -763,7 +752,7 @@ class SP:
                 if self.debug:
                     disp("Executing Interior Angles Corrective Action...")
                 self.IK(self.getBottomT(), self.getBottomT() @
-                    self.nominal_plate_transform, protect = True)
+                    self._nominal_plate_transform, protect = True)
                 valid = self.validate(True, 3)
         return valid
 
@@ -787,9 +776,9 @@ class SP:
             if not temp_valid and not donothing:
                 if self.debug:
                     disp("Executing Plate Rotation Corrective Action By Resetting Platform")
-                #disp(self.nominal_plate_transform)
+                #disp(self._nominal_plate_transform)
                 self.IK(self.getBottomT(),(self.getBottomT() @
-                    self.nominal_plate_transform), protect = True)
+                    self._nominal_plate_transform), protect = True)
                 valid = self.validate(True, 4)
         return valid
 
@@ -809,7 +798,7 @@ class SP:
         #if self.debug:
         #    disp("Validating")
         #First check to make sure leg lengths are not exceeding limit points
-        if fsr.distance(self.getTopT(), self.getBottomT()) > 2 * self.nominal_height:
+        if fsr.distance(self.getTopT(), self.getBottomT()) > 2 * self._nominal_height:
             valid = False
 
         if validation_limit > 0: valid = self.validateLegs(valid, donothing)
@@ -831,10 +820,10 @@ class SP:
         """
         valid = True
         for i in range(3):
-            if self.current_plate_transform_local.gTM()[i, i] <= self.plate_rotation_limit - .0001:
+            if self._current_plate_transform_local.gTM()[i, i] <= self.plate_rotation_limit - .0001:
                 if self.debug:
-                    disp(self.current_plate_transform_local.gTM(), "Erroneous TM")
-                    print([self.current_plate_transform_local.gTM()[i, i],
+                    disp(self._current_plate_transform_local.gTM(), "Erroneous TM")
+                    print([self._current_plate_transform_local.gTM()[i, i],
                         self.plate_rotation_limit])
                 valid = False
         return valid
@@ -873,10 +862,10 @@ class SP:
             current_leg_min (Float):  current minimum leg length (may be invalid)
             current_leg_max (Float): current maximum leg length (may be invalid)
         """
-        boostamt = ((self.leg_ext_min-current_leg_min)+self.leg_ext_safety)
+        boost_amount = ((self.leg_ext_min-current_leg_min)+self._leg_ext_safety)
         if self.debug:
-            print("Boost Amount: " + str(boostamt))
-        self.lengths += boostamt
+            print("Boost Amount: " + str(boost_amount))
+        self.lengths += boost_amount
 
     def subLegsToMaximum(self, current_leg_min, current_leg_max):
         """
@@ -887,8 +876,8 @@ class SP:
         """
         #print([current_leg_max, self.leg_ext_max, current_leg_min,
         #    self.leg_ext_min, current_leg_max -
-        #    (current_leg_max - self.leg_ext_max + self.leg_ext_safety)])
-        self.lengths -= ((current_leg_max - self.leg_ext_max)+self.leg_ext_safety)
+        #    (current_leg_max - self.leg_ext_max + self._leg_ext_safety)])
+        self.lengths -= ((current_leg_max - self.leg_ext_max)+self._leg_ext_safety)
         #print(self.lengths)
 
     def lengthCorrectiveAction(self):
@@ -915,12 +904,12 @@ class SP:
             self.validation_error+= " CMethod: Rescale, "
         elif (current_leg_min < self.leg_ext_min and
             current_leg_max + (self.leg_ext_min - current_leg_min) +
-            self.leg_ext_safety < self.leg_ext_max):
+            self._leg_ext_safety < self.leg_ext_max):
             self.addLegsToMinimum(current_leg_min, current_leg_max)
             self.validation_error+= " CMethod: Boost, "
         elif (current_leg_max > self.leg_ext_max and
             current_leg_min - (current_leg_max - self.leg_ext_max) -
-            self.leg_ext_safety > self.leg_ext_min):
+            self._leg_ext_safety > self.leg_ext_min):
             self.validation_error+= " CMethod: Subract, "
             self.subLegsToMaximum(current_leg_min, current_leg_max)
         else:
@@ -954,7 +943,7 @@ class SP:
         """
         Resets to home position
         """
-        self.IK(top_plate_pos = self.getBottomT() @ self.nominal_plate_transform, protect = True)
+        self.IK(top_plate_pos = self.getBottomT() @ self._nominal_plate_transform, protect = True)
 
     def interiorAnglesConstraint(self):
         """
@@ -1002,7 +991,7 @@ class SP:
                 #   of the bottom joints (bottom angles) in home pose
                 #We have the relative positions to the bottom plate of
                 #   the top joints (bottom_joint_angles_init) in home pose
-                bottom_to_top_local_home = self.bottom_joint_angles_init[i].copy()
+                bottom_to_top_local_home = self._bottom_joint_angles_init[i].copy()
                 top_to_bottom_local_home = self.bottom_joint_angles[i].copy()
 
                 #We acquire the current relative (local positions of each)
@@ -1211,17 +1200,17 @@ class SP:
         """
         wrench = twrench.copy()
         wrench = wrench + fsr.makeWrench(self.getTopT(),
-            self.top_plate_newton_force, self.dir)
+            self.top_plate_mass, self.grav)
         tau = self.measureForcesFromWrenchEE(self.getBottomT(),
             self.getTopT(), wrench, protect = protect)
         for i in range(6):
             #print(self.getActuatorLoc(i, 't'))
             wrench += fsr.makeWrench(self.getActuatorLoc(i, 't'),
-                self.act_shaft_newton_force, self.dir)
+                self.act_shaft_mass, self.grav)
             wrench += fsr.makeWrench(self.getActuatorLoc(i, 'b'),
-                self.act_motor_newton_force, self.dir)
+                self.act_motor_mass, self.grav)
         wrench = wrench + fsr.makeWrench(self.getBottomT(),
-            self.bottom_plate_newton_force, self.dir)
+            self.bottom_plate_mass, self.grav)
         return tau, wrench
 
     def carryMassCalcLocal(self, twrench, protect = False):
@@ -1237,7 +1226,7 @@ class SP:
         """
         #We will here assume that the wrench is in the local frame of the top platform.
         wrench = twrench.copy()
-        wrench = wrench + fsr.makeWrench(tm(), self.top_plate_newton_force, self.dir)
+        wrench = wrench + fsr.makeWrench(tm(), self.top_plate_mass, self.grav)
         tau = self.measureForcesAtEENew(wrench, protect = protect)
         wrench_local_frame = fsr.transformWrenchFrame(wrench, self.getTopT(), self.getBottomT())
 
@@ -1245,17 +1234,17 @@ class SP:
             #print(self.getActuatorLoc(i, 't'))
             #The following representations are equivalent.
             wrench_local_frame += fsr.makeWrench(fsr.globalToLocal(self.getActuatorLoc(i, 't'),
-                self.getBottomT()), self.act_shaft_newton_force, self.dir)
+                self.getBottomT()), self.act_shaft_mass, self.grav)
             wrench_local_frame += fsr.makeWrench(fsr.globalToLocal(self.getActuatorLoc(i, 'b'),
-                self.getBottomT()), self.act_motor_newton_force, self.dir)
+                self.getBottomT()), self.act_motor_mass, self.grav)
             #wrench_local_frame += fsr.transformWrenchFrame(fsr.makeWrench(tm(),
-            #    self.act_shaft_newton_force, self.dir),
+            #    self.act_motor_mass, self.grav),
             #   self.getActuatorLoc(i, 't'), self.getBottomT())
             #wrench_local_frame += fsr.transformWrenchFrame(fsr.makeWrench(tm(),
-            #    self.act_motor_newton_force, self.dir),
+            #    self.act_shaft_mass, self.grav),
             #   self.getActuatorLoc(i, 'b'), self.getBottomT())
         wrench_local_frame = wrench_local_frame + fsr.makeWrench(tm(),
-            self.bottom_plate_newton_force, self.dir)
+            self.bottom_plate_mass, self.grav)
         return tau, wrench_local_frame
 
     def measureForcesAtEENew(self, wrench, protect = False):
@@ -1289,16 +1278,16 @@ class SP:
         """
         wrench = twrench.copy()
         wrench = wrench + fsr.makeWrench(self.getBottomT(),
-            self.bottom_plate_mass * self.grav, np.array([0, 0, -1]))
+            self.bottom_plate_mass, self.grav)
         tau = self.measureForcesFromBottomEE(
             self.getBottomT(), self.getTopT(), wrench, protect = protect)
         for i in range(6):
             wrench += fsr.makeWrench(
-                self.getActuatorLoc(i, 't'), self.act_shaft_mass * self.grav, np.array([0, 0, -1]))
+                self.getActuatorLoc(i, 't'), self.act_shaft_mass, self.grav)
             wrench += fsr.makeWrench(
-                self.getActuatorLoc(i, 'b'), self.act_motor_mass * self.grav, np.array([0, 0, -1]))
+                self.getActuatorLoc(i, 'b'), self.act_motor_mass, self.grav)
         wrench = wrench + fsr.makeWrench(
-            self.getTopT(), self.top_plate_mass * self.grav, np.array([0, 0, -1]))
+            self.getTopT(), self.top_plate_mass * self.grav)
         return tau, wrench
 
     #Get Force wrench from the End Effector Force
@@ -1432,11 +1421,11 @@ class SP:
         #Moves the base of the stewart platform to a new location
 
 
-        self.current_plate_transform_local = fsr.globalToLocal(self.getBottomT(), self.getTopT())
-        self.bottom_plate_pos = T.copy()
+        self._current_plate_transform_local = fsr.globalToLocal(self.getBottomT(), self.getTopT())
+        self._bottom_plate_pos = T.copy()
         self.IK(
             top_plate_pos = fsr.localToGlobal(self.getBottomT(),
-                    self.current_plate_transform_local),
+                    self._current_plate_transform_local),
             protect = protect)
 
     def printOutOfDateFunction(self, old_name, use_name):   # pragma: no cover

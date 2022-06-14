@@ -1,0 +1,314 @@
+canvas { display: block; }
+
+body {
+  margin: 0;
+  background-color: #ffffff;
+}
+
+.overallGrid {
+  display: grid;
+  grid-gap: 2px;
+  grid-template-rows: min-content 0.5fr 0.5fr 25px;
+  grid-template-columns: 200px 0.5fr 0.5fr 200px;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events:none;
+}
+
+.header, .headertrans { grid-row: 1; grid-column: 1 / 5; background-color: rgba(0, 0, 0, 1);pointer-events:auto;
+  display: grid;
+  grid-gap: 5px;
+  padding: 5px;
+  grid-template-rows: min-content;
+  grid-template-columns: 25px 1fr 25px;
+}
+.headertrans {
+  background-color: rgba(0, 0, 0, 0);
+  grid-template-columns: 15px 1fr 15px;
+}
+.left { grid-row: 2 / 4; grid-column: 1; background-color: rgba(0, 0, 0, 1);pointer-events:auto;}
+.centerUL { grid-row: 2; grid-column: 2; background-color: rgba(0,0,0,0);pointer-events:none;}
+.centerUR { grid-row: 2; grid-column: 3; background-color: rgba(0,0,0,0);pointer-events:none;}
+.centerLL { grid-row: 3; grid-column: 2;background-color: rgba(0,0,0,0);pointer-events:none;}
+.centerLR { grid-row: 3; grid-column: 3; background-color: rgba(0,0,0,0);pointer-events:none;}
+.right { grid-row: 2 / 4; grid-column: 4; background-color: rgba(0, 0, 0, 1); pointer-events:auto;}
+.bottom { grid-row: 4; grid-column: 1 / 5; background-color: rgba(0, 0, 0, 1);
+  display: grid;
+  grid-gap: 2px;
+  grid-template-columns: 100px 100px 1fr 100px 100px;
+  pointer-events:auto;
+}
+.editor {grid-row: 2; grid-column: 3; background-color: white;display:none;}
+.plot {grid-row: 3; grid-column: 3; background-color: white;display:none;}
+
+.faserlogo {grid-column: 2; grid-row: 1; display:block;}
+.faserlogomobile {grid-column: 2; grid-row: 1; display:none;}
+.leftmenu {grid-row: 1; grid-column: 1; cursor: pointer; display:none;}
+.leftmenuX {grid-row: 1; grid-column: 1; cursor: pointer;}
+.rightmenu {grid-row: 1; grid-column: 3; cursor: pointer; display:none;}
+.rightmenuX {grid-row: 1; grid-column: 3; cursor: pointer;}
+
+.bitem1 {grid-column: 1;}
+.bitem2 {grid-column: 2;}
+.bitem3 {grid-column: 4;}
+.bitem4 {grid-column: 5;}
+
+
+img.faserlogo {
+  display: block;
+  /* height: auto; */
+  width: 100%;
+  max-height: 50px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+img.menu {
+  display: block;
+  height: 100%;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.headerbutton {
+  position: relative;
+  width: 100%;
+  height: 100%; /* Specified height */
+  /* background-color: rgba(134, 31, 65,1); */
+  background-color: rgba(0, 0, 0, 1);
+  border: none;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  font-family: Verdana, sans-serif;
+  font-size: 0.75rem;
+  /* text-shadow: 0em 0em 0.6em rgb(255, 255, 255, 1); */
+  /* font-weight: bold; */
+  transition-duration: 0s;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  padding: 0px 0px;
+}
+
+.headerbutton:hover {background-color: rgba(255, 255, 255, 0.3);}
+/* .headerbutton:hover {background-color: rgba(0, 60, 113, 1);} */
+
+.valGroupGrid {
+  display: grid;
+  grid-template-areas:
+    'vgleft vgright';
+  grid-gap: 1px;
+  grid-template-rows: 20px;
+  grid-template-columns: 50% 50%;
+  padding: 1px;
+}
+
+.vglabel { grid-area: vgleft; background-color: rgba(0, 0, 0, 0);}
+.vgtextbox { grid-area: vgright; background-color: rgba(0, 0, 0, 0);}
+/* .vgtextbox:hover { background-color: rgba(0, 60, 113, 1);} */
+.vglefttb { grid-area: vgleft; background-color: rgba(0, 0, 0, 0);}
+.vgrightbutton { grid-area: vgright; background-color: rgba(0, 0, 0, 0);}
+
+.tabGrid {
+  display: none;
+  width: 100%;
+  padding: 0px;
+}
+
+.elementGrid {
+  display: grid;
+  grid-template-areas:
+    'fvelement';
+  grid-gap: 1px;
+  grid-template-rows: 20px;
+  grid-template-columns: 100%;
+  padding: 1px;
+}
+
+.fvelement { grid-area: fvelement; background-color: rgba(0, 0, 0, 0);
+  text-align: center;
+}
+
+.fvleftelement { grid-area: fvelement; background-color: rgba(0, 0, 0, 0);
+}
+
+.fvlabel{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  left: 0%;
+  top: 0%;
+  padding: 0%;
+  color: #ffffff;
+  font-family: Verdana, sans-serif;
+  font-size: 0.75rem;
+}
+
+.fvdatalabel{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  left: 0%;
+  top: 0%;
+  padding: 0%;
+  color: #ffffff;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.fvtextbox {
+  position: relative;
+  border: none;
+  background-color: rgba(0, 60, 113, 0.5);
+  width: 100%;
+  height: 100%;
+  left: 0%;
+  top: 0%;
+  padding: 0%;
+  font-family: monospace;
+  color: white;
+  font-size: 0.75rem;
+}
+
+.fvtextbox:hover {background-color: rgba(0, 60, 113, 1);}
+
+.fvslider {
+  width: 100%;
+}
+
+.fvbutton {
+  position: relative;
+  width: 100%;
+  height: 100%; /* Specified height */
+  background-color: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-family: Verdana, sans-serif;
+  font-size: 0.75rem;
+  transition-duration: 0s;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  /* text-shadow: 0em 0em 0.3em rgb(232, 119, 34, 1); */
+
+}
+
+.fvbutton:hover {
+  background-color: rgba(255, 255, 255, 0.6);
+  color: white;
+}
+
+.fvdrop {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  font-family: Verdana, sans-serif;
+  font-size: 0.75rem;
+  cursor: pointer;
+  /* text-shadow: 0em 0em 0.3em rgb(232, 119, 34, 1); */
+  border-radius: 0.5rem;
+}
+
+.fvdrop-content {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: 0%;
+  background-color: rgba(0, 0, 0, 1);
+  width: 100%;
+  /* height: 20px; */
+  z-index: 1;
+  border-radius: 0.5rem;
+}
+
+.fvdrop-content-right {
+  display: none;
+  position: absolute;
+  right: 100%;
+  top: 0%;
+  background-color: rgba(0, 0, 0, 1);
+  width: 100%;
+  /* height: 20px; */
+  z-index: 1;
+  border-radius: 0.5rem;
+}
+
+.fvdrop:hover .fvdrop-content {
+  display: block;
+}
+
+.fvdrop:hover .fvdrop-content-right {
+  display: block;
+}
+
+.fvdrop:hover {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+@media only screen and (max-width: 992px) {
+  body{
+    -webkit-text-size-adjust: none;
+  }
+  .overallGrid {
+    grid-template-rows: min-content 0.5fr 0.5fr 1.2em;
+    grid-template-columns: 45vmin 0.5fr 0.5fr 45vmin;
+  }
+  .header {
+    grid-template-rows: min-content;
+    grid-template-columns: 1.2em 1fr 1.2em;
+    grid-gap: 0.4vmin;
+    padding: 0.4vmin;
+  }
+  .left { grid-row: 2 / 4; grid-column: 1;}
+  .right { grid-row: 2 / 4; grid-column: 4;}
+  .bottom {
+    grid-gap: 0.4vmin;
+    grid-template-columns: 5em 5em 1fr 5em 5em;
+    pointer-events:auto;
+  }
+  .editor {grid-row: 2 / 4; grid-column: 1 / 5;}
+  .plot {grid-row: 2 / 4; grid-column: 1 / 5;}
+  .faserlogo {display:none;}
+  .faserlogomobile {display:block;}
+  img.faserlogo {
+    max-height: 2.5em;
+  }
+  img.menu {
+    height: 100%;
+    width: 100%;
+  }
+
+  .valGroupGrid {
+    grid-gap: 0.2vmin;
+    grid-template-rows: 1.2em;
+    padding: 0.2vmin;
+  }
+  .elementGrid {
+    grid-gap: 0.2vmin;
+    grid-template-rows: 1.2em;
+    padding: 0.2vmin;
+  }
+  .fvdrop-content {
+    left: 100%;
+    width: 100%;
+    /* height: 2em; */
+    /* padding: 0.4%; */
+  }
+  .fvdrop-content-right {
+    right: 100%;
+    width: 100%;
+    /* height: 2em; */
+    /* padding: 0.4%; */
+  }
+}

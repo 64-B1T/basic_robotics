@@ -1,15 +1,21 @@
-More complete implementation of Screw Theory. Numerous Bug Fixes 
+Version 0.3.17 - Hotfix Release
+Screw Math 
+    - Fixes for built in functions for screw and derived classes
+    - More tests 
+Arm
+    - reversed order of arguments for jacobianLink, made theta optional
+    - more functions will also evetually get theta argument reversal, making use easier.
+    - More tests
+Plotting 
+    - Draw functions updated for Arm and SP for new private variables 
+    - DrawArm rewritten to support new convention on getJointPositions
+Examples 
+    - Checked over examples in ReadME and updated, also added all under /examples directory 
+PathPlanner 
+    - Updated references to deprecated functions
+    - Removed naive obstruction function, instead relying on pure line in box algorithm for basic obstructions
+General 
+    - Tested and bumped supported numpy version to 1.22.4
 
-This corresponds to beta release 0.3.16
 
-The Screw Update!
-Base class "Screw" implements robotics definition of screw. Inherited by:
-    - Wrench 
-    - Twist
-Features of Screw-derived classes:
-    - Intelligent frame matching to operand (a in a + b) for addition, multiplication, subtraction, etc.
-    - Automatic application of cross and dot products between Screws for relevant operations 
-        - ScrewA @ ScrewB = ScrewA . (ScrewB)
-        - ScrewA * ScrewB = ScrewA x ScrewB
-    - State memory of applied frame
-    - Get pitch of screw from getPitch
+

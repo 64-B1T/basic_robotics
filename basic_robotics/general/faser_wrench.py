@@ -72,7 +72,7 @@ class Wrench(Screw):
             old_frame = self.frame_applied
         if old_frame == new_frame:
             return self
-        self.frame_applied = new_frame
+        self._setFrame(new_frame)
         frame_transition = globalToLocal(old_frame, new_frame)
         self.data = frame_transition.adjoint().T @ self.data
         return self # Compatibility

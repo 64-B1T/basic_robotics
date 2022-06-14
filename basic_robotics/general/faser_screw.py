@@ -27,10 +27,14 @@ class Screw:
             data (np.ndarray[Float]) : data representing a screw, of shape ((6,1))
             frame_applied (tm, optional): If not specified, assumes origin.
         """
-        self.data = data
+        if not data.shape == ((6,1)):
+            self.data = data.reshape((6,1))
+        else:
+            self.data = data
         self.frame_applied = frame_applied
         if self.frame_applied is None:
             self.frame_applied = tm()
+        self.shape = ((6,1)) # For numpy compatibility
 
     def copy(self) -> 'Screw':
         """
@@ -51,6 +55,16 @@ class Screw:
         """
         return self.data.copy().flatten()
 
+    
+    def _setFrame(self, new_frame):
+        """
+        Set a frame without changing it, called as a private method for Screw and subclasses.
+
+        Args:
+            new_frame (tm): New frame to use
+        """
+        self.frame_applied = new_frame.copy()
+
     def changeFrame(self, new_frame : tm, old_frame : tm = None) -> 'Screw':
         """
         Change a screw from one frame to another.
@@ -66,11 +80,11 @@ class Screw:
         """
         if old_frame is None:
             old_frame = self.frame_applied
-        elif old_frame == new_frame:
+        if old_frame == new_frame:
             return self
-        new_frame = globalToLocal(new_frame, old_frame)
-        self.frame_applied = new_frame
-        self.data = new_frame.adjoint() @ self.data
+        self._setFrame(new_frame)
+        frame_transition = globalToLocal(new_frame, old_frame)
+        self.data = frame_transition.adjoint() @ self.data
         return self # Compatibility
 
     def getData(self) -> 'np.ndarray[float]':
@@ -91,7 +105,7 @@ class Screw:
         Returns:
             pitch (float) : Screw pitch.
         """
-        return mr.Norm(self.data[0:3])/mr.Norm(self.data[3:6])
+        return mr.Norm(self.data[0:3,0])/mr.Norm(self.data[3:6,0])
 
     def cross(self, other_screw : 'Screw') -> 'Screw':
         """
@@ -101,9 +115,9 @@ class Screw:
         """
         if not self.frame_applied == other_screw.frame_applied:
             other_screw = other_screw.copy().changeFrame(self.frame_applied)
-        nt = np.cross(self.data[0:3], other_screw.data[0:3])
-        nb = (np.cross(self.data[0:3], other_screw.data[3:6]) + 
-                np.cross(self.data[3:6], other_screw.data[0:3]))
+        nt = np.cross(self.data[0:3,0], other_screw.data[0:3,0])
+        nb = (np.cross(self.data[0:3,0], other_screw.data[3:6,0]) + 
+                np.cross(self.data[3:6,0], other_screw.data[0:3,0]))
         return Screw(np.hstack((nt, nb)).reshape((6,1)), self.frame_applied.copy())
 
     def dot(self, other_screw : 'Screw') -> 'Screw':
@@ -114,10 +128,10 @@ class Screw:
         """
         if not self.frame_applied == other_screw.frame_applied:
             other_screw = other_screw.copy().changeFrame(self.frame_applied)
-        nt = np.dot(self.data[0:3], other_screw.data[0:3])
-        nb = (np.dot(self.data[0:3], other_screw.data[3:6]) + 
-                np.dot(self.data[3:6], other_screw.data[0:3]))
-        return Screw(np.hstack((nt, nb)).reshape((6,1)), self.frame_applied.copy())
+        nt = np.dot(self.data[0:3,0], other_screw.data[0:3,0])
+        nb = (np.dot(self.data[0:3,0], other_screw.data[3:6,0]) + 
+                np.dot(self.data[3:6,0], other_screw.data[0:3,0]))
+        return np.hstack((nt, nb))
 
     def dualScalarMultiply(self, dual_scalar : list) -> 'Screw':
         """
@@ -126,8 +140,8 @@ class Screw:
         Returns (Screw) : New scaled screw
         """
         nt = dual_scalar[0] * self.data[0:3]
-        nb = dual_scalar[1] * self.data[0:3] * dual_scalar[0] * self.data[3:6]
-        return Screw(np.hstack((nt, nb)).reshape((6,1)), self.frame_applied.copy())
+        nb = dual_scalar[1] * self.data[0:3] + dual_scalar[0] * self.data[3:6]
+        return Screw(np.vstack((nt, nb)), self.frame_applied.copy())
 
     def __sum__(self):
         """
@@ -137,6 +151,15 @@ class Screw:
             sum_screw (float) : sum of the screw values
         """
         return sum(self.data.flatten())
+
+    def __array__(self) -> 'np.ndarray[float]':
+        """
+        Return the internal data array, useful for declaring larger arrays.
+
+        Returns:
+            np.ndarray[float]: Internal data of the screw
+        """        
+        return self.data
 
     def __getitem__(self, ind : int) -> 'np.ndarray[float]':
         """

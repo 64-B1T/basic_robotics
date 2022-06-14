@@ -50,15 +50,17 @@ rot_z_90 = tm([0, 0, 0, 0, 0, np.pi/2]) # Rotations can be declared in radians
 trans_z_2m_neg = tm(np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, -2], [0, 0, 0, 1]]))
 # Transformations can be created from rotation matrices
 
-trans_x_2m_quat = tm([2, 0, 0, 0, 0, 0, 0]) # Transformations can even be declared with quaternions
+trans_x_2m_quat = tm([2, 0, 0, 0, 0, 0, 1]) # Transformations can even be declared with quaternions
 
 list_of_transforms = [trans_x_2m, trans_y_4m, rot_z_90]
 disp(list_of_transforms, 'transform list') # List of transforms will be displayed in columns
 
 #Operations
-new_simple_transform = trans_x_2m + trans_y_2m #Additon is element-wise on TAA form
-new_transform_multiplied = trans_x_2m @ trans_y_2m #Transformation matrix multiplication uses '@'
+new_simple_transform = trans_x_2m + trans_y_4m #Additon is element-wise on TAA form
+new_transform_multiplied = trans_x_2m @ trans_y_4m #Transformation matrix multiplication uses '@'
 new_double_transform = trans_x_2m * 2 # Multiplication by a scalar is elementwise
+
+#And more visible in the function list documentation
 
 #And more visible in the function list documentation
 ```
@@ -115,12 +117,12 @@ from basic_robotics.kinematics import loadSP
 from basic_robotics.plotting.Draw import DrawSP
 
 basic_sp = {
-   "Name":"Basic SP","Type":"SP","BottomPlate":{"Thickness":0.1,"JointRadius":0.9,"JointSpacing":9,"Mass": 6},
-   "TopPlate":{"Thickness":0.16,"JointRadius":0.3,"JointSpacing":25,"Mass": 1},
-   "Actuators":{"MinExtension":0.75,"MaxExtension":1.5,"MotorMass":0.5,"ShaftMass":0.9,"ForceLimit": 800,"MotorCOGD":0.2,"ShaftCOGD":0.2},
-   "Drawing":{"TopRadius":1,"BottomRadius":1,"ShaftRadius": 0.1,"MotorRadius": 0.2},
-   "Settings":{"MaxAngleDev":55,"GenerateActuators":0,"IgnoreRestHeight":1,"UseSpin":0,"AssignMasses":1,"InferActuatorCOG":1},
-   "Params":{"RestHeight":1.2,"Spin":30}}
+    "Name":"Basic SP","Type":"SP","BottomPlate":{"Thickness":0.1,"JointRadius":0.9,"JointSpacing":9,"Mass": 6},
+    "TopPlate":{"Thickness":0.16,"JointRadius":0.3,"JointSpacing":25,"Mass": 1},
+    "Actuators":{"MinExtension":0.75,"MaxExtension":1.5,"MotorMass":0.5,"ShaftMass":0.9,"ForceLimit": 800,"MotorCOGD":0.2,"ShaftCOGD":0.2},
+    "Drawing":{"TopRadius":1,"BottomRadius":1,"ShaftRadius": 0.1,"MotorRadius": 0.2},
+    "Settings":{"MaxAngleDev":55,"GenerateActuators":0,"IgnoreRestHeight":1,"UseSpin":0,"AssignMasses":1,"InferActuatorCOG":1},
+    "Params":{"RestHeight":1.2,"Spin":30}}
 
 basic_sp_string = json.dumps(basic_sp)
 with open ('sp_test_data.json', 'w') as outfile:
@@ -160,17 +162,14 @@ ax = plt.axes(projection = '3d')
 ax.set_xlim3d(-3,3)
 ax.set_ylim3d(-3,3)
 ax.set_zlim3d(0,6)
-
 Base_T = tm() # Set a transformation for the base
 
-# Define some link lengths
-L1 = 2
-L2 = 2
-L3 = 2
+        # Define some link lengths
+L1 = 3
+L2 = 3
+L3 = 3
 W = 0.1
-Ln = [.5 ,L1, L2, L3, W, W, W]
-
-# Define the transformations of each joint
+# Define the transformations of each link
 Tspace = [tm(np.array([[0],[0],[L1/2],[0],[0],[0]])),
     tm(np.array([[L2/2],[0],[L1],[0],[0],[0]])),
     tm(np.array([[L2+(L3/2)],[0],[L1],[0],[0],[0]])),
@@ -188,7 +187,7 @@ for i in range(0,6):
     basic_arm_screw_list[0:6,i] = np.hstack((basic_arm_joint_axes[0:3,i],np.cross(basic_arm_joint_homes[0:3,i],basic_arm_joint_axes[0:3,i])))
 
 #Input some basic dimensions
-basic_arm_link_box_dims = np.array([[W, W, W],[W, W, L1],[W, W, L2],[W, W, L3],[W, W, W],[W, W, W],[W, W, W]]).conj().T
+basic_arm_link_box_dims = np.array([[W, W, L1],[L2, W, W],[L3, W, W],[W, W, W],[W, W, W],[W, W, W]]).conj().T
 basic_arm_link_mass_transforms = [None] * (len(basic_arm_screw_list) + 1)
 basic_arm_link_mass_transforms[0] = Tspace[0]
 
@@ -196,7 +195,7 @@ basic_arm_link_mass_transforms[0] = Tspace[0]
 for i in range(1,6):
     basic_arm_link_mass_transforms[i] = (Tspace[i-1].inv() @ Tspace[i])
 basic_arm_link_mass_transforms[6] = (Tspace[5].inv() @ basic_arm_end_effector_home)
-masses = np.array([5, 5, 5, 1, 1, 1])
+masses = np.array([20, 20, 20, 1, 1, 1])
 basic_arm_inertia_list = np.zeros((6,6,6))
 
 #Create spatial inertia matrices for links
@@ -207,12 +206,16 @@ for i in range(6):
 arm = Arm(Base_T,basic_arm_screw_list,basic_arm_end_effector_home,basic_arm_joint_homes,basic_arm_joint_axes)
 
 #ALTERNATIVELY, JUST LOAD A URDF USING THE 'loadArmFromURDF' function in basic_robotics.kinematics
-arm.setDynamicsProperties(basic_arm_link_mass_transforms,Tspace,basic_arm_inertia_list,basic_arm_link_box_dims)
-arm.jointMins = np.array([np.pi, np.pi/2, np.pi/2, np.pi, np.pi, np.pi])
-arm.jointMaxs = np.array([np.pi, np.pi/2, np.pi/2, np.pi, np.pi, np.pi]) * -1
+arm.setDynamicsProperties(
+    basic_arm_link_mass_transforms,
+    Tspace,
+    basic_arm_inertia_list,
+    basic_arm_link_box_dims)
+arm.joint_mins = np.array([np.pi, np.pi, np.pi, np.pi, np.pi, np.pi])* -2
+arm.joint_maxs= np.array([np.pi, np.pi, np.pi, np.pi, np.pi, np.pi]) * 2
 
 #Draw the arm at a couple positions
-DrawArm(arm, ax, jdia = .3)
+#DrawArm(arm, ax, jdia = .3)
 goal = arm.FK(np.array([np.pi/2, np.pi/4, -np.pi/4+.1, 0, 0, 0]))
 DrawArm(arm, ax, jdia = .3)
 plt.show()
@@ -250,24 +253,36 @@ from basic_robotics.kinematics import loadArmFromURDF
 from basic_robotics.path_planning import RRTStar, PathNode
 from basic_robotics.plotting.draw import *
 
-arm = loadArmFromURDF('some_example_arm.urdf')
+fig = plt.figure()
+ax = plt.axes(projection = '3d')
+ax.set_xlim3d(-1,1)
+ax.set_ylim3d(-1,1)
+ax.set_zlim3d(0,2)
+arm = loadArmFromURDF('tests/test_helpers/irb_2400.urdf')
 
 #Generate an RRT* instance
+init = arm.getEEPos()
 rrt = RRTStar(init)
-rrt.addObstruction([2.8, 2.8, 3.5], [7, 7, 8]) # Add some random obstructions
-rrt.addObstruction([2.8, 2.8, -2], [7, 7, 2.5])
+rrt.addObstruction([0.5, 0.5, 0.7], [1.2, 1.2, 1.2]) # Add some random obstructions
+rrt.addObstruction([0.5, 0.5, -2], [1, 1, 0.5])
+DrawArm(arm, ax)
+
+goal = arm.FK(np.array([np.pi/3, np.pi/3, -np.pi/8, np.pi/10, -np.pi/4, np.pi/5]))
+arm.FK(np.zeros(6))
 
 DrawObstructions(rrt.obstructions, ax) #Draw the obstructions for visulization
 
 #Find a path through the environment
+random.seed(10)
 traj = rrt.findPathGeneral(
-  lambda: rrt.generalGenerateTree( # Generate a general RRT* tree using:
-    lambda : PathNode(arm.RandomPos()), # Random generation for path nodes
-    lambda x, y : rrt.Distance(x, y), # Distance between nodes as a cost
-    lambda x, y : rrt.ArmObstruction(arm,x,y)), #Basic rtree collision detection as obstruction checking
-   goal) # Goal position
+lambda: rrt.generalGenerateTree( # Generate a general RRT* tree using:
+    lambda : PathNode(arm.randomPos()), # Random generation for path nodes
+    lambda x, y : rrt.distance(x, y), # Distance between nodes as a cost
+    lambda x, y : rrt.armObstruction(arm,x,y)), #Basic rtree collision detection as obstruction checking
+goal) # Goal position
 
 DrawRRTPath(traj, ax, 'green') # Draw the finalized path
+
 
 plt.show() #Show the plot
 ```

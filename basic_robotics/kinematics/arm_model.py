@@ -1,15 +1,18 @@
-from ..metrology.virtual_vision import Camera
-from ..general import tm, fmr, fsr
-from ..plotting.Draw import DrawArm#, DrawRectangle
-from ..utilities.disp import disp
-import numpy as np
-import scipy as sci
-import scipy.linalg as ling
-import scipy.integrate as integrate
+import os
 import random
 import xml.etree.ElementTree as ET
-import os
-import json
+
+import numpy as np
+import scipy as sci
+import scipy.integrate as integrate
+import scipy.linalg as ling
+from sqlalchemy import true
+
+from ..general import fmr, fsr, tm
+from ..metrology.virtual_vision import Camera
+from ..plotting.Draw import DrawArm  # , DrawRectangle
+from ..utilities.disp import disp
+from .visual_info import vis_info
 
 
 class Arm:
@@ -414,6 +417,7 @@ class Arm:
         SetElements inserts the variable vector x into the positions
         indicated by freeinds in theta_init.  The remaining elements are
         unchanged.
+        This function is sensitive to initial conditions.
         Args:
             goal_position: Desired end effector position to calculate for
             theta_init: Intial theta guess for desired end effector position.
@@ -426,18 +430,17 @@ class Arm:
         """
         #free_thetas = fsolve(@(x)(obj.FK(SetElements(theta_init,
             #freeinds, x))-T), theta_init(freeinds))
-        res = lambda x : fsr.TAAtoTM(self.FK(fsr.setElements(theta_init, inds, x)) - goal_position)
+        res = lambda x : (self.FK(fsr.setElements(theta_init, inds, x)) - goal_position).gTAA().flatten()
         #Use newton_krylov instead of fsolve
-        free_thetas = sci.optimize.fsolve(res, theta_init[inds])
+        solver_result = sci.optimize.root(res, theta_init[inds], method='lm')
         # free_thetas = fsolve(@(x)(self.FK(SetElements(theta_init,
             #freeinds, x))-T), theta_init(freeinds));
+        free_thetas = solver_result.x
         theta = np.squeeze(theta_init)
         theta[inds] = np.squeeze(free_thetas)
         if fmr.Norm6((goal_position - self.FK(theta))[0:6]) < 0.001:
-            success = 1
-        else:
-            success = 0
-        return (theta, success)
+            return (theta, True)
+        return (theta, False)
 
 
     """
@@ -1178,7 +1181,7 @@ class Arm:
         #Debugged - Liam 8/4/19
         M = np.zeros((len(theta),len(theta)))
         for i in range(len(theta)):
-            Ji = self.jacobianLink(theta, i)
+            Ji = self.jacobianLink(i, theta)
             jt = Ji.T @ self._box_spatial_links[i,:,:] @ Ji
             M = M + jt
         #print(M, 'M1')
@@ -1244,12 +1247,12 @@ class Arm:
         theta = self._helper_ensure_theta_not_none(theta)
         return fmr.JacobianBody(self.screw_list_body, theta)
 
-    def jacobianLink(self, theta : 'np.ndarray[float]', i : int) -> 'np.ndarray[float]':
+    def jacobianLink(self, i : int,  theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
         Calculates Space Jacobian for given configuration link
         Args:
-            theta: joint configuration
             i: joint index
+            theta: joint configuration
         Returns:
             jacobian
         """
@@ -1539,7 +1542,7 @@ class Arm:
         Deprecated. Don't Use
         """
         self.printOutOfDateFunction('JacobianLink', 'jacobianLink')
-        return self.jacobianLink(theta, i)
+        return self.jacobianLink(i, theta)
 
     def jacobianEE(self, theta):  # pragma: no cover
         """
@@ -1620,11 +1623,7 @@ class URDFLoader:
         self.num_children = 0
 
         #Link Visuals
-        self.vis_type = None
-        self.vis_origin = None
         self.vis_properties = []
-        self.col_type = ''
-        self.col_origin = ''
         self.col_properties = []
 
         #Joint Specific
@@ -1775,33 +1774,30 @@ def loadArmFromURDF(file_name):
         """
         geometry_type = 'box'
         origin = tm()
-        properties = []
+        properties = vis_info()
         for grand_child in child:
             #print(grand_child.tag)
             if grand_child.tag == 'origin':
-                origin = extractOrigin(grand_child)
+                properties.setOrigin(extractOrigin(grand_child))
             elif grand_child.tag == 'geometry':
                 geometry_parent = child.find('geometry')
                 for geometry in geometry_parent:
                     if geometry.tag == 'box':
-                        geometry_type = 'box'
-                        properties = geometry.get('size').split()
+                        properties.geo_type = 'box'
+                        properties.box_size = geometry.get('size').split()
                     elif geometry.tag == 'cylinder':
-                        geometry_type = 'cyl'
-                        properties.append(geometry.get('radius'))
-                        properties.append(geometry.get('length'))
+                        properties.geo_type = 'cyl'
+                        properties.radius = geometry.get('radius')
+                        properties.length = geometry.get('length')
                     elif geometry.tag == 'sphere':
-                        geometry_type = 'spr'
-                        properties = geometry.get('radius')
+                        properties.geo_type = 'spr'
+                        properties.radius = geometry.get('radius')
                     elif geometry.tag == 'mesh':
-                        geometry_type = 'msh'
-                        properties = []
-                        properties.append(load_urdf_spec_file(file_name, geometry.get('filename')))
-                        properties.append(geometry.get('scale'))
-                        if properties[1] is None:
-                            properties[1] = 1.0
-
-        return geometry_type, origin, properties
+                        properties.geo_type = 'mesh'
+                        properties.file_name = (
+                            load_urdf_spec_file(file_name, geometry.get('filename')))
+                        properties.setScale(geometry.get('scale'))
+        return properties
 
 
     def completeLinkParse(new_element, parent):
@@ -1819,10 +1815,10 @@ def loadArmFromURDF(file_name):
                 new_element.inertia = completeInertiaExtraction(child)
                 new_element.mass = float(child.find('mass').get('value'))
             elif child.tag == 'visual':
-                new_element.vis_type, new_element.vis_origin, new_element.vis_properties = \
+                new_element.vis_properties = \
                         completeGeometryParse(child)
             elif child.tag == 'collision':
-                new_element.col_type, new_element.col_origin, new_element.col_properties = \
+                new_element.col_properties = \
                         completeGeometryParse(child)
 
     def completeJointParse(new_element, parent):
@@ -1983,10 +1979,8 @@ def loadArmFromURDF(file_name):
                     link_poses.append(joint_poses[-1] @ temp_element.xyz_origin)
                     inertia_props.append(temp_element.inertia)
                 link_names.append(temp_element.name)
-                vis_props.append([temp_element.vis_type,
-                        temp_element.vis_origin, temp_element.vis_properties])
-                col_props.append([temp_element.col_type,
-                        temp_element.col_origin, temp_element.col_properties])
+                vis_props.append(temp_element.vis_properties)
+                col_props.append(temp_element.col_properties)
             if temp_element.sub_type == 'fixed': #If it's a fixed joint, it's a pseudo link
                 #eef_transform = eef_transform @ temp_element.xyz_origin
                 prev_joints_to_next_joints.append(temp_element.xyz_origin) # Fixed Joints are still origins

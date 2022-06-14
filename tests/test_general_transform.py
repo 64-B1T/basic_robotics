@@ -237,6 +237,17 @@ class test_general_tm(unittest.TestCase):
 
         self.assertTrue(tma == tmb)
 
+        self.assertFalse(tma == 1)
+
+        tma = tm([1, 2, 3, 4, 5, 6])
+        self.assertTrue(tma != tmb)
+
+        tmb = tm([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+        self.assertTrue(tma == tmb)
+
+        tmb = tmb.copy()
+        self.assertTrue(tma == tmb)
+
         
 
 

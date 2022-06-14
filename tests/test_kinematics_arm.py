@@ -219,8 +219,16 @@ class test_kinematics_arm(unittest.TestCase):
     #    pass
 
     def test_kinematics_arm_IKFree(self):
-        #TODO
-        pass
+        random.seed(10)
+        init_theta = np.array([0, np.pi/4, -np.pi/4, 0, 0, np.pi/3])
+        test_tm = self.arm.FK(init_theta)
+        #test_tm = tm([1, 1, 3, 0, 0, 0])
+
+        ref_theta, suc = self.arm.IKFree(test_tm, np.array([0, 0, 0, 0, 0, 0.5]), [0,1,2,5])
+        self.assertTrue(suc)
+        ref_theta, suc = self.arm.IKFree(test_tm, np.array([0, 0, 0, 0, 0, 0]), [0,1,2,5])
+        self.assertFalse(suc)
+
 
     #Kinematics Helpers
 
@@ -1390,7 +1398,7 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(jB, jbref)
 
     def test_kinematics_arm_jacobianLink(self):
-        jlink = self.arm.jacobianLink(np.zeros((6)), 0)
+        jlink = self.arm.jacobianLink(0, np.zeros((6)))
         jlink_ref = np.array([[0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0],
             [1, 0, 0, 0, 0, 0],
@@ -1399,7 +1407,7 @@ class test_kinematics_arm(unittest.TestCase):
             [0, 0, 0, 0, 0, 0]])
         self.matrix_equality_assertion(jlink, jlink_ref)
 
-        jlink = self.arm.jacobianLink(np.zeros((6)), 4)
+        jlink = self.arm.jacobianLink(4, np.zeros((6)))
         jlink_ref = np.array([[0, 0, 0, 1, 0, 0],
             [0, 1, 1, 0, 1, 0],
             [1, 0, 0, 0, 0, 0],
@@ -1408,7 +1416,7 @@ class test_kinematics_arm(unittest.TestCase):
             [0, -7.65, -3.9, 0, -0.05, 0]])
         self.matrix_equality_assertion(jlink, jlink_ref)
 
-        jlink = self.arm.jacobianLink(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 5)
+        jlink = self.arm.jacobianLink(5, np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]))
         jlink_ref = np.array([[-0.38268, 5.5511e-17, 5.5511e-17, 1, 8.3267e-17, 1],
             [-0.072487, 0.99692, 0.99692, -1.0408e-17, 0.95106, -1.0408e-17],
             [0.92103, 0.078459, 0.078459, 5.5511e-17, -0.30902, 5.5511e-17],
@@ -1417,7 +1425,7 @@ class test_kinematics_arm(unittest.TestCase):
             [0.56177, -7.7261, -3.9877, 0, -0.14266, 1.1102e-16]])
         self.matrix_equality_assertion(jlink, jlink_ref)
 
-        jlink = self.arm.jacobianLink(np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]), 0)
+        jlink = self.arm.jacobianLink(0, np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]))
         jlink_ref = np.array([[0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0],
             [1, 0, 0, 0, 0, 0],

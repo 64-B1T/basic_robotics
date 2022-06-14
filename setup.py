@@ -8,7 +8,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='basic_robotics',
-      version='0.3.16',
+      version='0.3.17',
       long_description=README,
       long_description_content_type='text/markdown',
       description='Basic Robotics Toolbox Developed in FASER Lab',
@@ -18,7 +18,7 @@ setup(name='basic_robotics',
       license='MIT',
       packages=find_packages(),
       install_requires=[
-          'numpy <= 1.21.5, >= 1.19',
+          'numpy <= 1.22.4, >= 1.21',
           'pyserial',
           'scipy',
           'numba',

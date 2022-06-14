@@ -15,6 +15,7 @@ def new_primitive(name = "CubeLet", file = "Cube3.glb", Category = "Model", Scal
     if color == None:
         color = new_material()
     return {"Key" : name, "File" : file, "Category" : Category, "Scale" : Scale, "Material" : color}
+
 def determineAxis(joint_location, axis):
         joint_rotation = tm([joint_location[3], joint_location[4], joint_location[5]])
         axis_unit = tm([axis[0], axis[1], axis[2], 0, 0, 0])
@@ -49,6 +50,15 @@ class ArmPlot:
         dofs = self.arm.screw_list.shape[1]
         links = []
         joints = []
+        if self.arm._vis_props is not None:
+            for i in range(len(self.arm._vis_props)):
+                if self.arm._vis_props[i][0] == 'msh':
+                    newp = new_primitive(
+                        name = self.arm.link_names[i],
+                        file = self.arm._vis_props[i][2][0],
+                        Category = self.name,
+                        Scale = [1.0, 1.0, 1.0]
+                    )
         for i in range(len(Dims)):
              self.keys.append(self.name+str(i))
              newp = new_primitive(
