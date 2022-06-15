@@ -845,22 +845,6 @@ class Arm(Robot):
     Forces and Dynamics
     """
 
-    def velocityAtEndEffector(self, joint_velocities : 'np.ndarray[float]',
-            theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
-        """
-        Calculate velocity at end effector based on joint velocities
-
-        Args:
-            joint_velocities: joint velocity vector to calculate based on
-            theta: [Optional] theta value to set position
-        Returns:
-            ndarray: end effector velocities
-        """
-        self.FK(theta)
-        # MR 5.16
-        end_effector_vels = self.jacobian(theta) @ joint_velocities.reshape((6, 1))
-        return end_effector_vels
-
     def staticForcesWithLinkMasses(self, theta : 'np.ndarray[float]',
             end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """

@@ -139,14 +139,14 @@ class SPPlot:
         self.Initialize()
 
     def legBot(self, i):
-        bleg = tm([self.sp.bottom_joints_space[0,i], self.sp.bottom_joints_space[1,i],self.sp.bottom_joints_space[2,i],0,0,0])
-        tleg = tm([self.sp.top_joints_space[0,i], self.sp.top_joints_space[1,i],self.sp.top_joints_space[2,i],0,0,0])
+        bleg = tm([self.sp._bottom_joints_space[0,i], self.sp._bottom_joints_space[1,i],self.sp._bottom_joints_space[2,i],0,0,0])
+        tleg = tm([self.sp._top_joints_space[0,i], self.sp._top_joints_space[1,i],self.sp._top_joints_space[2,i],0,0,0])
         #return fsr.adjustRotationToMidpoint(bleg, bleg, tleg, mode = 1) @ self.legmag
         return fsr.lookAt(bleg, tleg) @ self.leg_bot_mag
 
     def legTop(self, i):
-        bleg = tm([self.sp.bottom_joints_space[0,i], self.sp.bottom_joints_space[1,i],self.sp.bottom_joints_space[2,i],0,0,0])
-        tleg = tm([self.sp.top_joints_space[0,i], self.sp.top_joints_space[1,i],self.sp.top_joints_space[2,i],0,0,0])
+        bleg = tm([self.sp._bottom_joints_space[0,i], self.sp._bottom_joints_space[1,i],self.sp._bottom_joints_space[2,i],0,0,0])
+        tleg = tm([self.sp._top_joints_space[0,i], self.sp._top_joints_space[1,i],self.sp._top_joints_space[2,i],0,0,0])
         return fsr.lookAt(tleg, bleg) @ self.leg_top_mag
 
 
@@ -154,11 +154,11 @@ class SPPlot:
         bottom = new_primitive(name=self.name + "B",
             file = "models/CylGrey.glb",
             Category = self.name,
-            Scale = [self.sp.outer_bottom_radius*2, self.sp.outer_bottom_radius*2, max(.01, self.sp.bottom_plate_thickness)])
+            Scale = [self.sp._outer_bottom_radius*2, self.sp._outer_bottom_radius*2, max(.01, self.sp.bottom_plate_thickness)])
         top = new_primitive(name=self.name + "T",
             file = "models/CylGrey.glb",
             Category = self.name,
-            Scale = [self.sp.outer_top_radius*2, self.sp.outer_top_radius*2, max(.01, self.sp.top_plate_thickness)])
+            Scale = [self.sp._outer_top_radius*2, self.sp._outer_top_radius*2, max(.01, self.sp.top_plate_thickness)])
         self.links[0] = bottom
         self.links[1] = top
         #self.c.SendTM(self.sp.getBottomT() @ tm([0, 0, self.sp.bottom_plate_thickness/2, 0, 0, 0]), bottom)

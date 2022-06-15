@@ -418,7 +418,7 @@ def DrawSP(sp, ax, col = 'green', forces = 1):
 
     if forces == 1 and sp.getLegForces().size > 1:
         for i in range(6):
-            label = '%.1fN' % (sp.getLegForces()[i])
+            label = '%.1fN' % (sp.getActuatorForces()[i])
             if i % 2 == 0:
                 pos = sp.getActuatorLoc(i, 'b')
             else:

@@ -385,7 +385,7 @@ def angleBetween(ref_point_1, ref_point_2, ref_point_3):
     return res
 
 #Wrench Operations
-def makeWrench(position_applied, force, force_direction_vector):
+def makeWrench(position_applied, force, force_direction_vector, frame_applied = tm()):
     """
     Generate a new wrench.
 
@@ -393,11 +393,12 @@ def makeWrench(position_applied, force, force_direction_vector):
         position_applied: relative position ation of wrench
         force: magnitude of force applied (or mass if force_direction_vector is a gravity vector)
         force_direction_vector: unit vector to apply force (or gravity)
+        frame_applied (tm, Optional) : frame of the wrench
     Returns:
         wrench
     """
     forcev = np.array(force_direction_vector) * force
-    return Wrench(forcev, position_applied)
+    return Wrench(forcev, position_applied, frame_applied)
     t_wren = np.cross(position_applied[0:3].reshape((3)), forcev) #Calculate moment based on position and action
     wrench = np.array([t_wren[0], t_wren[1], t_wren[2], forcev[0], forcev[1], forcev[2]]).reshape((6, 1)) #Create Complete Wrench
     return wrench

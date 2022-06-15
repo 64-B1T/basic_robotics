@@ -1,59 +1,25 @@
-Version 0.3.18 - New Features... 
-"The Robot Generalization Update"
+Version 0.3.19 - Patches and Features 
 
-Implemented Robot base class "Robot" presenting a series of methods applicable to the generalized robot, 
-somewhat standardizing interfaces between stewart platforms, serial arms, and any potential future robot model 
-class that implements the methods in class "Robot"
+Hit 75% unit test coverage of entire package. Moving out of kinematics for unit test focuses. 
 
-Robot Super Class! 
-    - Includes handles for:
-        - Forward and Inverse Kinematics 
-        - Space and Body Forward and Inverse Jacobians 
-        - Space and Body Forward and Inverse Static Forces
-        - Getting End Effector and Base Positions 
-        - And more....
-    - Can fill in if some functions are not defined in a new robot model, such as deriving the 
-            following capabilities from just jacobian or inverse jacobian defined:
-        - StaticForces (Forward and Inverse, Body and Space)
-        - Jacobian (inverse of defined, space and body)
+General 
+    - Added a frame argument for makeWrench(... frame_applied = tm())
+Kinematics 
+    - robot_model (Robot)
+        - added in velocityAtEndEffector and velocityAtJoints functionalities
+        - completed documentation and style edits
+    - arm_model (Arm)
+        - velocity functions transferred to robot base class. Functionality improved, compatibility unchanged.
+    - sp_model (SP)
+        - carryMassCalcLocal renamed carryMassCalcBody to maintain convention ("" and "Body" to denote space and Body)
+        - private functions moved to bottom of the class and grouped by type
+        - completed documentation and style edits
+        - All state variables moved to private 
+        - added draw and randomPos functions to SP class inline with Robot requirements
+        - patched midHeightEstimate to find true home pose. (I guess now it's midHeightPrecise)
+Plotting 
+    - drawSP patched to account for changes in sp_model 
+    - visClient patched to account for changes in sp_model 
 
-Arm 
-    - Some functions and variables moved to Robot superclass in unionization effort, but compatability is unchanged.
-
-Stewart Platforms received a lot of love for this update, bringing some changes
-    - Internal handler _setPlatePos used for all state changes of both plates
-    - Reversed ordering of arguments in IK, IKHelper ... such that the top_plate_pos argument is first. 
-        This enables simple calling of IK without named arguments, with one argument only, inline with the format in Serial Arm
-        Example: sp.IK(goal) instead of sp.IK(top_plate_pos=goal) or sp.IK(tm(), goal)
-    - Changed structure of 'reverse' for Forward Kinematics, removed unused reverse parameter from FKSolve and FKRaphson
-    - Documentation
-        - Typehints added to all functions both in function definitions and docstrings
-    - Misc Tweaks 
-        - Removed unused protection argument from IKHelper
-        - reoirentTopPlate deleted, functionality integrated into fixUpsideDown
-
-    - Function Definitions Changed
-        - inverseJacobianSpace (and all jacobian functions) order changed to top_plate, bottom_plate
-
-    - Functions Deleted:
-        - jacobianSpace -> handled by base class Robot (under handle jacobian)
-        - altInverseJacobianSpace -> top down inverse jacobian is directly related to bottom up
-        - measureForcesFromWrenchEE -> Redundant
-        - carryMassCalcUp -> Niche/Redundant
-        - measureForcesFromBottomEE -> Niche/Redundant 
-        - wrenchBottomFromMeasuredForces -> Niche/Redundant
-
-    - Functions with Changed Names:
-        - measureForcesAtEENew -> staticForces (to conform to base class Robot)
-        - measureForcesFromWrenchEE -> staticForces (to conform to base class Robot)
-        - measureForcesFromBottomEE -> staticForces(reverse = True)
-        - wrenchEEFromMeasuredForces -> staticForcesInv (to conform to base class Robot)
-
-    - Functions made private:
-            - IKHelper -> _IKHelper 
-            - FKSolve -> _FKSolve (Access through FK with appropriate mode switch)
-            - FKRaphson -> _FKRaphson (Access through FK with appropriate mode switch)
-            - lambdaTopPlateReorientation -> _lambdaTopPlateReorientation
-            - fixUpsideDown -> _fixUpsideDown
-
-    
+Misc smaller bugfixes, optimizations, and improvments
+Misc documentation added throughout

@@ -8,10 +8,10 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='basic_robotics',
-      version='0.3.18',
+      version='0.3.19',
       long_description=README,
       long_description_content_type='text/markdown',
-      description='Basic Robotics Toolbox Developed in FASER Lab',
+      description="General Purpose Robotics Package featuring forward and inverse kinematics for serial and parallel robots, static analysis, transformations, path planning, and more.",
       url='https://github.com/64-B1T/basic_robotics',
       author='William Chapin',
       author_email='liam@64b1t.com',
