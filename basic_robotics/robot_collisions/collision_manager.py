@@ -1,12 +1,10 @@
 from itertools import combinations
 
-import numpy as np
 import trimesh
 from trimesh.collision import CollisionManager
 
-from ..general import fsr, tm
-from ..kinematics import Arm
-from ..plotting.Draw import drawMesh
+from ..general import tm
+from ..plotting.vis_matplotlib import drawMesh
 
 
 def createBox(position, dims):

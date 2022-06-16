@@ -141,3 +141,8 @@ upload.sh
 
 #Secrets
 tests_secret/
+
+.coverage
+.coveragerc
+
+release_notes.txt

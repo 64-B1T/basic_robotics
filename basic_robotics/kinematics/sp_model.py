@@ -6,7 +6,7 @@ import scipy as sci
 from sqlalchemy import true
 
 from ..general import Wrench, fmr, fsr, tm
-from ..plotting.Draw import DrawSP
+from ..plotting.vis_matplotlib import DrawSP
 from ..utilities.disp import disp
 from .robot_model import Robot
 

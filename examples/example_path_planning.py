@@ -1,7 +1,7 @@
 from basic_robotics.general import tm
 from basic_robotics.kinematics import loadArmFromURDF
 from basic_robotics.path_planning import RRTStar, PathNode
-from basic_robotics.plotting.Draw import *
+from basic_robotics.plotting.vis_matplotlib import *
 
 def run_example():
     fig = plt.figure()

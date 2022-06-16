@@ -1,10 +1,11 @@
 import numpy as np
 from basic_robotics.general import tm, fsr
 from basic_robotics.kinematics import Robot, Arm, loadArmFromURDF
-from basic_robotics.plotting.Draw import *
+from basic_robotics.plotting.vis_matplotlib import *
 from basic_robotics.utilities.disp import disp
 from basic_robotics.modern_robotics_numba import mr
 from basic_robotics.metrology import Camera
+import random
 import unittest
 
 class test_kinematics_arm(unittest.TestCase):

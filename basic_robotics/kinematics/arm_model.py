@@ -6,12 +6,11 @@ import numpy as np
 import scipy as sci
 import scipy.integrate as integrate
 import scipy.linalg as ling
-from sqlalchemy import true
 
 from .robot_model import Robot
 from ..general import fmr, fsr, tm
 from ..metrology.virtual_vision import Camera
-from ..plotting.Draw import DrawArm  # , DrawRectangle
+from ..plotting.vis_matplotlib import DrawArm  # , DrawRectangle
 from ..utilities.disp import disp
 from .visual_info import vis_info
 

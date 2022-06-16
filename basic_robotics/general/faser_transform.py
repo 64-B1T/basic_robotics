@@ -3,7 +3,6 @@
 from ..modern_robotics_numba import modern_high_performance as mr
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import traceback
 
 class tm:
     """

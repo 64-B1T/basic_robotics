@@ -28,7 +28,7 @@ from numba import jit
 
 
 @jit(nopython=True)
-def NearZero(z):
+def NearZero(z):   # pragma: no cover
     """Determines whether a scalar is small enough to be treated as zero
     :param z: A scalar input to check
     :return: True if z is close to zero, false otherwise
@@ -41,7 +41,7 @@ def NearZero(z):
 
 
 @jit(nopython=True)
-def Normalize(V):
+def Normalize(V):   # pragma: no cover
     """Normalizes a vector
     :param V: A vector
     :return: A unit vector pointing in the same direction as z
@@ -53,18 +53,18 @@ def Normalize(V):
     return V / Norm(V)
 
 @jit(nopython=True)
-def AngleMod(rad):
+def AngleMod(rad):   # pragma: no cover
     for i in range(len(rad)):
         if abs(rad[i]) > 2 * np.pi:
             rad[i] = rad[i] % (2 * np.pi)
     return rad
 
 @jit(nopython=True, cache=True)
-def Norm(v):
+def Norm(v):   # pragma: no cover
     return np.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
 
 @jit(nopython=True, cache=True)
-def Norm6(v):
+def Norm6(v):   # pragma: no cover
     #Obviously this won't work on massive values, but it's faster than np.norm
     #For most values which could appear
     #Also only for Float Values
@@ -74,7 +74,7 @@ def Norm6(v):
 *** CHAPTER 3: RIGID-BODY MOTIONS ***
 '''
 @jit(nopython=True, cache=True)
-def RotInv(R):
+def RotInv(R):   # pragma: no cover
     """Inverts a rotation matrix
     :param R: A rotation matrix
     :return: The inverse of R
@@ -90,7 +90,7 @@ def RotInv(R):
     return R.T
 
 @jit(nopython=True, cache=True)
-def VecToso3(omg):
+def VecToso3(omg):   # pragma: no cover
     """Converts a 3-vector to an so(3) representation
     :param omg: A 3-vector
     :return: The skew symmetric representation of omg
@@ -107,7 +107,7 @@ def VecToso3(omg):
 
 
 @jit(nopython=True, cache=True)
-def so3ToVec(so3mat):
+def so3ToVec(so3mat):   # pragma: no cover
     """Converts an so(3) representation to a 3-vector
     :param so3mat: A 3x3 skew-symmetric matrix
     :return: The 3-vector corresponding to so3mat
@@ -121,7 +121,7 @@ def so3ToVec(so3mat):
     return np.array([so3mat[2][1], so3mat[0][2], so3mat[1][0]])
 
 @jit(nopython=True, cache=True)
-def AxisAng3(expc3):
+def AxisAng3(expc3):   # pragma: no cover
     """Converts a 3-vector of exponential coordinates for rotation into
     axis-angle form
     :param expc3: A 3-vector of exponential coordinates for rotation
@@ -134,7 +134,7 @@ def AxisAng3(expc3):
     """
     return (Normalize(expc3), Norm(expc3))
 @jit(nopython=True, cache=True)
-def MatrixExp3(so3mat):
+def MatrixExp3(so3mat):   # pragma: no cover
     """Computes the matrix exponential of a matrix in so(3)
     :param so3mat: A 3x3 skew-symmetric matrix
     :return: The matrix exponential of so3mat
@@ -156,7 +156,7 @@ def MatrixExp3(so3mat):
         return np.eye(3) + np.sin(theta) * omgmat + (1 - np.cos(theta)) * np.dot(omgmat, omgmat)
 
 @jit(nopython=True, cache=True)
-def SafeTrace(R):
+def SafeTrace(R):   # pragma: no cover
     sz = R.shape
     if sz[0] == sz[1]:
         sum = 0
@@ -166,11 +166,11 @@ def SafeTrace(R):
     return -1
 
 @jit(nopython=True, cache=True)
-def SafeClip(x, mn, mx):
+def SafeClip(x, mn, mx):   # pragma: no cover
     return min(mx, max(x, mn))
 
 @jit(nopython=True, cache=True)
-def MatrixLog3(R):
+def MatrixLog3(R):   # pragma: no cover
     """Computes the matrix logarithm of a rotation matrix
     :param R: A 3x3 rotation matrix
     :return: The matrix logarithm of R
@@ -203,7 +203,7 @@ def MatrixLog3(R):
         return theta / 2.0 / np.sin(theta) * (R - (R).T)
 
 @jit(nopython=True, cache=True)
-def RpToTrans(R, p):
+def RpToTrans(R, p):   # pragma: no cover
     """
     Converts a rotation matrix and a position vector into homogeneous
     transformation matrix
@@ -229,7 +229,7 @@ def RpToTrans(R, p):
 
 
 @jit('Tuple((float64[:,::1], float64[::1]))(float64[:,::1])',nopython=True, cache=True)
-def TransToRp(T):
+def TransToRp(T):   # pragma: no cover
     """Converts a homogeneous transformation matrix into a rotation matrix
     and position vector
     :param T: A homogeneous transformation matrix
@@ -250,7 +250,7 @@ def TransToRp(T):
 
 
 @jit(nopython=True, cache=True)
-def TransInv(T):
+def TransInv(T):   # pragma: no cover
     """Inverts a homogeneous transformation matrix
     :param T: A homogeneous transformation matrix
     :return: The inverse of T
@@ -278,7 +278,7 @@ def TransInv(T):
 
 
 @jit(nopython=True, cache=True)
-def VecTose3(V):
+def VecTose3(V):   # pragma: no cover
     """Converts a spatial velocity vector into a 4x4 matrix in se3
     :param V: A 6-vector representing a spatial velocity
     :return: The 4x4 se3 representation of V
@@ -300,7 +300,7 @@ def VecTose3(V):
     return rarr
 
 @jit(nopython=True, cache=True)
-def se3ToVec(se3mat):
+def se3ToVec(se3mat):   # pragma: no cover
     """ Converts an se3 matrix into a spatial velocity vector
     :param se3mat: A 4x4 matrix in se3
     :return: The spatial velocity 6-vector corresponding to se3mat
@@ -316,7 +316,7 @@ def se3ToVec(se3mat):
 
 
 @jit('float64[:,::1](float64[:,::1])', nopython=True, cache=True)
-def Adjoint(T):
+def Adjoint(T):   # pragma: no cover
     """Computes the adjoint representation of a homogeneous transformation
     matrix
     :param T: A homogeneous transformation matrix
@@ -343,7 +343,7 @@ def Adjoint(T):
     return rarr
 
 @jit(nopython=True, cache=True)
-def ScrewToAxis(q, s, h):
+def ScrewToAxis(q, s, h):   # pragma: no cover
     """Takes a parametric description of a screw axis and converts it to a
     normalized screw axis
     :param q: A point lying on the screw axis
@@ -367,7 +367,7 @@ def ScrewToAxis(q, s, h):
 
 
 @jit(nopython=True, cache=True)
-def AxisAng6(expc6):
+def AxisAng6(expc6):   # pragma: no cover
     """Converts a 6-vector of exponential coordinates into screw axis-angle
     form
     :param expc6: A 6-vector of exponential coordinates for rigid-body motion
@@ -387,7 +387,7 @@ def AxisAng6(expc6):
 
 
 @jit(nopython=True, cache=True)
-def MatrixExp6(se3mat):
+def MatrixExp6(se3mat):   # pragma: no cover
     """Computes the matrix exponential of an se3 representation of
     exponential coordinates
     :param se3mat: A matrix in se3
@@ -419,11 +419,11 @@ def MatrixExp6(se3mat):
         return rmat
 
 @jit(nopython=True)
-def MatMul(A, B):
+def MatMul(A, B):   # pragma: no cover
     return A @ B
 
 @jit(nopython=True, cache=True)
-def LocalToGlobal(reference, rel):
+def LocalToGlobal(reference, rel):   # pragma: no cover
     reference = reference * 1.0
     rel = rel * 1.0
     refPos = reference[0:3]
@@ -440,7 +440,7 @@ def LocalToGlobal(reference, rel):
     return ret
 
 @jit(nopython=True, cache=True)
-def GlobalToLocal(reference, rel):
+def GlobalToLocal(reference, rel):   # pragma: no cover
     reference = reference * 1.0
     rel = rel * 1.0
     refPos = reference[0:3]
@@ -458,7 +458,7 @@ def GlobalToLocal(reference, rel):
     return ret
 
 @jit(nopython=True, cache=True)
-def MatrixLog6(T):
+def MatrixLog6(T):   # pragma: no cover
     """Computes the matrix logarithm of a homogeneous transformation matrix
     :param R: A matrix in SE3
     :return: The matrix logarithm of R
@@ -491,7 +491,7 @@ def MatrixLog6(T):
         return rarr
 
 @jit(nopython=True, cache=True)
-def SafeDot(A, B):
+def SafeDot(A, B):   # pragma: no cover
     return A @ B
 
 #@jit(nopython=True, cache=True)
@@ -546,7 +546,7 @@ def ProjectToSE3(mat):
 
 
 @jit(nopython=True, cache=True)
-def DistanceToSO3(mat):
+def DistanceToSO3(mat):   # pragma: no cover
     """Returns the Frobenius norm to describe the distance of mat from the
     SO(3) manifold
     :param mat: A 3x3 matrix
@@ -570,7 +570,7 @@ def DistanceToSO3(mat):
 
 
 @jit(nopython=True, cache=True)
-def DistanceToSE3(mat):
+def DistanceToSE3(mat):   # pragma: no cover
     """Returns the Frobenius norm to describe the distance of mat from the
     SE(3) manifold
     :param mat: A 4x4 matrix
@@ -606,7 +606,7 @@ def DistanceToSE3(mat):
 
 
 @jit(nopython=True, cache=True)
-def TestIfSO3(mat):
+def TestIfSO3(mat):   # pragma: no cover
     """Returns true if mat is close to or on the manifold SO(3)
     :param mat: A 3x3 matrix
     :return: True if mat is very close to or in SO(3), false otherwise
@@ -626,7 +626,7 @@ def TestIfSO3(mat):
 
 
 @jit(nopython=True, cache=True)
-def TestIfSE3(mat):
+def TestIfSE3(mat):   # pragma: no cover
     """Returns true if mat is close to or on the manifold SE(3)
     :param mat: A 4x4 matrix
     :return: True if mat is very close to or in SE(3), false otherwise
@@ -654,7 +654,7 @@ def TestIfSE3(mat):
 
 
 @jit(nopython=True)
-def FKinBody(M, Blist, thetalist):
+def FKinBody(M, Blist, thetalist):   # pragma: no cover
     """Computes forward kinematics in the body frame for an open chain robot
     :param M: The home configuration (position and orientation) of the end-
               effector
@@ -687,7 +687,7 @@ def FKinBody(M, Blist, thetalist):
 
 
 @jit(nopython=True)
-def FKinSpace(M, Slist, thetalist):
+def FKinSpace(M, Slist, thetalist):   # pragma: no cover
     """Computes forward kinematics in the space frame for an open chain robot
     :param M: The home configuration (position and orientation) of the end-
               effector
@@ -723,7 +723,7 @@ def FKinSpace(M, Slist, thetalist):
 '''
 
 @jit(nopython=True)
-def SafeCopy(arr):
+def SafeCopy(arr):   # pragma: no cover
     s = arr.shape
     newarr = np.zeros((s))
     for i in range(s[0]):
@@ -732,7 +732,7 @@ def SafeCopy(arr):
     return newarr
 
 @jit(nopython=True, cache=True)
-def JacobianBody(Blist, thetalist):
+def JacobianBody(Blist, thetalist):   # pragma: no cover
     """Computes the body Jacobian for an open chain robot
     :param Blist: The joint screw axes in the end-effector frame when the
                   manipulator is at the home position, in the format of a
@@ -764,7 +764,7 @@ def JacobianBody(Blist, thetalist):
 
 
 @jit(nopython=True, cache=True)
-def JacobianSpace(Slist, thetalist):
+def JacobianSpace(Slist, thetalist):   # pragma: no cover
     """Computes the space Jacobian for an open chain robot
     :param Slist: The joint screw axes in the space frame when the
                   manipulator is at the home position, in the format of a
@@ -802,7 +802,7 @@ def JacobianSpace(Slist, thetalist):
 
 
 @jit(nopython=True)
-def IKinBody(Blist, M, T, thetalist0, eomg, ev):
+def IKinBody(Blist, M, T, thetalist0, eomg, ev):   # pragma: no cover
     """Computes inverse kinematics in the body frame for an open chain robot
     :param Blist: The joint screw axes in the end-effector frame when the
                   manipulator is at the home position, in the format of a
@@ -866,7 +866,7 @@ def IKinBody(Blist, M, T, thetalist0, eomg, ev):
 
 
 @jit(nopython=True)
-def IKinSpace(Slist, M, T, thetalist0, eomg, ev, max_iters=20):
+def IKinSpace(Slist, M, T, thetalist0, eomg, ev, max_iters=20):   # pragma: no cover
     """Computes inverse kinematics in the space frame for an open chain robot
     :param Slist: The joint screw axes in the space frame when the
                   manipulator is at the home position, in the format of a
@@ -940,7 +940,7 @@ def IKinSpace(Slist, M, T, thetalist0, eomg, ev, max_iters=20):
 
 
 @jit(nopython=True)
-def ad(V):
+def ad(V):   # pragma: no cover
     """Calculate the 6x6 matrix [adV] of the given 6-vector
     :param V: A 6-vector spatial velocity
     :return: The corresponding 6x6 matrix [adV]
@@ -1316,7 +1316,7 @@ def ForwardDynamics(thetalist, dthetalist, taulist, g, Ftip, Mlist, \
 
 
 @jit(nopython=True)
-def EulerStep(thetalist, dthetalist, ddthetalist, dt):
+def EulerStep(thetalist, dthetalist, ddthetalist, dt):   # pragma: no cover
     """Compute the joint angles and velocities at the next timestep using            from here
     first order Euler integration
     :param thetalist: n-vector of joint variables
@@ -1568,7 +1568,7 @@ def ForwardDynamicsTrajectory(thetalist, dthetalist, taumat, g, Ftipmat, \
 
 
 @jit(nopython=True)
-def CubicTimeScaling(Tf, t):
+def CubicTimeScaling(Tf, t):   # pragma: no cover
     """Computes s(t) for a cubic time scaling
     :param Tf: Total time of the motion in seconds from rest to rest
     :param t: The current time t satisfying 0 < t < Tf
@@ -1584,7 +1584,7 @@ def CubicTimeScaling(Tf, t):
 
 
 @jit(nopython=True)
-def QuinticTimeScaling(Tf, t):
+def QuinticTimeScaling(Tf, t):   # pragma: no cover
     """Computes s(t) for a quintic time scaling
     :param Tf: Total time of the motion in seconds from rest to rest
     :param t: The current time t satisfying 0 < t < Tf

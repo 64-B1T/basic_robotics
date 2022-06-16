@@ -8,7 +8,7 @@ from basic_robotics.utilities.disp import disp
 # SP Tests
 disp("Beginning SP Test")
 from basic_robotics.kinematics import loadSP
-from basic_robotics.plotting.Draw import DrawSP
+from basic_robotics.plotting.vis_matplotlib import DrawSP
 
 def run_example():
     basic_sp = {

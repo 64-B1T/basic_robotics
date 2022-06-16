@@ -1,7 +1,7 @@
 import numpy as np
 from basic_robotics.general import tm, fsr
 from basic_robotics.kinematics import Arm
-from basic_robotics.plotting.Draw import plt, DrawArm
+from basic_robotics.plotting.vis_matplotlib import plt, DrawArm
 
 
 def run_example():

@@ -80,8 +80,6 @@ class ArmPlot:
         arm_data.extend(joints)
         self.arm_data = arm_data
 
-
-
     def Update(self, send = False):
         poses = self.arm.getJointTransforms()
         self.arm_data_tms[0] = self.c.PrepTM(tm(), self.arm_data[0])
@@ -108,7 +106,6 @@ class ArmPlot:
             self.c.SendAggregated(self.arm_data_tms)
         else:
             return self.arm_data_tms
-
 
     def Delete(self):
         self.c.Delete({"Keys" : self.keys})

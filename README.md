@@ -114,7 +114,7 @@ from basic_robotics.utilities.disp import disp
 # SP Tests
 disp("Beginning SP Test")
 from basic_robotics.kinematics import loadSP
-from basic_robotics.plotting.Draw import DrawSP
+from basic_robotics.plotting.vis_matplotlib import DrawSP
 
 basic_sp = {
     "Name":"Basic SP","Type":"SP","BottomPlate":{"Thickness":0.1,"JointRadius":0.9,"JointSpacing":9,"Mass": 6},
@@ -155,7 +155,7 @@ new_arm = loadArmFromURDF('some_example_robot.urdf')
 ```python
 from basic_robotics.general import tm, fsr
 from basic_robotics.kinematics import Arm
-from basic_robotics.plotting.Draw import *
+from basic_robotics.plotting.vis_matplotlib import *
 
 fig = plt.figure()
 ax = plt.axes(projection = '3d')
@@ -251,7 +251,7 @@ FASER Path planning is a toolbox for using RRT* to plan paths quickly through ad
 ```python
 from basic_robotics.kinematics import loadArmFromURDF
 from basic_robotics.path_planning import RRTStar, PathNode
-from basic_robotics.plotting.draw import *
+from basic_robotics.plotting.vis_matplotlib import *
 
 fig = plt.figure()
 ax = plt.axes(projection = '3d')

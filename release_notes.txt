@@ -1,25 +1,24 @@
-Version 0.3.19 - Patches and Features 
+Version 0.3.20 The Interfaces Update
 
-Hit 75% unit test coverage of entire package. Moving out of kinematics for unit test focuses. 
+Interfaces 
+    Added ros_bridge file. Compatible with ROS1 and ROS2 messaging systems
+    Communications file renamed to communications in keeping with snake case file names.
+    Added documentation and style fixes to Communications classes
+    Expanded capability of Comms UDP objects
+    Added a method to get function handles of comms objects
+
+Plotting
+    Renamed Draw.py 'vis_matplotlib.py' to account for presence of two visualizer systems.
+    Renamed vis_client.py to 'vis_3js_client.py'
+    Renamed vis_server.py to 'vis_3js_server.py'
+    Added documentation and style fixes to vis_matplotlib.py
+    Removed several deprecated Functions
+    Renamed mis-styled functions to camelCase (added backward compatibility handles also)
+    Removed unused imports
+
+Examples
+    Updated examples to reflect plotting changes (Draw -> vis_matplotlib)
 
 General 
-    - Added a frame argument for makeWrench(... frame_applied = tm())
-Kinematics 
-    - robot_model (Robot)
-        - added in velocityAtEndEffector and velocityAtJoints functionalities
-        - completed documentation and style edits
-    - arm_model (Arm)
-        - velocity functions transferred to robot base class. Functionality improved, compatibility unchanged.
-    - sp_model (SP)
-        - carryMassCalcLocal renamed carryMassCalcBody to maintain convention ("" and "Body" to denote space and Body)
-        - private functions moved to bottom of the class and grouped by type
-        - completed documentation and style edits
-        - All state variables moved to private 
-        - added draw and randomPos functions to SP class inline with Robot requirements
-        - patched midHeightEstimate to find true home pose. (I guess now it's midHeightPrecise)
-Plotting 
-    - drawSP patched to account for changes in sp_model 
-    - visClient patched to account for changes in sp_model 
-
-Misc smaller bugfixes, optimizations, and improvments
-Misc documentation added throughout
+    Removed unused imports package-wide
+    Misc improvements.

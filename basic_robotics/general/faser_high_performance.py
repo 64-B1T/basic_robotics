@@ -3,13 +3,12 @@
 import numpy as np
 import numba
 from numba import jit
-#from modern_high_performance import *
 from ..modern_robotics_numba.modern_high_performance import *
 
 #Parallel Disabled For Now. Something is wrong with my installation.
 @jit(nopython=True, cache=True)#, parallel=True)
 def IKinSpaceConstrained(screw_list, ee_home, ee_goal, theta_list,
-        position_tolerance, rotation_tolerance, joint_mins, joint_maxs, max_iterations):
+        position_tolerance, rotation_tolerance, joint_mins, joint_maxs, max_iterations):   # pragma: no cover
     """
     Calculate IK to a certain goal within joint rotation constraints.
 
@@ -61,7 +60,7 @@ def IKinSpaceConstrained(screw_list, ee_home, ee_goal, theta_list,
 
 @jit(nopython=True, cache=True, parallel=True)
 def SPIKinSpace(bottom_transform, top_transform, bottom_joints,
-        top_joints, bottom_joint_locations, top_joint_locations):
+        top_joints, bottom_joint_locations, top_joint_locations):   # pragma: no cover
     """
     Calculate IK for a stewart platform.
 
@@ -95,7 +94,7 @@ def SPIKinSpace(bottom_transform, top_transform, bottom_joints,
 def SPFKinSpaceR(leg_lengths : 'np.ndarray[float]',
         top_plate_init : 'np.ndarray[float]', bottom_joints_init : 'np.ndarray[float]',
         top_joints_init : 'np.ndarray[float]', max_iterations : int, 
-        tol_f : float, tol_a : float, leg_ext_min : float) -> tuple['np.ndarray[float]', int]:
+        tol_f : float, tol_a : float, leg_ext_min : float) -> tuple['np.ndarray[float]', int]:   # pragma: no cover
     """
     Calculate FK for a stewart platform.
 
@@ -184,7 +183,7 @@ def SPFKinSpaceR(leg_lengths : 'np.ndarray[float]',
 #Performs tv = transformation_matrix*vec and removes the 1
 #TrVec can keep name to keep constant with modern robotics naming scheme
 @jit(nopython=True, cache=True)
-def TrVec(transformation_matrix : 'np.ndarray[float]', vector) -> 'np.ndarray[float]':
+def TrVec(transformation_matrix : 'np.ndarray[float]', vector) -> 'np.ndarray[float]':   # pragma: no cover
     """
     Perform tv = TM*vec and remove the 1.
 

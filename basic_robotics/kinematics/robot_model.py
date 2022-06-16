@@ -1,7 +1,6 @@
 """Holding file for Robot class, which is the superclass of sp_model and arm_model."""
-from ..general import tm, fmr, fsr, Wrench
+from ..general import tm, Wrench
 import numpy as np
-import scipy as sci
 
 class Robot:
     """
