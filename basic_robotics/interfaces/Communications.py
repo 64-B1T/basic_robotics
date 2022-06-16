@@ -5,316 +5,11 @@ This is a basic implementation of these communications systems, and byte packing
 Also not included are any sort of multithreaded capabilities. Users who desire to use such capabilities would be 
 best off performing their own implementations or extending these classes.
 """
+from .comms_object import CommsObject
+from .serial_bridge import SerialObject
+from .udp_bridge import UDPObject
 from ast import Str
-import socket
-import time
 from typing import Any
-
-import serial
-
-
-class CommsObject:
-    """Base Class for a variety of communications types with standard interfaces."""
-
-    def __init__(self, name : str = "CommObj", type : str = "UDP") -> 'CommsObject':
-        """
-        Create a new CommsObject.
-
-        Args:
-            name (str, optional): Name of this Comm Object. Defaults to "CommObj".
-            type (str, optional): Type of this Comm Object. Defaults to "UDP".
-
-        Returns:
-            CommsObject: _description_
-        """        
-        self.name = name
-        self.type = type
-        self.forwardList = []
-        self.comm_handle = None
-        self.open = False
-
-    def sendMessage(self, message : Any) -> bool:   # pragma: no cover
-        """
-        Send a message.
-
-        Args:
-            message: message to be sent
-        Returns:
-            bool: message send success
-        """
-        return False
-
-    def recvMessage(self) -> tuple[Any, bool]:  # pragma: no cover
-        """
-        Receive a Message.
-
-        Returns:
-            Any: Message Data
-            bool: Message Receive Success
-        """        
-        return None, False
-
-    def setName(self, name : str) -> None:
-        """
-        Set the name of the object.
-        
-        Args:
-            name (str): Name of the Comms Object
-        """
-        self.name = name
-
-    def getName(self) -> str:
-        """
-        Return the name of the object.
-
-        Returns:
-            str: Name of the object
-        """
-        return self.name
-
-    def openCom(self) -> None:   # pragma: no cover
-        """Open the communications channel."""
-        self.open = True
-        pass
-
-    def closeCom(self) -> None:
-        """Close the communications channel."""
-        if self.comm_handle is not None:
-            self.comm_handle.close()
-            self.open = False
-
-class SerialObject(CommsObject):
-    """Create a new CommsObject that handles Serial Communication."""
-
-    def __init__(self, name : str, port : str = "COM1", baud : int = 9600) -> 'SerialObject':
-        """
-        Initialize a new Serial CommsObject.
-
-        Args:
-            name (str): name of the object
-            port (str, optional): port to select. Defaults to "COM1".
-            baud (int, optional): Baud rate. Defaults to 9600.
-
-        Returns:
-            SerialObject: New Serial CommsObject
-        """        
-        super().__init__(name, "Serial")
-        self.port = port
-        self.baud = baud
-        self.comm_handle = None
-
-    def openCom(self) -> None:
-        """Open the communications line."""
-        self.open = True
-        self.comm_handle = serial.Serial(self.port, self.baud)
-
-    def sendMessage(self, message : str) -> int:
-        """
-        Send a message.
-
-        Args:
-            message: message to be sent
-        Returns:
-            int: bytes written. 0 is failure.
-        """
-        if not self.open:
-            return
-        bwr = 0
-        try:
-            bwr = self.comm_handle.write(message)
-        except:
-            bwr = self.comm_handle.write(message.encode('utf-8'))
-        return bwr > 0
-
-    def recvMessage(self, sleeptime : float = .2) -> tuple[Str, float]:
-        """
-        Receive a Message.
-
-        Args:
-            sleeptime (float, optional): amount of time to sleep before checking for message
-        Returns:
-            Any: Message Data
-            bool: Message Receive Success
-        """ 
-        time.sleep(sleeptime)
-        msg = self.comm_handle.read(self.comm_handle.in_waiting)
-        if not self.open:
-            return "", False
-        try:
-            msg = msg.decode('utf-8')
-        except:
-            if len(msg) == 0:
-                return "", False
-        return msg, True
-
-    def setPort(self, port : str) -> None:
-        """
-        Set the serial port.
-
-        Args:
-            port (str): port to be set
-        """
-        self.port = port
-
-    def setBaud(self, baud : int) -> None:
-        """
-        Set the baud rate.
-
-        Args:
-            baud (int): baud rate to be set
-        """
-        self.baud = baud
-
-    def getPort(self) -> str:
-        """
-        Return the set port.
-
-        Returns:
-            str: port
-        """
-        return self.port
-
-    def getBaud(self) -> int:
-        """
-        Return the baud rate.
-
-        Returns:
-            int: baud
-        """
-        return self.baud
-
-class UDPObject(CommsObject):
-    """Create a new CommsObject that handles UDP Communication."""
-
-    def __init__(self, name, ip = "192.168.1.1", rx_port = 8000, tx_port = 9000):
-        """
-        Create a new UDP CommsObject.
-
-        Args:
-            name (str): name of the object
-            ip (str, optional): port to select. Defaults to "192.168.1.1".
-            rx_port (int, optional): Network Receive. Defaults to 8000.
-            tx_port (int, optional): Network Transmit. Defaults to 9000.
-        Returns:
-            CommsObject instance
-        """
-        super().__init__(name, "UDP")
-        self.ip = ip
-        self.rx_port = rx_port
-        self.tx_port = tx_port
-        self.bufferLen = 1024
-        self.lastAddr = None
-
-    def sendMessage(self, message : str, port : int = None) -> None:
-        """
-        Send a message.
-
-        Args:
-            message (Str): data to be sent along the connection
-            port (int, Optional) : port to transmit. Defaults to None.
-        """
-        if not self.open:
-            return
-        if port is None:
-            port = self.tx_port
-        self.comm_handle.sendto(message.encode('utf-8'), (self.ip, port))
-
-    def recvMessage(self) -> tuple[Any, bool]:
-        """
-        Receive a message.
-
-        Returns:
-            msg: data retrieved, if any
-            success: boolean for whether or not data was retrieved
-        """
-        if not self.open:
-            return None, False
-        success = True
-        data, addr = self.comm_handle.recvfrom(self.bufferLen)
-        if data == None:
-            success = False
-        else:
-            self.lastAddr = addr
-        return data.decode('utf-8'), success
-
-    def setIP(self, ip : str) -> None:
-        """
-        Set the IP address of the comms handle.
-
-        Args:
-            ip: String - ip to bind to
-        """
-        self.ip = ip
-
-    def setRxPort(self, port : int) -> None:
-        """
-        Set the Rx port of the comms handle.
-
-        Args:
-            port: Int - port to bind to
-        """
-        self.rx_port = port
-
-    def setTxPort(self, port : int) -> None:
-        """
-        Set the Tx port of the comms handle.
-
-        Args:
-            port: Int - port to bind to
-        """
-        self.tx_port = port
-
-    def openCom(self) -> None:
-        """Open the communications line."""
-        self.open = True
-        self.comm_handle = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.comm_handle.bind((self.ip, self.rx_port))
-
-    def setBufferLen(self, bufferLen : int) -> None:
-        """
-        Set the buffer length.
-
-        Args:
-            bufferLen (int) : length of the buffer in bytes
-        """
-        self.bufferLen = bufferLen
-
-    def getIP(self) -> str:
-        """
-        Return the bound IP Address.
-
-        Returns:
-            String: ip
-        """
-        return self.ip
-
-    def getRxPort(self) -> int:
-        """
-        Return the bound rx port number.
-
-        Returns:
-            Int: port
-        """
-        return self.rx_port
-    
-    def getTxPort(self) -> int:
-        """
-        Return the bound tx port number.
-
-        Returns:
-            Int: port
-        """
-        return self.tx_port
-
-    def getBufferLen(self) -> int:
-        """
-        Return the buffer length.
-
-        Returns:
-            Int: Buffer length
-        """
-        return self.bufferLen
-
 
 class Communications:
     """Communications wrapper class for multiple communications objects."""
@@ -326,8 +21,10 @@ class Communications:
         Returns:
             Communications: new communications object
         """
-        self.commsObjects = []
-        self.updateObjects = []
+        self.endpoints = {}
+        self.forwarding = {}
+        self.output_functions = {}
+        self.input_functions = {}
 
     def newComPort(self, name : str, type : str, *args, **kwargs) -> None:
         """
@@ -343,7 +40,7 @@ class Communications:
             newObj = UDPObject(name, *args, **kwargs)
         elif type == "Serial":
             newObj = SerialObject(name, *args, **kwargs)
-        self.commsObjects.append(newObj)
+        self.endpoints[name] = newObj
 
     def getCom(self, name : str) -> CommsObject:
         """
@@ -355,10 +52,19 @@ class Communications:
         Returns:
             CommsObject: Desired Comms Object
         """
-        for i in range(len(self.commsObjects)):
-            if self.commsObjects[i].name == name:
-                return self.commsObjects[i]
+        if name in self.endpoints:
+            return self.endpoints[name]
         return None
+
+    def openAll(self) -> None: 
+        """Open All Com Ports."""
+        for com_name in self.endpoints:
+            self.getCom(com_name).openCom()
+    
+    def closeAll(self) -> None:
+        """Close ALl Com Ports."""
+        for com_name in self.endpoints:
+            self.getCom(com_name).closeCom()
 
     def openCom(self, name : str) -> None:
         """
@@ -366,38 +72,161 @@ class Communications:
 
         Args:
             name (str): CommsObject name
+        Returns:
+            bool: Success of Opening the Channel
         """
         comms_obj = self.getCom(name)
         if comms_obj is not None:
-            comms_obj.openCom()
+            return comms_obj.openCom()
+        return False 
 
-    def closeCom(self, name : str) -> None:
+    def closeCom(self, name : str) -> bool:
         """
         Close a specified Communications line.
 
         Args:
             name (str): CommsObject name.
-        """        
+        Returns:
+            bool: Success of Closing the Channel
+        """       
         comms_obj = self.getCom(name)
         if comms_obj is not None:
-            comms_obj.closeCom()
+            return comms_obj.closeCom()
+        return False
 
-    def sendMessage(self, name, message):
+    def setDataSource(self, output_name : str, input_handle: Any) -> bool:
         """
-        Send a message from a comm port with a specific name.
+        Set a function that produces a compatible data output as an automatic message source.
+
+        Do not bind a function to both a data input and a data output.
+        Args:
+            output_name (str): data sender to use.
+            input_handle (Any): input handle to use. Must produce one output.
+
+        Returns:
+            bool: Success on binding function.
+        """        
+        output_com = self.getCom(output_name)
+        if output_com is None or input_handle is None: 
+            return False
+        if output_name in self.input_functions:
+            if input_handle not in self.input_functions[output_name]:
+                self.input_functions[output_name].append(input_handle)
+                return True
+            return False
+        else:
+            self.input_functions[output_name] = [input_handle]
+        return True
+
+    def setDataSink(self, input_name : str, output_handle : Any) -> bool:
+        """
+        Set an output function for received data to automatically populate.
+        
+        Do not bind a function to both a data input and a data output. 
+        Args:
+            input_name (str): Name of input data handle.
+            output_handle (Any): function to be called. Must take only one argument.
+
+        Returns:
+            bool: Success with binding data output
+        """        
+        input_com = self.getCom(input_name)
+        if input_com is None or output_handle is None: 
+            return False
+        if input_name in self.output_functions:
+            if output_handle not in self.output_functions[input_name]:
+                self.output_functions[input_name].append(output_handle)
+                return True
+            return False
+        else:
+            self.output_functions[input_name] = [output_handle]
+        return True
+
+    def deleteForwardingRule(self, input_name : str, output_name : str) -> bool:
+        """
+        Delete a previously established forwarding rule.
+
+        Args:
+            input_name (str): receiving com object
+            output_name (str): destination com object
+
+        Returns:
+            bool: success in removing a forwarding rule.
+        """
+        output_com = self.getCom(output_name)
+        if output_com is None: 
+            return False
+        if input_name in self.forwarding and output_com in self.forwarding[input_name]:
+            self.forwarding[input_name].remove(output_com)
+            return True
+        return False
+
+    def setForwardData(self, input_name : str, output_name : str) -> bool:
+        """
+        Set a forwarding rule, from one com object to another.
+    
+        If data is pulled from one com_port that is linked to another, 
+        then the data will be automatically sent to the next com port.
+
+        Args:
+            input_name (str): receiving com object
+            output_name (str): destination com object
+
+        Returns:
+            bool: Success in establishing forwarding rule.
+        """        
+        input_com = self.getCom(input_name)
+        output_com = self.getCom(output_name)
+        if input_com is None or output_com is None: 
+            return False
+        if input_name in self.forwarding:
+            if output_com not in self.forwarding[input_name]:
+                self.forwarding[input_name].append(output_com)
+                return True
+            return False
+        else:
+            self.forwarding[input_name] = [output_com]
+        return True
+
+    def _single_spin(self):
+        """Execute a single spin."""
+        for name in self.endpoints:
+            this_com = self.getCom(name)
+            if name in self.input_functions:
+                for function in self.input_functions[name]:
+                    this_com.sendData(function())
+            if name in self.output_functions or name in self.forwarding:
+                self.getData(name)
+
+    def spin(self, spin_iterations = -1):
+        """
+        Spin the communications instance, executing all forwarding rules, input and output functions.
+
+        if spin_iterations < 0, will spin infinitely.
+        Args:
+            spin_iterations (int, optional): spin iterations. Defaults to -1.
+        """        
+        if spin_iterations < 0:
+            while True:
+                self._single_spin()
+        for i in range(spin_iterations):
+            self._single_spin()
+
+    def sendData(self, name, data):
+        """
+        Send data from a comm port with a specific name.
 
         Args:
             name: String - unique name of comm port
             message: Data to send
         """
-        for i in range(len(self.commsObjects)):
-            if self.commsObjects[i].name == name:
-                self.commsObjects[i].sendMessage(message)
-                return
+        comms_obj = self.getCom(name)
+        if comms_obj is not None:
+            return comms_obj.sendData(data)
 
-    def recvMessage(self, name):
+    def getData(self, name):
         """
-        Receives a message from a comm port with a specific name.
+        Receives data from a comm port with a specific name.
 
         Args:
             name: String - unique name of comm port
@@ -405,6 +234,14 @@ class Communications:
             data: Retrieved data
             success: Whether it was able to retrieve anything at all
         """
-        for i in range(len(self.commsObjects)):
-            if self.commsObjects[i].name == name:
-                return self.commsObjects[i].recvMessage()
+        comms_obj = self.getCom(name)
+        if comms_obj is not None:
+            rx_data = comms_obj.getData()
+            if name in self.forwarding:
+                for destination in self.forwarding[name]:
+                    destination.sendData(rx_data)
+            if name in self.output_functions:
+                for destination_function in self.output_functions[name]:
+                    destination_function(rx_data)
+            return rx_data
+        return None

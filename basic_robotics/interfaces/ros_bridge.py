@@ -6,17 +6,19 @@ This is as planned, as the intent is simply to provide a basic interface that ca
 It is expected that those who would desire a more tight integration (such as multithreaded pub/sub) would know
 how to enable such features on their own, and would have no need of this bridging module on its own.
 """
-
+READY = False
 from typing import Any
 try:
     import rospy
     import std_msgs.msg as r1msg
+    READY = True
 except ImportError:
     pass
 try: 
     import rclpy
     from rclpy.node import Node
     import std_msgs.msg as r2msg
+    READY = True
 except ImportError:
     pass
 
@@ -472,7 +474,10 @@ def makeROSBridge(node_name : str,
 
     Returns:
         ROSbridge: New ROS Bridging Function
-    """    
+    """
+    if not READY:
+        print("Ros1 or Ros2 not available. Please check source, install, and rospy/rclpy install.")
+        return    
     if ros_ver == 1:
         return ROS1Bridge(node_name, node_rate)
     else:

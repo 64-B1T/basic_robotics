@@ -8,7 +8,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='basic_robotics',
-      version='0.3.20',
+      version='0.3.21',
       long_description=README,
       long_description_content_type='text/markdown',
       description="General Purpose Robotics Package featuring forward and inverse kinematics for serial and parallel robots, static analysis, transformations, path planning, and more.",

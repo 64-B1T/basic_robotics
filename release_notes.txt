@@ -1,24 +1,18 @@
-Version 0.3.20 The Interfaces Update
+Version 0.3.21 Interfaces Update Part 2
 
-Interfaces 
-    Added ros_bridge file. Compatible with ROS1 and ROS2 messaging systems
-    Communications file renamed to communications in keeping with snake case file names.
-    Added documentation and style fixes to Communications classes
-    Expanded capability of Comms UDP objects
-    Added a method to get function handles of comms objects
-
-Plotting
-    Renamed Draw.py 'vis_matplotlib.py' to account for presence of two visualizer systems.
-    Renamed vis_client.py to 'vis_3js_client.py'
-    Renamed vis_server.py to 'vis_3js_server.py'
-    Added documentation and style fixes to vis_matplotlib.py
-    Removed several deprecated Functions
-    Renamed mis-styled functions to camelCase (added backward compatibility handles also)
-    Removed unused imports
-
-Examples
-    Updated examples to reflect plotting changes (Draw -> vis_matplotlib)
-
-General 
-    Removed unused imports package-wide
-    Misc improvements.
+interfaces 
+    Deconstructed communications class into constituent files
+    Added OPCUA support. Client inherits communications class
+    Created ability to set forwarding rules from one interface to another
+    Created ability to set function handle rules from incoming interfaces
+    Created ability to source interface data from function handles 
+    Created ability to spin all interfaces which have at least one forwarding, source function, or destination function binding
+    Added ability to open all interfaces at once 
+    Added ability to close all interfaces at once 
+    Modified getData to return only data, boolean is sent to 'last_rx_success' class instance 
+    Modified sendData to return only a boolean for sent data
+    Modified UDP socket closing to prevent potential memory leak on systems with many interfaces 
+    Modified UDP socket bridge to contain a timeout, preventing system hang. Timeout configurable on creating interface.
+    Modified ROS bridge and OPCUA to warn user if relevant packages are not installed when attempting to call the class 
+    Readiness to launch ROS Bridge and OPCAU client stored in global variable READY in each file, such as ros_bridge.READY
+    Added documentation in all files.
