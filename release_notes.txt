@@ -1,18 +1,48 @@
-Version 0.3.21 Interfaces Update Part 2
+Version 0.3.36 - The Plotting Update
 
-interfaces 
-    Deconstructed communications class into constituent files
-    Added OPCUA support. Client inherits communications class
-    Created ability to set forwarding rules from one interface to another
-    Created ability to set function handle rules from incoming interfaces
-    Created ability to source interface data from function handles 
-    Created ability to spin all interfaces which have at least one forwarding, source function, or destination function binding
-    Added ability to open all interfaces at once 
-    Added ability to close all interfaces at once 
-    Modified getData to return only data, boolean is sent to 'last_rx_success' class instance 
-    Modified sendData to return only a boolean for sent data
-    Modified UDP socket closing to prevent potential memory leak on systems with many interfaces 
-    Modified UDP socket bridge to contain a timeout, preventing system hang. Timeout configurable on creating interface.
-    Modified ROS bridge and OPCUA to warn user if relevant packages are not installed when attempting to call the class 
-    Readiness to launch ROS Bridge and OPCAU client stored in global variable READY in each file, such as ros_bridge.READY
-    Added documentation in all files.
+Despite the name, there are also significant changes to the serial arm class, but most are to plotting functionality.
+
+General
+    Screw
+        - Added reshape method for legacy code support.
+    Wrench 
+        - Allow for Wrenches to be instantiated with no arguments.
+Kinematics 
+    Arm 
+        - Added documentation throughout the file, brought documentation into styling conformity.
+        - Fixed a discovered bug in 'move' which duplicated the screw list, such that if the arm was moved
+            twice, it would result in incorrect joint position outputs. It was not apparent in moving an arm's 
+            base location *once,* leading to delays in locating the bug.
+        - Changed order of arguments for staticForcesWithLinkMasses. Theta and wrench are now optional (uses default configuration).
+        - Made 'grav' and 'end_effector_wrench' optional in inverseDynamicsEMR, default to current config.
+        - Made 'grav' and 'end_effector_wrench' optional in inverseDynamics, default to current config.
+        - Reintegrated InverseDynamicsC into one function.
+        - massMatrix theta argument is now optional.
+        - removed endEffectorForces, as it is a specialized call of inverseDynamics and therefore unneeded.
+Plotting
+    vis_3js_client
+        - created a class inheritance system for objects which can be drawn on 3JS viewer.
+            VisPlot
+            v 
+            |--- PrimitivePlot
+            |    v
+            |    |--- CubePlot
+            |    |--- AxesPlot
+            |    |--- TubePlot
+            |
+            |--- RobotPlot
+                 v
+                 |--- ArmPlot
+                 |--- SPPlot 
+        - Visplot interface allows for default configurations and more automation 
+        - Allows for running visualizers without full imports 
+        - documentation completed and standardized.
+        - Updates for objects transitioned into list comprehensions before building updated dicts.
+    vis_3js_server 
+        - Server can be run through command line without package import 
+        - default 3d volumes are now referenced via 'local' to account for non-standard installation locations and different OSes 
+        - documentation completed and standardized
+    vis_matplotlib
+        - function naming standardized to snakeCase. Alternate handles retained for now for backwards compatibility
+        - documentation completed and standardized.
+

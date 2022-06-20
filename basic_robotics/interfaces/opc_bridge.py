@@ -6,7 +6,7 @@ try:
 except ImportError:
     READY = False
 from .comms_object import CommsObject
-from .communications import Communications
+from .comms_core import Comms
 
 SIGN = "Sign"
 SIGN_AND_ENCRYPT = "SignAndEncrypt"
@@ -54,7 +54,7 @@ class OPCUA_Endpoint(CommsObject):
         self.last_tx_success = True 
         return self.last_tx_success
 
-class OPCUA_Client(Communications):
+class OPCUA_Client(Comms):
     """Wrap a OPCUA Client object to be compatible with Basic-Robotics Communications."""
 
     def __init__(self, end_point : str) -> 'OPCUA_Client':

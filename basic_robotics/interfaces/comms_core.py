@@ -11,10 +11,10 @@ from .udp_bridge import UDPObject
 from ast import Str
 from typing import Any
 
-class Communications:
+class Comms:
     """Communications wrapper class for multiple communications objects."""
 
-    def __init__(self) -> 'Communications':
+    def __init__(self) -> 'Comms':
         """
         Create an empty communications object.
 

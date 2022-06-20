@@ -143,6 +143,18 @@ class Screw:
         nb = dual_scalar[1] * self.data[0:3] + dual_scalar[0] * self.data[3:6]
         return Screw(np.vstack((nt, nb)), self.frame_applied.copy())
 
+    def reshape(self, new_shape : tuple[int, int]) -> 'np.ndarray[float]':
+        """
+        Reshape the data field for legacy code support.
+
+        Args:
+            new_shape ((int, int)): New shape
+
+        Returns:
+            np.ndarray[float]: Data reshaped according to user.
+        """
+        return self.data.copy().reshape(new_shape)
+
     def __sum__(self):
         """
         Return sum of the values of the screw.

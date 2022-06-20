@@ -13,7 +13,7 @@ class Wrench(Screw):
         Wrench: the wrench to be modelled.
     """
 
-    def __init__(self, force : 'np.ndarray[float]',
+    def __init__(self, force : 'np.ndarray[float]' = None,
             position_applied : tm = None, frame_applied : tm = None):
         """Create a new Wrench.
 
@@ -22,11 +22,13 @@ class Wrench(Screw):
             position_applied (tm, optional): If not specified,
                     assumes acting on origin in frame applied
             frame_applied (tm, optional): If not specified, assumes origin.
-        """  
+        """
         self.position_applied = position_applied
         if position_applied is None:
             self.position_applied = tm()
-        if isinstance(force, Screw):
+        if force is None:
+            super().__init__(np.zeros((6,1)), frame_applied)
+        elif isinstance(force, Screw):
             super().__init__(force.data, force.frame_applied)
         elif len(force) == 3:
             t_wren = np.cross(self.position_applied[0:3].reshape((3)), force)

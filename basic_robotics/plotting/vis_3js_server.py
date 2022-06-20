@@ -1,12 +1,17 @@
-from flask import Flask, render_template
-from flask import current_app, flash, jsonify, make_response, redirect, request, url_for, send_from_directory, send_file
-
-import numpy
-from stl import mesh
-from io import BytesIO
-import time
-from os.path import exists
+"""Implement the 3JS server."""
 import logging
+import argparse
+import sys
+import time
+import os
+from os.path import exists
+
+from flask import (Flask, jsonify, make_response,
+                   render_template, request, send_file)
+from stl import mesh
+
+package_directory = os.path.dirname(os.path.abspath(__file__))
+
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 app = Flask(__name__)
@@ -27,6 +32,7 @@ CHANGED = {}
 
 @app.route("/api/json", methods=['POST', 'GET', 'PUT', 'OPTIONS'])
 def json_handler():
+    """Handle a JSON."""
     global ALL_DATA
     PruneExpired()
     if request.method == 'POST':
@@ -121,19 +127,38 @@ def json_handler():
 
 @app.route("/", methods=['GET'])
 def index():
-    if exists('templates/frame.html'):
+    """Return the index page."""
+    if exists(package_directory + '\\templates\\frame.html'):
         return render_template('frame.html', title='VisualizerIndex')
     else:
         return make_response(jsonify(message = 'File Not Found'), 404)
 
-@app.route("/<path:file_path>", methods=['GET'])
-def get_file(file_path):
+@app.route("/internal/<path:file_path>", methods=['Get'])
+def get_internal_file(file_path):
+    """Get a file on a 'relative' path."""
     if file_path is None or file_path == '':
         return render_template('frame.html', title='Visualizer')
     else:
-        print('Looking for:' + file_path)
+        if exists(package_directory + '\\' + file_path):
+            response = send_file(package_directory + '\\' + file_path)
+            #response = make_response(jsonify(message = data), 200)
+            extension = file_path.split('.')
+            if extension[1] in contenttypes:
+                response.headers["Content-Type"] = contenttypes[extension[1]]
+            else:
+                response.headers["Content-Type"] = "application/octet-stream"
+            return response
+        else:
+            print('Not Found: ' + file_path)
+            return make_response(jsonify(message = 'File Not Found'), 404)
+
+@app.route("/<path:file_path>", methods=['GET'])
+def get_external_file(file_path):
+    """Get a file on an absolute path."""
+    if file_path is None or file_path == '':
+        return render_template('frame.html', title='Visualizer')
+    else:
         if exists(file_path):
-            print('Found:' + file_path)
             response = send_file(file_path)
             #response = make_response(jsonify(message = data), 200)
             extension = file_path.split('.')
@@ -147,6 +172,7 @@ def get_file(file_path):
             return make_response(jsonify(message = 'File Not Found'), 404)
 
 def PruneExpired():
+    """Prune expired data."""
     for key in ALL_DATA:
         if len(ALL_DATA[key]) == 0:
             continue
@@ -159,6 +185,13 @@ def PruneExpired():
             else:
                 ALL_DATA[key] = ALL_DATA[key][keepstart:]
 
+def main():
+    """Allow for argument parsing from the command line."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-ip', '--host', type=str, help='ip address of the host. Default 127.0.0.1', default='127.0.0.1')
+    parser.add_argument('-p', '--port', type=int, help='port to host the server on. Default 5000', default=5000)
+    p_args, _ = parser.parse_known_args()
+    app.run(port = p_args.port, host=p_args.host)
+
 if __name__ == "__main__":
-    import os,sys
-    app.run()
+    main()

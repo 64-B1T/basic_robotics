@@ -19,14 +19,7 @@ THREE.Object3D.DefaultUp = new THREE.Vector3(0,0,1);
 //
 // GLOBALS
 //
-const envTexture = new THREE.CubeTextureLoader().load([
-  'img/px_50.png',
-  'img/nx_50.png',
-  'img/py_50.png',
-  'img/ny_50.png',
-  'img/pz_50.png',
-  'img/nz_50.png'
-])
+
 // Rendered objects and HTML elements
 var objects = {};
 var htmls = {};
@@ -400,6 +393,7 @@ function handleObject(data) {
           loader.load(data["File"], function ( collada ) {
             // This is asynchronous, so without care it might be called repeatedly
             newobj = collada.scene;
+            newobj.object = null;
             scene.add(newobj);
             objects[data["Key"]].object = newobj;
             // objects[data["Key"]].stillexists = true;
@@ -412,6 +406,7 @@ function handleObject(data) {
           loader.load(data["File"], function ( gltf ) {
             // This is asynchronous, so without care it might be called repeatedly
             newobj = gltf.scene;
+            newobj.object = null;
             // if ("Wireframe" in data) {
             //   const wireframe = new THREE.WireframeGeometry( newobj.geometry );
             //   newobj = new THREE.LineSegments( wireframe );
@@ -424,7 +419,9 @@ function handleObject(data) {
                 newobj.children[i].geometry.scale(data["Scale"][0],data["Scale"][1],data["Scale"][2]);
               }
             }
+            
             scene.add(newobj);
+            
             objects[data["Key"]].object = newobj;
             // objects[data["Key"]].stillexists = true;
             replaceMatrix(newobj,data.Matrix);
@@ -432,6 +429,7 @@ function handleObject(data) {
         } else if (fnamesplit[fnamesplit.length - 1] === "stl") {
           objects[data["Key"]] = {};
           var newobj;
+          newobj.object = null;
           var loader = new STLLoader();
           const stl_material = new THREE.MeshPhysicalMaterial(data["Material"])
           loader.load(data["File"], function ( geometry ) {
@@ -699,11 +697,15 @@ function removeDeadHTMLs() {
 
 function replaceMatrix ( obj, matrix ) {
   // It turns out Object3D doesn't actually do this on its own
-  var m = new THREE.Matrix4();
-  m.fromArray(matrix);
-  if ( obj.matrixAutoUpdate ) obj.updateMatrix();
-  obj.matrix = m;
-  obj.matrix.decompose( obj.position, obj.quaternion, obj.scale );
+  if (obj != null)
+  {
+    var m = new THREE.Matrix4();
+    m.fromArray(matrix);
+    if ( obj.matrixAutoUpdate ) obj.updateMatrix();
+    obj.matrix = m;
+    obj.matrix.decompose( obj.position, obj.quaternion, obj.scale );
+  }
+  
 }
 
 function createLine(points,params) {

@@ -1,0 +1,5 @@
+{
+    "Floor":{"File":"internal/models/ChFloor2.glb","Matrix":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0],"Category":"Model","Key":"Floor"},
+    "Scene":{"Background":"rgb(229, 225, 230)","Camera":{"Position":[5,5,5],"Type":"Perspective","Near":0.1,"FOV":75,"Far":1000},"Scene":1,"Key":"Scene","Fog":{"Type":"Exp","Density":0.00015,"Color":"rgb(192,255,192)"},"Lights":[{"Intensity":0.2,"Type":"Ambient","Color":"rgb(255,255,255)"},{"Position":[1,1,1],"Intensity":2,"Type":"Directional","Color":"rgb(255,255,255)"}]},
+    "Space Frame":{"Frame":1,"Scale":1.0,"Matrix":[1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0],"Key":"Space Frame"}
+}

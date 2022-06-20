@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
-from basic_robotics.interfaces.communications import Communications
+from basic_robotics.interfaces.comms_core import Comms
 
 class test_interfaces_communications(unittest.TestCase):
 
     def setUp(self):
-        self.com = Communications()
+        self.com = Comms()
     
     def tearDown(self):
         self.com.closeAll()

@@ -1,3 +1,8 @@
+"""
+Model a Serial Arm.
+
+Primarily uses functions from Modern Robotics (Lynch).
+"""
 import os
 import random
 import xml.etree.ElementTree as ET
@@ -8,7 +13,7 @@ import scipy.integrate as integrate
 import scipy.linalg as ling
 
 from .robot_model import Robot
-from ..general import fmr, fsr, tm
+from ..general import fmr, fsr, tm, Wrench
 from ..metrology.virtual_vision import Camera
 from ..plotting.vis_matplotlib import DrawArm  # , DrawRectangle
 from ..utilities.disp import disp
@@ -16,27 +21,23 @@ from .visual_info import vis_info
 
 
 class Arm(Robot):
-    #Conventions:
-    #Filenames:  snake_case
-    #Variables: snake_case
-    #Functions: camelCase
-    #ClassNames: CapsCase
-    #Docstring: Google
+    """Models a Serial Arm."""
 
-    #Converted to python - Liam
     def __init__(self, base_pos_global : tm, screw_list : 'np.ndarray[float]', end_effector_home : tm,
             joint_poses_home : 'list[tm]', joint_axes : 'np.ndarray[float]' = None) -> 'Arm':
-        """"
-        Create a serial arm
-        Args:
-            base_pos_global: Base transform of Arm. tmobject
-            screw_list: Screw list of arm. Nx6 matrix.
-            end_effector_home: Initial end effector of arm.
-            joint_poses_home: joint_poses_home list for arm
-            joint_axes: joint_axes list for arm
-        Returns:
-            Arm: arm object
         """
+        Create a new Arm Instance.
+
+        Args:
+            base_pos_global (tm): Base link position of the arm.
+            screw_list (np.ndarray[float]): Screw list in the global space
+            end_effector_home (tm): End effector pose in global space
+            joint_poses_home (list[tm]): Joint poses in global space
+            joint_axes (np.ndarray[float], optional): Joint Axes list. Defaults to None.
+
+        Returns:
+            Arm: New Serial arm.
+        """        
     # Variable Declarations (Pre Initialization)
         # Number of Degrees of Freedom (All Important)
         self.num_dof = np.shape(screw_list)[1]
@@ -86,6 +87,11 @@ class Arm(Robot):
         #Other
         self.cameras = []
 
+        if joint_axes is not None:
+            self._reversable = True
+            self.reversed = False
+            self.joint_axes = joint_axes
+            self.original_joint_axes = joint_axes
     # Initialization
         self.screw_list_body = np.zeros((6, self.num_dof))
         self.initialize(base_pos_global, screw_list, end_effector_home, joint_poses_home)
@@ -95,11 +101,7 @@ class Arm(Robot):
                 fmr.Adjoint(self._end_effector_home.inv().gTM()) @
                 self.screw_list[:, i])
 
-        if joint_axes is not None:
-            self._reversable = True
-            self.reversed = False
-            self.joint_axes = joint_axes
-            self.original_joint_axes = joint_axes
+        
 
     # Backups
         self.original_screw_list = screw_list
@@ -108,13 +110,16 @@ class Arm(Robot):
     def initialize(self, base_pos_global : 'tm', screw_list : 'np.ndarray[float]', 
             end_effector_home : 'tm', joint_poses_home : 'list[tm]') -> None:
         """
-        Helper for Serial Arm. Should be called internally
+        Initialize internal elements of the serial arm.
+
+        Used when creating a new arm, and when moving it from one location to another.
+
         Args:
-            base_pos_global: Base transform of Arm. tmobject
-            screw_list: Screw list of arm. Nx6 matrix.
-            end_effector_home: Initial end effector of arm.
-            joint_poses_home: joint_poses_home list for arm
-        """
+            base_pos_global (tm): Base location of the arm.
+            screw_list (np.ndarray[float]): Screw list in the global space.
+            end_effector_home (tm): End effector home in global space.
+            joint_poses_home (list[tm]): Joint poses in the global space. 
+        """        
         self.screw_list = screw_list
         self.original_screw_list_body = np.copy(screw_list)
         if self._joint_homes_global is not None:
@@ -156,12 +161,14 @@ class Arm(Robot):
 
     def thetaProtector(self, theta : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
-        Properly bounds theta values
+        Ensure thetas are within joint mins and maxes.
+
         Args:
-            theta: joint angles to be tested and reset
+            theta (np.ndarray[float]): Input thetas.
+
         Returns:
-            newtheta: corrected joint angles
-        """
+            np.ndarray[float]: Output protected thetas.
+        """        
         theta_len = len(theta)
         if (np.any(theta[0:theta_len] < self.joint_mins[0:theta_len]) or
                 np.any(theta[0:theta_len] > self.joint_maxs[0:theta_len])):
@@ -174,13 +181,16 @@ class Arm(Robot):
     #Converted to python -Liam
     def FK(self, theta : 'np.ndarray[float]', protect : bool = False) -> tm:
         """
-        Calculates the end effector position of the serial arm given thetas
-        params:
-            theta: input joint array
-            protect: whether or not to validate action
-        returns:
-            end_effector_transform: End effector tm
-        """
+        Perform Forward Kinematics, yielding an end effector transform from joint configuration.
+
+        Updates internal arm state.
+        Args:
+            theta (np.ndarray[float]): joint configuration
+            protect (bool, optional): disable error checking.. Defaults to False.
+
+        Returns:
+            tm: end effector configuration.
+        """        
         if theta is None:
             return self.getEEPos()
         if not protect:
@@ -194,11 +204,16 @@ class Arm(Robot):
     #Converted to python - Liam
     def FKLink(self, theta : 'np.ndarray[float]', i : int, protect : bool = False) -> tm:
         """
-        Calculates the position of a given joint provided a theta list
+        Get a given link origin pose in global space for a given theta configuration.
+
         Args:
-            theta: The array of theta values for each joint
-            i: The index of the joint desired, from 0
-        """
+            theta (np.ndarray[float]): joint configuration
+            i (int): link index
+            protect (bool, optional): Disable error checking. Defaults to False.
+
+        Returns:
+            tm: Link transform.
+        """        
         # Returns the TM of link i
         # Lynch 4.1
         if not protect:
@@ -209,11 +224,16 @@ class Arm(Robot):
 
     def FKJoint(self, theta : 'np.ndarray[float]', i : int, protect : bool = False) -> tm:
         """
-        Calculates the position of a given joint provided a theta list
+        Get a given joint origin pose in global space for a given theta configuration.
+
         Args:
-            theta: The array of theta values for each joint
-            i: The index of the joint desired, from 0
-        """
+            theta (np.ndarray[float]): joint configuration
+            i (int): joint index
+            protect (bool, optional): Disable error checking. Defaults to False.
+
+        Returns:
+            tm: joint transform.
+        """        
         # Returns the TM of link i
         # Lynch 4.1
         if not protect:
@@ -222,25 +242,30 @@ class Arm(Robot):
             jh = self._end_effector_home.TM
         else:
             jh = self._joint_homes_global[i].TM
-        end_effector_pos =  tm(fmr.FKinSpace(jh,
+        end_effector_pos = tm(fmr.FKinSpace(jh,
             self.screw_list[0:6, 0:i+1], theta[0:i+1]))
         return end_effector_pos
 
     #Converted to python - Liam
-    def IK(self, goal_position : tm, theta_init : 'np.ndarray[float]' = None, check : bool =True,
-            level : int = 6, max_iters : int = 30, protect : bool = False):
+    def IK(self, goal_position : tm, theta_init : 'np.ndarray[float]' = None, 
+            check : bool = True, level : int = 6, max_iters : int = 30, 
+            protect : bool = False) -> tuple['np.ndarray[float]', bool]: 
         """
-        Calculates joint positions of a serial arm. All parameters are
-            optional except the desired end effector position
+        Calculate joint configuration of an arm to reach a desired end effector configuration.
+
+        There may be more than one appropriate configuration depending on the arm.
+        Updates internal arm state.
         Args:
-            T: Desired end effector position to calculate for
-            theta_init: Intial theta guess for desired end effector position.
-                Set to 0s if not provided.
-            check: Whether or not the program should retry if the position finding fails
-            level: number of recursive calls allowed if check is enabled
+            goal_position (tm): Goal Position to reach.
+            theta_init (np.ndarray[float], optional): Initial Guess Thetas. Defaults to None/use current thetas.
+            check (bool, optional): If failure, try again with a different guess. Defaults to True.
+            level (int, optional): Maximum number of guesses. Defaults to 6.
+            max_iters (int, optional): Maximum number of iterations per attempt. Defaults to 30.
+            protect: (bool, optional): Disable error checking. Defaults to False.
         Returns:
-            List of thetas, success boolean
-        """
+            theta_list (np.ndarray[float]): solution thetas
+            success (bool): success of the operation.
+        """        
         if theta_init is None:
             theta_init = fsr.angleMod(self._theta.reshape(len(self._theta)))
         if not protect:
@@ -271,21 +296,25 @@ class Arm(Robot):
 
     def constrainedIK(self, goal_position : tm, theta_init : 'np.ndarray[float]' = None,
             check : bool = True, level : int = 6,
-            max_iters : int= 30) -> tuple['np.ndarray[float]', bool]:
+            max_iters : int= 30) -> tuple['np.ndarray[float]', bool]: 
         """
-        Calculates joint positions of a serial arm, provided rotational constraints on the Joints
+        Calculate joint positions of a serial arm, provided rotational constraints on the Joints.
+
         All parameters are optional except the desired end effector position
         Joint constraints are set through the joint_maxs and joint_mins properties, and should be
         arrays the same size as the number of DOFS
+
         Args:
-            T: Desired end effector position to calculate for
-            theta_init: Intial theta guess for desired end effector position.
-                Set to 0s if not provided.
-            check: Whether or not the program should retry if the position finding fails
-            level: number of recursive calls allowed if check is enabled
+            goal_position (tm): Goal Position to reach.
+            theta_init (np.ndarray[float], optional): Initial Guess Thetas. Defaults to None/use current thetas.
+            check (bool, optional): If failure, try again with a different guess. Defaults to True.
+            level (int, optional): Maximum number of guesses. Defaults to 6.
+            max_iters (int, optional): Maximum number of iterations per attempt. Defaults to 30.
+
         Returns:
-            List of thetas, success boolean
-        """
+            theta_list (np.ndarray[float]): solution thetas
+            success (bool): success of the operation.
+        """        
         if not isinstance(goal_position, tm):
             print(goal_position)
             print('Attempted pass ^')
@@ -411,7 +440,8 @@ class Arm(Robot):
     def IKFree(self, goal_position : tm, theta_init : 'np.ndarray[float]', 
             inds : list[int]) -> tuple['np.ndarray[float]', bool]:
         """
-        Only allow theta_init(freeinds) to be varied
+        Perform IK but only allow 'free_inds' to be varied.
+
         Method not covered in Lynch.
         SetElements inserts the variable vector x into the positions
         indicated by freeinds in theta_init.  The remaining elements are
@@ -424,8 +454,6 @@ class Arm(Robot):
         Returns:
             theta: list of theta lists
             success: boolean for success
-            t: goal
-            thall: integration results
         """
         #free_thetas = fsolve(@(x)(obj.FK(SetElements(theta_init,
             #freeinds, x))-T), theta_init(freeinds))
@@ -448,10 +476,11 @@ class Arm(Robot):
 
     def randomPos(self) -> tm:
         """
-        Create a random position, return the end effector TF
+        Generate a random position.
+
         Returns:
-            random pos
-        """
+            tm: Randomly assigned configuration of the end effector.
+        """       
         theta_temp = np.zeros((len(self._theta)))
         for j in range(len(theta_temp)):
             theta_temp[j] = random.uniform(self.joint_mins[j], self.joint_maxs[j])
@@ -550,14 +579,16 @@ class Arm(Robot):
     def lineTrajectory(self, target : tm, initial : tm = None, 
             execute  : bool = True, delt : float = .01) -> list['np.ndarray[float]']:
         """
-        Move the arm end effector in a straight line towards the target
+        Create a trajectory moving the end effector in a straight line torwards the target.
+
         Args:
-            target: Target pose to reach
-            intial: Starting pose. If set to 0, as is default, uses current position
-            execute: Execute the desired motion after calculation
-            delt: delta in meters to be calculated for each step
+            target (tm): Target configuration
+            initial (tm, optional): Initial Pose. Defaults to None/Current Pose.
+            execute (bool, optional): Execute motion, or remain at current config. Defaults to True.
+            delt (float, optional): Distance of end effector betweene ach pose in meters. Defaults to .01.
+
         Returns:
-            theta_list list of theta configurations
+            theta_list (list[np.ndarray[float]]): List of theta configurations.
         """
         if initial is None:
             initial = self._end_effector_pos_global.copy()
@@ -586,18 +617,21 @@ class Arm(Robot):
             pose_delta : float = 0.1, pose_tol : float = 0.2, max_iter: int = 1000,
             cam_ind : int = 0) -> tuple['np.ndarray[float]', 'list[np.ndarray[float]]']:
         """
-        Use a virtual camera to perform visual servoing to target
+        Perform visual servoing to a target using virtual cameras.
+
         Args:
-            target: Object to move to
-            tol: pixel tolerance
-            ax: matplotlib object to draw to
-            plt: matplotlib plot
-            fig: whether or not to draw
-            Returns: Thetalist for arm, figure object
+            target (tm): Object of interest to move towards.
+            pixel_tol (int, optional): Pixel Tolerance. Defaults to 2.
+            desired_dist (float, optional): Desired distance to object in meters. Defaults to 1.0.
+            pose_delta (float, optional): Distance in meters to record between poses at end effector. Defaults to 0.1.
+            pose_tol (float, optional): Pose tolarance in meters. Defaults to 0.2.
+            max_iter (int, optional): Maximum iterations before giving up. Defaults to 1000.
+            cam_ind (int, optional): Virtual camera to use. Defaults to 0.
+
         Returns:
-            theta: thetas at goal
-            fig: figure
-        """
+            theta_list (np.ndarray[Float]): final thetas
+            thetas_list (list[np.ndarray[float]]): list of all theta configurations along trajectory.
+        """               
         if (len(self.cameras) == 0):
             print('NO CAMERA CONNECTED')
             return self._theta, []
@@ -650,17 +684,19 @@ class Arm(Robot):
             prev_theta : 'np.ndarray[float]' = None, p_gain : float = 100.0,
             d_gain : float = 100.0, max_theta_dot : float = 0.1) -> 'np.ndarray[float]':
         """
-        Uses PD Control to Maneuver to an end effector goal
+        Use PD Control to move to the goal position.
+
         Args:
-            theta: start theta
-            goal_position: goal position
-            p_gain: Proportional Gain
-            d_gain: Derivative Gain
-            prev_theta: prev_theta parameter
-            max_theta_dot: maximum joint velocities
+            goal_position (tm): Goal Position
+            theta (np.ndarray[float], optional): Initial Theta. Defaults to None/Current Position.
+            prev_theta (np.ndarray[float], optional): previous theta. Defaults to None/Dead stop.
+            p_gain (float, optional): Proportional Gain. Defaults to 100.0.
+            d_gain (float, optional): Derivative Gain. Defaults to 100.0.
+            max_theta_dot (float, optional): Max joint velocity. Defaults to 0.1.
+
         Returns:
-            scaled_theta_dot: scaled velocities
-        """
+            np.ndarray[float]: Scaled joint velocities.
+        """        
         if prev_theta is None:
             prev_theta = np.zeros(self.num_dof)
         backup_theta = self._theta.copy()
@@ -678,8 +714,6 @@ class Arm(Robot):
         self.FK(backup_theta)
         return scaled_theta_dot
 
-
-
     """
     Getters and Setters
     """
@@ -687,7 +721,15 @@ class Arm(Robot):
     def setNames(self, arm_name : str = None,
             link_names : list[str]= None,
             joint_names : list[str]= None) -> None:
+        """
+        Set names for Arm elements.
 
+        Will use generics if not specified.
+        Args:
+            arm_name (str, optional): Arm name. Defaults to None.
+            link_names (list[str], optional): Names for each link. Defaults to None.
+            joint_names (list[str], optional): Names for each joint. Defaults to None.
+        """        
         if arm_name is not None and self.name != "Arm":
             self.name = arm_name
         if link_names is not None:
@@ -706,7 +748,15 @@ class Arm(Robot):
             joint_maxs : 'np.ndarray[float]' = None,
             max_vels : 'np.ndarray[float]'= None,
             max_effort : 'np.ndarray[float]'= None) -> None:
-            
+        """
+        Set joint properties for the arm.
+
+        Args:
+            joint_mins (np.ndarray[float], optional): Joint minimum rotations. Defaults to None.
+            joint_maxs (np.ndarray[float], optional): Joint maximum rotations. Defaults to None.
+            max_vels (np.ndarray[float], optional): Joint maximum velocities. Defaults to None.
+            max_effort (np.ndarray[float], optional): Joint maximum efforts/torques. Defaults to None.
+        """ 
         if joint_mins is not None:
             self.joint_mins = joint_mins
         if joint_maxs is not None:
@@ -719,7 +769,15 @@ class Arm(Robot):
     def setVisColProperties(self, vis_props : list = None,
             col_props : list = None,
             link_dimensions : 'np.ndarray[float]' = None) -> None:
+        """
+        Set visual and collision properties for the arm.
 
+        All arguments are optional.
+        Args:
+            vis_props (list, optional): Visual Properties. Defaults to None.
+            col_props (list, optional): Collision Properties. Defaults to None.
+            link_dimensions (np.ndarray[float], optional): Link Box Dimensions. Defaults to None.
+        """        
         if vis_props is not None:
             self._vis_props = vis_props
         if col_props is not None:
@@ -731,7 +789,15 @@ class Arm(Robot):
             joint_homes_global : list[tm] = None,
             link_homes_global : list[tm] = None,
             eef_to_last_joint : tm = None) -> None:
+        """
+        Set origins of joints and links for the arm.
 
+        Args:
+            prev_joints_to_next_joints (list[tm], optional): Local transforms from one joint to the next. Defaults to None.
+            joint_homes_global (list[tm], optional): Joint positions in global space. Defaults to None.
+            link_homes_global (list[tm], optional): Link centers in global space. Defaults to None.
+            eef_to_last_joint (tm, optional): End effector transform to the last joint. Defaults to None.
+        """        
         if prev_joints_to_next_joints is not None:
             self._prev_joints_to_next_joints = prev_joints_to_next_joints
         if joint_homes_global is not None:
@@ -744,7 +810,14 @@ class Arm(Robot):
     def setMassProperties(self, link_masses : 'np.ndarray[float]' = None,
             mass_grav_centers : list[tm] = None,
             box_spatial_links : 'np.ndarray[float]' = None) -> None:
+        """
+        Set mass properties for the arm.
 
+        Args:
+            link_masses (np.ndarray[float], optional): Link masses in Kg. Defaults to None.
+            mass_grav_centers (list[tm], optional): Link centers of mass in local frame. Defaults to None.
+            box_spatial_links (np.ndarray[float], optional): Box spatial inertia. Defaults to None.
+        """        
         if link_masses is not None:
             self._link_masses = link_masses
         if mass_grav_centers is not None:
@@ -755,9 +828,7 @@ class Arm(Robot):
             self._box_spatial_links = box_spatial_links
 
     def testArmValues(self) -> None:   # pragma: no cover
-        """
-        prints a bunch of arm values
-        """
+        """Print a detailed description of the arm."""
         np.set_printoptions(precision=4)
         np.set_printoptions(suppress=True)
         print('S')
@@ -782,14 +853,18 @@ class Arm(Robot):
 
     def getJointTransforms(self, return_base : bool = True) -> list[tm]:
         """
-        returns joint information for each link in the arm, including the base
+        Return joint information for each link in the arm, including the base.
+
         If the end effector is not coincident with the last joint of the arm,
         returns end effector also, even though it is not a true joint
         Base return behavior can be disabled by setting 'return_base' to false
 
+        Args:
+            return_base (bool, optional): Return the base or not. Defaults to True.
+
         Returns:
-            tmlist
-        """
+            list[tm]: list of each joint location.
+        """        
         if return_base:
             poses = [self._base_pos_global.copy()]
         else:
@@ -802,60 +877,60 @@ class Arm(Robot):
 
     def setArbitraryHome(self, new_home_global : tm, theta : 'np.ndarray[float]' = None) -> None:
         """
-        #  Given a pose and some new_home_global in the space frame, find out where
-        #  that new_home_global is in the EE frame, then find the home pose for
-        #  that arbitrary pose
+        Set a new end effector position relative to last joint.
+
         Args:
-            theta: theta configuration
-            new_home_global: new global transform
-        """
+            new_home_global (tm): New relative home position
+            theta (np.ndarray[float], optional): configuration for joints. Defaults to None.
+        """        
         end_effector_temp = self.FK(theta)
         old_to_new = fsr.globalToLocal(end_effector_temp, new_home_global)
         new_home = fsr.localToGlobal(self._end_effector_home, old_to_new)
         self._end_effector_home = new_home
         self._helper_determine_eef_to_last_joint()
 
-
     #Converted to Python - Joshua
     def restoreOriginalEE(self) -> None:
-        """
-        Retstore the original End effector of the Arm
-        """
+        """Restore the original End effector configuration of the arm."""
         self._end_effector_home = self.original_end_effector_home
         self._helper_determine_eef_to_last_joint()
 
     def getScrewList(self) -> 'np.ndarray[float]':
         """
-        Returns screw list in space
-        Return:
-            screw list
-        """
+        Get the space frame screw list for the arm.
+
+        Returns:
+            np.ndarray[float]: space frame screw list.
+        """        
         return self.screw_list.copy()
 
     def getLinkDimensions(self) -> 'np.ndarray[float]':
         """
-        Returns link dimensions
-        Return:
-            link dimensions
-        """
+        Get box link dimensions for the arm.
+
+        Returns:
+            np.ndarray[float]: Box link dimensions.
+        """        
         return self._link_dimensions.copy()
 
     """
     Forces and Dynamics
     """
 
-    def staticForcesWithLinkMasses(self, theta : 'np.ndarray[float]',
-            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
+    def staticForcesWithLinkMasses(self, end_effector_wrench : Wrench = Wrench(), 
+            theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
-        Calculate Static Forces with Link Masses. Dependent on Loading URDF Prior
+        Calculate joint torques given end effector wrench, and all joint masses.
 
         Args:
-            theta: joint configuration to analyze
-            end_effector_wrench: wrench at the end effector (can be zeros)
+            end_effector_wrench (Wrench, optional): End effector wrench. Defaults to None.
+            theta (np.ndarray[float], optional): Joint configuration. Defaults to None.
+
         Returns:
-            tau: joint torques of the robot
-        """
-        self.FK(theta)
+            np.ndarray[float]: Joint torques of the arm.
+        """        
+        if theta is not None:
+            self.FK(theta)
         jacobian = self.jacobian(theta)
         tau_init = jacobian.T @ end_effector_wrench
         carry_wrench = end_effector_wrench
@@ -870,43 +945,48 @@ class Arm(Robot):
         return tau_init
 
     def inverseDynamicsEMR(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
-            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]', 
-            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
+            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None, 
+            end_effector_wrench : Wrench = Wrench()) -> 'np.ndarray[float]': 
         """
-        Inverse dynamics
+        Inverse Dynamics using Modern Robotics Formulation.
+
         Args:
-            theta: theta
-            theta_dot: theta 1st deriviative
-            theta_dot_dot: theta 2nd derivative
-            grav: gravity
-            end_effector_wrench: end effector wrench
-        Returns
-            tau: tau
+            theta (np.ndarray[float]): Joint thetas.
+            theta_dot (np.ndarray[float]): Joint velocities.
+            theta_dot_dot (np.ndarray[float]): Joint accelerations
+            grav (np.ndarray[float], optional): Gravity vector. Defaults to None.
+            end_effector_wrench (Wrench, optional): End effector wrench. Defaults to None.
+
+        Returns:
+            np.ndarray[float]: Joint torque list (tau)
         """
+        if grav is None:
+            grav = self.grav
         # Merged into link_mass_grav_centers
         link_mass_array = np.array([x.gTM() for x in self._link_mass_grav_centers])
         return fmr.InverseDynamics(theta, theta_dot, theta_dot_dot, grav, end_effector_wrench,
             link_mass_array, self._box_spatial_links, self.screw_list)
 
     def inverseDynamics(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
-            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]', 
-            end_effector_wrench : 'np.ndarray[float]'):
+            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None, 
+            end_effector_wrench : Wrench = Wrench()):
         """
-        Inverse dynamics
+        Inverse Dynamics using Modern Robotics Formulation.
+
         Args:
-            theta: theta
-            theta_dot: theta 1st deriviative
-            theta_dot_dot: theta 2nd derivative
-            grav: gravity
-            end_effector_wrench: end effector wrench
-        Returns
-            tau: tau
-            A: todo
-            V: todo
-            vel_dot: todo
-            F: todo
+            theta (np.ndarray[float]): Joint thetas.
+            theta_dot (np.ndarray[float]): Joint velocities.
+            theta_dot_dot (np.ndarray[float]): Joint accelerations
+            grav (np.ndarray[float], optional): Gravity vector. Defaults to None.
+            end_effector_wrench (Wrench, optional): End effector wrench. Defaults to None.
+
+        Returns:
+            np.ndarray[float]: Joint torque list (tau)
         """
         #Multiple Bugs Fixed - Liam Aug 4 2019
+        if grav is None:
+            grav = self.grav
+
         A = np.zeros((self.screw_list.shape))
         V = np.zeros((self.screw_list.shape))
         vel_dot = np.zeros((self.screw_list.shape))
@@ -935,7 +1015,7 @@ class Arm(Robot):
             if i == self.num_dof-1:
                 #continue
                 Tip1_i = self._link_mass_grav_centers[i+1].inv().TM
-                start_term = (fmr.Adjoint(Tip1_i).conj().T @ end_effector_wrench.reshape((6,1))).flatten()
+                start_term = (fmr.Adjoint(Tip1_i).conj().T @ end_effector_wrench).flatten()
                 add_term = self._box_spatial_links[i,:,:] @ vel_dot[0:6, i]
                 sub_term = fmr.ad(V[0:6, i]).conj().T @ self._box_spatial_links[i,:,:] @ V[0:6, i]
                 F[0:6, i] = start_term + add_term - sub_term
@@ -950,7 +1030,25 @@ class Arm(Robot):
             tau[i] = F[0:6, i].conj().T @ A[0:6, i]
         return tau, A, V, vel_dot, F
 
-    def _inverseDynamicsCHelperAG(self):
+    def inverseDynamicsC(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
+            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None,
+            end_effector_wrench : Wrench = Wrench()
+            ) -> tuple['np.ndarray[float]', 'np.ndarray[float]', 'np.ndarray[float]']:
+        """
+        Calculate inverse dynamics according to the algorithm in Lynch 8.4.
+
+        Args:
+            theta (np.ndarray[float]): Joint thetas.
+            theta_dot (np.ndarray[float]): Joint velocities.
+            theta_dot_dot (np.ndarray[float]): Joint accelerations
+            grav (np.ndarray[float], optional): Gravity vector. Defaults to None.
+            end_effector_wrench (Wrench, optional): End effector wrench. Defaults to empty wrench.
+
+        Returns:
+            tau (np.ndarray[float]): joint torques
+        """        
+        if grav is None:
+            grav = self.grav
         n = self.num_dof
         A = np.zeros((6*n, n))
         G = np.zeros((6*n, 6*n))
@@ -961,9 +1059,7 @@ class Arm(Robot):
             A[a_index:b_index, i] = (
                 self._link_homes_global[i].inv().adjoint() @ self.screw_list[0:6, i])
             G[a_index:b_index, a_index:b_index] = self._box_spatial_links[i,:,:]
-        return A, G
 
-    def _inverseDynamicsCHelperSetup(self, theta, grav, end_effector_wrench):
         n = self.num_dof
         T10 = self.FKLink(theta, 0).inv()
 
@@ -975,10 +1071,6 @@ class Arm(Robot):
 
         Ftip = np.vstack((np.zeros((5*n, 1)), Ttipend.adjoint().conj().T @ end_effector_wrench))
 
-        return Ftip, vel_dot_base
-
-    def _inverseDynamicsCHelperStage2(self, A, theta, theta_dot):
-        n = self.num_dof
         joint_axes = np.zeros((6*n, 6*n))
         Vbase = np.zeros((6*n, 1))
         for i in range (1, n):
@@ -990,29 +1082,6 @@ class Arm(Robot):
             joint_axes[index_1:index_2,index_3:index_4] = Ti_im1.adjoint()
         L = ling.inv(np.identity((6*n))-joint_axes)
         V = L @ (A @ theta_dot.reshape((6,1)) + Vbase)
-        return L, V, joint_axes, Vbase
-
-
-    def inverseDynamicsC(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
-            theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]',
-            end_effector_wrench : 'np.ndarray[float]'):
-        """
-        Inverse dynamics Implementation of algorithm in Lynch 8.4
-        Args:
-            theta: theta
-            theta_dot: theta 1st deriviative
-            theta_dot_dot: theta 2nd derivative
-            grav: gravity
-            end_effector_wrench: end effector wrench
-        Returns
-            tau: tau
-            M: todo
-            G: todo
-        """
-        n = self.num_dof
-        A, G = self._inverseDynamicsCHelperAG()
-        Ftip, vel_dot_base = self._inverseDynamicsCHelperSetup(theta, grav, end_effector_wrench)
-        L, V, joint_axes, Vbase = self._inverseDynamicsCHelperStage2(A, theta, theta_dot)
         #Checkpoint 2
         adV = np.zeros((6*n, 6*n))
         adAthd = np.zeros((6*n, 6*n))
@@ -1042,28 +1111,26 @@ class Arm(Robot):
 
     def forwardDynamicsE(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
             tau : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None, 
-            end_effector_wrench : 'np.ndarray[float]' = None):
+            end_effector_wrench : Wrench = Wrench()):
         """
-        Forward dynamics
+        Calculate forward dynamics sans Modern Robotics.
+
         Args:
-            theta: theta
-            theta_dot: theta 1st deriviative
-            tau:joint torques
-            grav: gravity
-            end_effector_wrench: end effector wrench
-        Returns
-            theta_dot_dot: todo
-            M: todo
-            h: todo
-            ee: todo
-        """
+            theta (np.ndarray[float]): Joint configuration
+            theta_dot (np.ndarray[float]): Joint velocities
+            tau (np.ndarray[float]): Joint torques
+            grav (np.ndarray[float], optional): gravity vector. Defaults to None.
+            end_effector_wrench (Wrench, optional): end effector wrench. Defaults to None.
+
+        Returns:
+            theta_dot_dot (np.ndarray[Float]): Joint accelerations
+        """        
         if grav is None:
             grav = self.grav
-        if end_effector_wrench is None:
-            end_effector_wrench = np.zeros((6,1))
         M = self.massMatrix(theta)
         h = self.coriolisGravity(theta, theta_dot, grav)
-        ee = self.endEffectorForces(theta, end_effector_wrench)
+        ee = self.inverseDynamics(theta, np.zeros(len(theta)), 
+                np.zeros(len(theta)), np.zeros((3)), end_effector_wrench)[0]
         mult_term = (tau-h.flatten()-ee.flatten())
         theta_dot_dot = ling.pinv(M) @ mult_term
 
@@ -1071,18 +1138,20 @@ class Arm(Robot):
 
     def forwardDynamics(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]', 
             tau : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None,
-            end_effector_wrench : 'np.ndarray[float]' = np.zeros((6,1))) -> 'np.ndarray[float]':
+            end_effector_wrench : Wrench = Wrench()) -> 'np.ndarray[float]':
         """
-        Forward dynamics
+        Calculate forward dynamics sans Modern Robotics.
+
         Args:
-            theta: theta
-            theta_dot: theta 1st deriviative
-            tau:joint torques
-            grav: gravity
-            end_effector_wrench: end effector wrench
-        Returns
-            theta_dot_dot: todo
-        """
+            theta (np.ndarray[float]): Joint configuration
+            theta_dot (np.ndarray[float]): Joint velocities
+            tau (np.ndarray[float]): Joint torques
+            grav (np.ndarray[float], optional): gravity vector. Defaults to None.
+            end_effector_wrench (Wrench, optional): end effector wrench. Defaults to None.
+
+        Returns:
+            theta_dot_dot (np.ndarray[Float]): Joint accelerations
+        """      
         if grav is None:
             grav = self.grav
         link_mass_array = np.array([x.gTM() for x in self._link_mass_grav_centers])
@@ -1096,13 +1165,27 @@ class Arm(Robot):
             self._box_spatial_links,
             self.screw_list)
         return theta_dot_dot
-
+        
     def integrateForwardDynamics(self, theta0 : 'np.ndarray[float]', 
             thetadot0 : 'np.ndarray[float]', tau : 'np.ndarray[float]', dt : float = 1.0, 
             grav : 'np.ndarray[float]' = None, 
-            end_effector_wrench : 'np.ndarray[float]' = np.zeros((6,1)), 
+            end_effector_wrench : Wrench = Wrench(), 
             t_series : 'np.ndarray[float]' = None):
+        """
+        Integrate forward kinematics.
 
+        Args:
+            theta0 (np.ndarray[float]): Joint configuration init
+            thetadot0 (np.ndarray[float]): Joint velocity init
+            tau (np.ndarray[float]): Joint torques init.
+            dt (float, optional): delta time. Defaults to 1.0.
+            grav (np.ndarray[float], optional): gravity vector. Defaults to None.
+            end_effector_wrench (Wrench, optional): end effector wrench. Defaults to Wrench().
+            t_series (np.ndarray[float], optional): use specified time series. Defaults to None.
+
+        Returns:
+            np.ndarray[float] : joint accelerations
+        """        
         if grav is None:
             grav = self.grav
 
@@ -1121,15 +1204,18 @@ class Arm(Robot):
        # merged = np.hstack([i.reshape(-1,1) for i in sol.y])
         return sol.t, sol.y.T
 
-    def massMatrix(self, theta : 'np.ndarray[float]') -> 'np.ndarray[float]':
+    def massMatrix(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
-        calculates mass matrix for configuration
+        Generate arm mass matrix list.
+
         Args:
-            theta: theta for configuration
+            theta (np.ndarray[float], optional): joint configuration. Defaults to None.
+
         Returns:
-            M: mass matrix
-        """
+            np.ndarray[float]: mass matrix for arm
+        """        
         #Debugged - Liam 8/4/19
+        theta = self._helper_ensure_theta_not_none(theta)
         M = np.zeros((len(theta),len(theta)))
         for i in range(len(theta)):
             Ji = self.jacobianLink(i, theta)
@@ -1144,29 +1230,18 @@ class Arm(Robot):
             theta_dot : 'np.ndarray[float]',
             grav : 'np.ndarray[float]') -> 'np.ndarray[float]':
         """
-        Implements Coriolis Gravity from dynamics
+        Calculate coriolis Gravity.
+
         Args:
-            theta: theta config
-            theta_dot: theta deriv
-            grav: gravity
+            theta (np.ndarray[float]): Joint configuration
+            theta_dot (np.ndarray[float]): Joint acceleration
+            grav (np.ndarray[float]): Gravity array
+
         Returns:
-            coriolisGravity
-        """
+            np.ndarray[float]: Mass matrix for the arm.
+        """        
         h = self.inverseDynamics(theta, theta_dot, 0*theta, grav, np.zeros((6, 1)))[0]
         return h
-
-    def endEffectorForces(self, theta : 'np.ndarray[float]', 
-            end_effector_wrench : 'np.ndarray[float]') -> 'np.ndarray[float]':
-        """
-        Calculates forces at the end effector
-        Args:
-            theta: joint configuration
-            end_effector_wrench: wrench at the end effector
-        Returns:
-            forces at the end effector
-        """
-        return self.inverseDynamics(theta, 0*theta, 0*theta,
-                np.zeros((3)), end_effector_wrench)[0]
 
     """
     Jacobian Calculations
@@ -1175,7 +1250,8 @@ class Arm(Robot):
     #Converted to Python - Joshua
     def jacobian(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
-        Calculates Space Jacobian for given configuration
+        Calculate Space Jacobian for given configuration.
+
         Args:
             theta: joint configuration
         Returns:
@@ -1187,7 +1263,8 @@ class Arm(Robot):
     #Converted to Python - Joshua
     def jacobianBody(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
-        Calculates Body Jacobian for given configuration
+        Calculate Body Jacobian for given configuration.
+
         Args:
             theta: joint configuration
         Returns:
@@ -1198,7 +1275,8 @@ class Arm(Robot):
 
     def jacobianLink(self, i : int,  theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
-        Calculates Space Jacobian for given configuration link
+        Calculate Space Jacobian for given configuration link.
+
         Args:
             i: joint index
             theta: joint configuration
@@ -1214,8 +1292,8 @@ class Arm(Robot):
 
     def jacobianEETrans(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
-        Jacobian of the end effector (body), but the frame is rotated to be
-        aligned with the space (global) frame
+        Calculate Jacobian of the end effector (body), but the frame is rotated to be aligned with the space (global) frame.
+        
         Args:
             theta: joint configuration
         Returns:
@@ -1229,7 +1307,8 @@ class Arm(Robot):
 
     def numericalJacobian(self, theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
         """
-        Calculates numerical Jacobian for given configuration
+        Calculate numerical Jacobian for given configuration.
+
         Args:
             theta: joint configuration
         Returns:
@@ -1247,7 +1326,8 @@ class Arm(Robot):
 
     def getManipulability(self, theta : 'np.ndarray[float]' = None):
         """
-        Calculates Manipulability at a given configuration
+        Calculate Manipulability at a given configuration.
+
         Args:
             theta: configuration
         Returns:
@@ -1277,7 +1357,8 @@ class Arm(Robot):
 
     def addCamera(self, cam : Camera, end_effector_to_cam : tm) -> None:
         """
-        adds a camera to the arm
+        Add a camera to the arm.
+
         Args:
             cam: camera object
             end_effector_to_cam: end effector to camera transform
@@ -1289,9 +1370,7 @@ class Arm(Robot):
         self.cameras.append(camL)
 
     def updateCams(self) -> None:
-        """
-        Updates camera locations
-        """
+        """Update camera locations."""
         for i in range(len(self.cameras)):
             self.cameras[i][0].moveCamera(self._end_effector_pos_global @ self.cameras[i][1])
 
@@ -1301,7 +1380,8 @@ class Arm(Robot):
 
     def move(self, new_base_pos_global : tm, stationary : bool = False) -> None:
         """
-        Moves the arm to another location
+        Move the arm to another location.
+
         Args:
             T: new base location
             stationary: boolean for keeping the end effector in origianal location while
@@ -1309,7 +1389,7 @@ class Arm(Robot):
         """
         curpos = self._end_effector_pos_global.copy()
         curth = self._theta.copy()
-        self.initialize(new_base_pos_global, self.original_screw_list,
+        self.initialize(new_base_pos_global, self.original_screw_list.copy(),
             self._end_effector_home_local, self.original_joint_poses_home)
         if stationary == False:
             self.FK(self._theta)
@@ -1318,7 +1398,10 @@ class Arm(Robot):
 
     def draw(self, ax):
         """
-        Draws the arm using the faser_plot library
+        Draw the arm using the vis_matplotlib library.
+
+        Args:
+            ax: matplotlib axes to plot to.
         """
         DrawArm(self, ax)
 
@@ -1347,6 +1430,7 @@ class Arm(Robot):
     Compatibility, for those to be deprecated
     """
     def printOutOfDateFunction(self, old_name, use_name):  # pragma: no cover
+        """Print out of date function name."""
         print(old_name + ' is deprecated. Please use ' + use_name + ' instead.')
 
     def RandomPos(self):  # pragma: no cover
@@ -1434,10 +1518,6 @@ class Arm(Robot):
         """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('CoriolisGravity', 'coriolisGravity')
         return self.coriolisGravity(theta, thetadot, grav)
-    def EndEffectorForces(self, theta, wrenchEE):  # pragma: no cover
-        """Return Deprecation Notice and Function Call. Don't Use."""
-        self.printOutOfDateFunction('EndEffectorForces', 'endEffectorForces')
-        return self.endEffectorForces(theta, wrenchEE)
     def Jacobian(self, theta):  # pragma: no cover
         """Return Deprecation Notice and Function Call. Don't Use."""
         self.printOutOfDateFunction('Jacobian', 'jacobian')
@@ -1486,7 +1566,8 @@ class Arm(Robot):
     def setDynamicsProperties(self, link_mass_grav_centers = None, # pragma: no cover
         link_homes_global = None, box_spatial_links = None, link_dimensions = None):
         """
-        Set dynamics properties of the arm
+        Set dynamics properties of the arm.
+
         At mimimum dimensions are a required parameter for drawing of the arm.
         Args:
             link_mass_grav_centers: The mass matrices of links
@@ -1506,7 +1587,10 @@ class Arm(Robot):
 
 
 class URDFLoader:
+    """Load a URDF into an Arm object."""
+
     def __init__(self):
+        """Init a URDFLoader."""
         self.type = 'LINK'
         self.sub_type = None
         self.axis = None
@@ -1529,9 +1613,7 @@ class URDFLoader:
         self.max_velocity = np.inf
 
     def display(self):   # pragma: no cover
-        """
-        Displays properties of calculated object
-        """
+        """Display properties of calculated object."""
         if self.type == 'link':
             print('link: ' + self.name + ' (' + str(self.id) + ')')
         else:
@@ -1558,6 +1640,7 @@ class URDFLoader:
 def load_urdf_spec_file(urdf_fname, package_fname):
     """
     Return a file path from a urdf specified file.
+
     Args:
         urdf_fname: urdf file name
         package_fname: package_fname
@@ -1572,7 +1655,8 @@ def load_urdf_spec_file(urdf_fname, package_fname):
         return package_fname
 def find_package_dir(urdf_fname, package_rel_dir):
     """
-    Attempts to find a directory specified by a ros package macro without ROS
+    Attempt to find a directory specified by a ros package macro without ROS.
+
     Args:
         urdf_fname: urdf file name/path *must be absolute
         package_rel_dir: relative package directory
@@ -1596,7 +1680,8 @@ def find_package_dir(urdf_fname, package_rel_dir):
 
 def loadArmFromURDF(file_name):
     """
-    Load an arm from a URDF File
+    Load an arm from a URDF File.
+
     Args:
         file_name: file name of urdf object
     Returns:
@@ -1627,6 +1712,7 @@ def loadArmFromURDF(file_name):
     def extractOrigin(x_obj):
         """
         Shortcut for pulling from xml.
+
         Args:
             x: xml object root
         Returns:
@@ -1646,7 +1732,7 @@ def loadArmFromURDF(file_name):
 
     def completeInertiaExtraction(child):
         """
-        Extracts inertial properties from child
+        Extract inertial properties from child.
 
         Args:
             child: child object
@@ -1665,7 +1751,8 @@ def loadArmFromURDF(file_name):
 
     def completeGeometryParse(child):
         """
-        complete Geometry parsing for children
+        Complete Geometry parsing for children.
+
         Args:
             child: child xml object to be parsed
         """

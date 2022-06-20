@@ -1,0 +1,4 @@
+include basic_robotics/plotting/jsons/*.json
+include basic_robotics/plotting/models/*
+include basic_robotics/plotting/templates/*
+include basic_robotics/plotting/web_assets/*
