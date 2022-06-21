@@ -259,7 +259,7 @@ def drawSP(sp, ax : Axes3D, col : str = 'green', forces : bool = True):  # pragm
                 [sp.getTopJoints()[1, i], ba[1]],
                 [sp.getTopJoints()[2, i], ba[2]], 'blue')
 
-    if forces and sp.getLegForces().size > 1:
+    if forces and sp._last_tau.size > 1:
         for i in range(6):
             label = '%.1fN' % (sp.getActuatorForces()[i])
             if i % 2 == 0:

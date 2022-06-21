@@ -25,7 +25,7 @@ class OPCUA_Endpoint(CommsObject):
         """        
         super().__init__(name, 'OPCEndpoint')
         self.opc_path = opc_path
-        self.client_ref = client_ref
+        self.client_handle = client_ref
     
     def getData(self) -> any:
         """
@@ -34,7 +34,7 @@ class OPCUA_Endpoint(CommsObject):
         Returns:
             Any: Message Data
         """ 
-        data = self.client_handle.nodes.root.get_child(self.opc_path).read_value()
+        data = self.client_handle.get_root_node().get_child(self.opc_path).get_value()
         self.last_tx_success = True
         return data
 
@@ -48,8 +48,8 @@ class OPCUA_Endpoint(CommsObject):
         Returns:
             bool: message send success
         """
-        self.client_handle.nodes.root.get_child(
-                self.opc_path).write_attribute(
+        self.client_handle.get_root_node().get_child(
+                self.opc_path).set_attribute(
                     ua.AttributeIds.Value, ua.DataValue(data))
         self.last_tx_success = True 
         return self.last_tx_success
@@ -71,6 +71,7 @@ class OPCUA_Client(Comms):
             print("python-opcua is not installed," +
                  "OPCUA_Client is not available. Please install python-opcua to proceed.")
             return
+        super().__init__()
         self.client_handle = Client(end_point)
         self.open = False
 
@@ -108,8 +109,8 @@ class OPCUA_Client(Comms):
             args: Optional - List of arguments specific to comm port
         """  
         if type == "OPCEndpoint":
-            return self.addEndpoint(**args, **kwargs)
-        super().newComPort(name, str, **args, **kwargs)
+            return self.addEndpoint(name, *args, **kwargs)
+        super().newComPort(name, *args, **kwargs)
 
     def addEndpoint(self, reference_name : str, opc_path : list[str]):
         """
@@ -118,8 +119,8 @@ class OPCUA_Client(Comms):
         Args:
             reference_name (str): easy reference name for the opc endpoint.
             opc_path ([str]]): opc path to the endpoint from the root node.
-        """        
-        self.endpoints[reference_name] = OPCUA_Endpoint(reference_name, opc_path)
+        """
+        self.endpoints[reference_name] = OPCUA_Endpoint(reference_name, opc_path, self.client_handle)
 
     def openCom(self, name : str = "OPC") -> bool:
         """

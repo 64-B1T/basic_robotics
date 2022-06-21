@@ -8,5 +8,5 @@ from . import general
 from . import plotting
 from . import kinematics
 from . import utilities
-from . import robot_collisions
+from . import collisions
 from . import metrology

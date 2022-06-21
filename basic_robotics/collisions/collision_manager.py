@@ -1,3 +1,4 @@
+"""Implements Collision Detection using FCL."""
 from itertools import combinations
 
 import trimesh
@@ -8,7 +9,8 @@ from ..plotting.vis_matplotlib import drawMesh
 
 
 def createBox(position, dims):
-    """Creates a trimesh representation of a box
+    """
+    Create a trimesh representation of a box.
 
     Args:
         position (tm): transformation of the box in space
@@ -22,7 +24,7 @@ def createBox(position, dims):
 
 def createCylinder(position, radius, height):
     """
-    Creates a new mesh representing a cylinder
+    Create a new mesh representing a cylinder.
 
     Args:
         position (tm): Transformation of the cylinder in space
@@ -38,7 +40,7 @@ def createCylinder(position, radius, height):
 
 def createSphere(position, radius):
     """
-    Creates a new mesh representing a sphere
+    Create a new mesh representing a sphere.
 
     Args:
         position (tm): Transformation of the sphere in space
@@ -54,7 +56,7 @@ def createSphere(position, radius):
 
 def createMesh(position, file_name, type='stl'):
     """
-    Creates a new mesh from a mesh file
+    Create a new mesh from a mesh file.
 
     Args:
         position (tm): position of the mesh in space
@@ -70,25 +72,25 @@ def createMesh(position, file_name, type='stl'):
     return new_mesh
 
 class ColliderManager:
-    """Provides an interface for multiple collision managers
-        to afford greater control over a workspace
+    """
+    Provide an interface for multiple collision managers to afford greater control over a workspace.
 
     Attributes:
         collision_objects: list of trimesh collision managers
-
     """
+
     def __init__(self):
-        """Initializes a new collision manager"""
+        """Initialize a new collision manager."""
         self.collision_objects = []
 
     def update(self):
-        """updates all objects in the collision manager"""
+        """Update all objects in the collision manager."""
         for collision_object in self.collision_objects:
             collision_object.update()
 
     def bind(self, collision_object):
         """
-        Bind a new ColliderObject into the collision manager
+        Bind a new ColliderObject into the collision manager.
 
         Args:
             collision_object: New collision object to bind to the Collider Manager
@@ -99,7 +101,7 @@ class ColliderManager:
 
     def checkCollisions(self):
         """
-        Checks for collisions between any set of management groups
+        Check for collisions between any set of management groups.
 
         Returns:
             type: Boolean for whether or not collisions are present
@@ -114,7 +116,7 @@ class ColliderManager:
 
 class ColliderObject:
     """
-    General class for a collider object
+    General class for a collider object.
 
     Args:
         name: identifier for this collision group
@@ -126,9 +128,10 @@ class ColliderObject:
         meshes: dict containing name-mesh pairs
 
     """
+
     def __init__(self, name='newCollider'):
         """
-        Initializes a new collider object
+        Initialize a new collider object.
 
         Args:
             name: name of the new collider object
@@ -140,7 +143,7 @@ class ColliderObject:
 
     def bindManager(self, super_manager):
         """
-        Binds this instance to a collider manager
+        Bind this instance to a collider manager.
 
         Args:
             super_manager: collider manager to bind to
@@ -148,7 +151,7 @@ class ColliderObject:
         super_manager.bind(self)
 
     def update(self):
-        """Handle for update, may not do anything for all subclasses"""
+        """Handle for update, may not do anything for all subclasses."""
         pass
 
     def addMesh(self, name, object):
@@ -157,7 +160,7 @@ class ColliderObject:
 
     def checkExternalCollisions(self):
         """
-        Checks for collisions external to the collision group
+        Check for collisions external to the collision group.
 
         Returns:
             bool: collisions
@@ -180,7 +183,7 @@ class ColliderObject:
 
     def checkInternalCollisions(self):
         """
-        Check for collisions internal to the collision group
+        Check for collisions internal to the collision group.
 
         Returns:
             bool: whether or not there are collisions
@@ -190,7 +193,7 @@ class ColliderObject:
 
     def checkAllCollisions(self):
         """
-        Check for internal and external collisions to the collision group
+        Check for internal and external collisions to the collision group.
 
         Returns:
             bool: Collisions in a global space
@@ -200,7 +203,7 @@ class ColliderObject:
 
 class ColliderArm(ColliderObject):
     """
-    Subclass of ColliderObject which deals with collision groups resulting from serial arms
+    Subclass of ColliderObject which deals with collision groups resulting from serial arms.
 
     Args:
         arm: serial arm model
@@ -211,11 +214,11 @@ class ColliderArm(ColliderObject):
         ignore_connected_links: Description of parameter `ignore_connected_links`.
         arm: serial arm model
         name: name of this instance
-
     """
+
     def __init__(self, arm, name = "arm"):
         """
-        Initialize new ColliderArm instance
+        Initialize new ColliderArm instance.
 
         Args:
             arm: serial arm model
@@ -233,14 +236,14 @@ class ColliderArm(ColliderObject):
 
     def deleteEE(self):
         """
-        Delete the end effector to more effectively remove it from collision checking
+        Delete the end effector to more effectively remove it from collision checking.
         """
         self.manager.remove_object(self.arm.link_names[self.num_links - 1])
         self.num_links = self.num_links - 1
 
     def populateSerialArm(self):
         """
-        populateColliderObject with serial arm properties
+        Populate ColliderObject with serial arm properties.
         """
         props = self.arm._col_props
         if props is None:
@@ -248,6 +251,8 @@ class ColliderArm(ColliderObject):
         for i in range(len(props)):
             link_name = self.arm.link_names[i]
             p = props[i]
+            if p.geo_type is None:
+                continue
             self.old_transforms.append(tm())
             if p[0] == 'box':
                 new_obj = createBox(tm(), p.box_size)
@@ -262,7 +267,7 @@ class ColliderArm(ColliderObject):
 
     def update(self):
         """
-        update positions of collision meshes to match with the arm current state
+        Update positions of collision meshes to match with the arm current state.
         """
         joint_transforms = self.arm.getJointTransforms(self.include_base)
         for i in range(self.num_links):
@@ -270,7 +275,7 @@ class ColliderArm(ColliderObject):
 
     def checkInternalCollisions(self):
         """
-        Check for collisions within the arm object, potentialy ignoring consecutive links
+        Check for collisions within the arm object, potentialy ignoring consecutive links.
 
         Returns:
             bool: whether or not there's a countable internal collision
@@ -296,7 +301,8 @@ class ColliderArm(ColliderObject):
 
     def drawArmMeshes(self, ax):
         """
-        Draw Arm Meshes (and update backup, displayable meshes)
+        Draw Arm Meshes (and update backup, displayable meshes).
+        
         Args:
             ax: matplotlib axis object to draw to
         """

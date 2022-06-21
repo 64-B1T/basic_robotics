@@ -1,48 +1,18 @@
-Version 0.3.36 - The Plotting Update
+0.3.37 Misc Changes
 
-Despite the name, there are also significant changes to the serial arm class, but most are to plotting functionality.
+ChangeLog 
 
-General
-    Screw
-        - Added reshape method for legacy code support.
-    Wrench 
-        - Allow for Wrenches to be instantiated with no arguments.
 Kinematics 
-    Arm 
-        - Added documentation throughout the file, brought documentation into styling conformity.
-        - Fixed a discovered bug in 'move' which duplicated the screw list, such that if the arm was moved
-            twice, it would result in incorrect joint position outputs. It was not apparent in moving an arm's 
-            base location *once,* leading to delays in locating the bug.
-        - Changed order of arguments for staticForcesWithLinkMasses. Theta and wrench are now optional (uses default configuration).
-        - Made 'grav' and 'end_effector_wrench' optional in inverseDynamicsEMR, default to current config.
-        - Made 'grav' and 'end_effector_wrench' optional in inverseDynamics, default to current config.
-        - Reintegrated InverseDynamicsC into one function.
-        - massMatrix theta argument is now optional.
-        - removed endEffectorForces, as it is a specialized call of inverseDynamics and therefore unneeded.
-Plotting
-    vis_3js_client
-        - created a class inheritance system for objects which can be drawn on 3JS viewer.
-            VisPlot
-            v 
-            |--- PrimitivePlot
-            |    v
-            |    |--- CubePlot
-            |    |--- AxesPlot
-            |    |--- TubePlot
-            |
-            |--- RobotPlot
-                 v
-                 |--- ArmPlot
-                 |--- SPPlot 
-        - Visplot interface allows for default configurations and more automation 
-        - Allows for running visualizers without full imports 
-        - documentation completed and standardized.
-        - Updates for objects transitioned into list comprehensions before building updated dicts.
-    vis_3js_server 
-        - Server can be run through command line without package import 
-        - default 3d volumes are now referenced via 'local' to account for non-standard installation locations and different OSes 
-        - documentation completed and standardized
-    vis_matplotlib
-        - function naming standardized to snakeCase. Alternate handles retained for now for backwards compatibility
-        - documentation completed and standardized.
+    arm_model 
+        - removed _helper_relate_eef_to_joints as capability is duplicated in robot_model.
+        - changed original_end_effector_home to private. 
+        - removed deprecated functions and deprecation notices for upcoming 1.0.0 release.
+    sp_model 
+        - removed deprecated functions and deprecation notices for upcoming 1.0.0 release.
+Collisions
+    robot_collisions package renamed 'collisions' to indicate generality of use.
+    collisions documentation updated 
+
+Interfaces 
+    opcua tested. Retaining original version for now instead of switching to asyncua
 
