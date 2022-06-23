@@ -1,18 +1,9 @@
-0.3.37 Misc Changes
-
-ChangeLog 
+3.38 - Lunch and Learn Release Version 
 
 Kinematics 
-    arm_model 
-        - removed _helper_relate_eef_to_joints as capability is duplicated in robot_model.
-        - changed original_end_effector_home to private. 
-        - removed deprecated functions and deprecation notices for upcoming 1.0.0 release.
-    sp_model 
-        - removed deprecated functions and deprecation notices for upcoming 1.0.0 release.
-Collisions
-    robot_collisions package renamed 'collisions' to indicate generality of use.
-    collisions documentation updated 
+    arm - improved URDF compatibility
 
-Interfaces 
-    opcua tested. Retaining original version for now instead of switching to asyncua
-
+Plotting
+    visualizer
+        -fixed loading of DAE files 
+        - misc fixes

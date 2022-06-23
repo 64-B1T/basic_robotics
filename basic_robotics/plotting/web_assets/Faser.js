@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
 import { ColladaLoader } from 'https://threejs.org/examples/jsm/loaders/ColladaLoader.js';
 import { GLTFLoader } from 'https://threejs.org/examples/jsm/loaders/GLTFLoader.js';
+import { STLLoader} from 'https://threejs.org/examples/jsm/loaders/STLLoader.js'
 // import { Plotly} from 'https://cdn.plot.ly/plotly-latest.min.js';
 // import { ImageLoader } from 'https://threejs.org/src/loaders/ImageLoader.js';
 
@@ -30,6 +31,7 @@ var righttabs = [];
 var activelyUpdate = true; // Whether to call the API every frame or not
 var sliderplay = [];
 var jsoncategory = "";
+
 
 // showingvisible: which divs are visible if showing is true
 // hiddenvisible: which divs are visible if showing is false
@@ -390,14 +392,22 @@ function handleObject(data) {
           objects[data["Key"]] = {}; // Placeholder to prevent multiple loads
           var newobj;
           var loader = new ColladaLoader();
-          loader.load(data["File"], function ( collada ) {
+          loader.load('http://localhost:5000/' + data["File"], function ( collada ) {
             // This is asynchronous, so without care it might be called repeatedly
+            console.log(collada);
             newobj = collada.scene;
             newobj.object = null;
+
             scene.add(newobj);
+
             objects[data["Key"]].object = newobj;
             // objects[data["Key"]].stillexists = true;
             replaceMatrix(newobj,data.Matrix);
+          },(xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+          },
+          (error) => {
+              console.log(error)
           });
         } else if (fnamesplit[fnamesplit.length - 1] === "glb") {
           objects[data["Key"]] = {}; // Placeholder to prevent multiple loads
@@ -428,14 +438,38 @@ function handleObject(data) {
           });
         } else if (fnamesplit[fnamesplit.length - 1] === "stl") {
           objects[data["Key"]] = {};
+          console.log(data["File"]);
           var newobj;
-          newobj.object = null;
+
           var loader = new STLLoader();
-          const stl_material = new THREE.MeshPhysicalMaterial(data["Material"])
-          loader.load(data["File"], function ( geometry ) {
-            new_mesh = new THREE.Mesh(geometry, stl_material)
-            scene.add(new_mesh)
+
+          const material = new THREE.MeshPhysicalMaterial({
+            color: 0xb2ffc8,
+            metalness: 0.25,
+            roughness: 0.1,
+            opacity: 1.0,
+            transparent: true,
+            transmission: 0.99,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.25
           });
+        
+          
+          loader.load(data["File"], function ( geometry  ) {
+            console.log(geometry);
+            console.log('loading');
+            newobj = geometry.scene;
+            newobj = new THREE.Mesh( geometry , material);
+            newobj.position.set(0, 0, 0);
+            newobj.rotation.set(0, 0, 0);
+            scene.add( newobj );
+
+            objects[data["Key"]].object = newobj;
+            console.log('loaded');
+            // objects[data["Key"]].stillexists = true;
+            replaceMatrix(newobj,data.Matrix);
+          });
+          
         }
       }
       // Other object creation methods go here
@@ -461,6 +495,7 @@ function handleObject(data) {
         replaceMatrix(newobj,data.Matrix);
       } else if ("Primitive" in data) {
         // NOTE/TODO/TO DO: Add more primitives as needed.
+        console.log('making primitive');
         objects[data["Key"]] = {}; // Placeholder to prevent multiple loads
         let newobj;
 
@@ -638,6 +673,11 @@ function handleControlUpdates(data) {
 }
 
 function removeObject(key) {
+  if (objects[key].object == undefined)
+  {
+    delete objects[key];
+    return;
+  }
   if (objects[key].object.geometry !== undefined) {
     objects[key].object.geometry.dispose();
   }

@@ -26,7 +26,7 @@ def newFloor(filename : str = 'ChFloor2.glb') -> dict:
         filename = package_directory + '\\' + filename
     return {"Key" : "Floor", "File" : filename, "Category" : "Model"}
 
-def newMaterial(color : hex = 0xff8800, transparent : bool = True, opacity : float = .5) -> dict:
+def newMaterial(color : hex = 0x3238a8, transparent : bool = True, opacity : float = .5) -> dict:
     """
     Create a new material for an object primitive.
 
@@ -38,10 +38,10 @@ def newMaterial(color : hex = 0xff8800, transparent : bool = True, opacity : flo
     Returns:
         dict: dict representing the new material.
     """    
-    return {"color" : color, "transparent" : transparent, "opacity" : opacity}
+    return {"Color" : color, "transparent" : transparent, "opacity" : opacity}
 
 def newPrimitive(name : str = "CubeLet", file : str = "Cube3.glb", Category : str = "Model", 
-        Scale : list[float] = [1.0, 1.0, 1.0], color : dict = None) -> dict:
+        scale : list[float] = [1.0, 1.0, 1.0], color : dict = None) -> dict:
     """
     Create a new primative for the visualizer.
 
@@ -49,7 +49,7 @@ def newPrimitive(name : str = "CubeLet", file : str = "Cube3.glb", Category : st
         name (str, optional): name of the object. Defaults to "CubeLet"
         file (str, optional): filename of the primitive. Defaults to "Cube3.glb".
         Category (str, optional): type of object. Defaults to "Model".
-        Scale (list[float], optional): scale of object dimensions XYZ. Defaults to [1.0, 1.0, 1.0].
+        scale (list[float], optional): scale of object dimensions XYZ. Defaults to [1.0, 1.0, 1.0].
         color (dict, optional): color dict of the object. Defaults to None.
 
     Returns:
@@ -57,7 +57,7 @@ def newPrimitive(name : str = "CubeLet", file : str = "Cube3.glb", Category : st
     """    
     if color == None:
         color = newMaterial()
-    return {"Key" : name, "File" : file, "Category" : Category, "Scale" : Scale, "Material" : color}
+    return {"Key" : name, "File" : file, "Category" : Category, "Scale" : scale, "Material" : color}
 
 def determineAxis(joint_location : tm, axis : 'np.ndarray[float]') -> tm:
     """
@@ -213,7 +213,7 @@ class DrawClient:
         Returns:
             dict: output dict.
         """        
-        return {"Keys" : {k["Key"] : k for k in dict_list}}
+        return {"Keys" : {k["Key"] : k for k in dict_list if k is not None}}
 
     def sendAggregated(self, dict_list : list[dict], hostalt : str = None) -> bool:
         """
@@ -373,11 +373,11 @@ class DrawClient:
                     "ArrowBase": line_tms[0][0:3].flatten().tolist(),
                     "ArrowDirection": unit[0:3].flatten().tolist(),
                     "ArrowLength": distance,
-                    "Arrow" : 1, "color" : color,
+                    "Arrow" : 1, "Color" : color,
                     "lineWidth" : linewidth},
                     "Segments":[[]]}
         else:
-            lineparams = {"Key" : key, "LineParameters" : {"color" : color, "lineWidth" : linewidth}}
+            lineparams = {"Key" : key, "LineParameters" : {"Color" : color, "lineWidth" : linewidth}}
             segments = []
             for ttm in line_tms:
                 segments.append(ttm[0:3].flatten().tolist())
@@ -496,7 +496,7 @@ class VisPlot:
         if client is None:
             client = DrawClient()
         if name is None:
-            name = self.client.newName()
+            name = client.newName()
         self.keys = []
         self.name = name
         self.c = client
@@ -534,7 +534,7 @@ class PrimitivePlot(VisPlot):
         Returns:
             PrimitivePlot: _description_
         """        
-        super.__init__(name, client)
+        super().__init__(name, client)
         self.transform_origin = transform_origin
         self.dimensions = dimensions
         self.color = c 
@@ -566,7 +566,7 @@ class PrimitivePlot(VisPlot):
             dict reference to this object.
         """ 
         if send: 
-            self.c.send(self.object)
+            self.c.send(self.c.prepTM(self.transform_origin, self.object) , "PUT")
         return [self.object]
         
 class CubePlot(PrimitivePlot):
@@ -598,7 +598,7 @@ class CubePlot(PrimitivePlot):
             name = self.name,
             file = "internal/models/Cube3.glb",
             scale = self.dimensions,
-            color = newMaterial(self.color, opacity = self.a)
+            color = newMaterial(self.color, opacity = self.transparency)
         )
         self.update(True)
 
@@ -613,7 +613,7 @@ class AxesPlot(PrimitivePlot):
         Args:
             transform_origin (tm): Transform of the object.
             client (DrawClient, optional): Reference to Drawclient. Defaults to None.
-            scale (float, optional): Scale of the axes. Defaults to 1.0
+            scale (float, optional): scale of the axes. Defaults to 1.0
             name (str, optional): Name of the object. Defaults to None.
 
         Returns:
@@ -661,9 +661,15 @@ class TubePlot(PrimitivePlot):
         self.object = newPrimitive(
             name = self.name,
             file = "internal/models/Cylinder.glb",
-            scale = [self.dimensions[1]*2, self.dimensions[1]*2, self.dimensions[0]],
-            color = newMaterial(self.color, opacity = self.a)
+            scale = [self.dimensions[1], self.dimensions[1], self.dimensions[0]],
+            color = newMaterial(self.color, opacity = self.transparency)
         )
+        self.object = {"Key" : self.name,
+                    "Primitive":"Cylinder", 
+                    "Scale":[self.dimensions[1], self.dimensions[1], self.dimensions[0]], 
+                    "Matrix" : self.transform_origin.gTM().T.reshape((16,1)).tolist(),
+                    "Material" : newMaterial(self.color, opacity = self.transparency)
+                    }
         self.update(True)
 
 
@@ -707,7 +713,9 @@ class ArmPlot(RobotPlot):
         self.joint_dia = .2
         self.link_end_ind = 0
         self.keys = []
+        self.cyl_type = True
         self.initialize()
+        
 
     def initialize(self):
         """Initialize this ArmPlot Instance."""
@@ -715,30 +723,41 @@ class ArmPlot(RobotPlot):
         links = []
         joints = []
         if self.bot._vis_props is not None:
+            self.cyl_type = False
             for i in range(len(self.bot._vis_props)):
-                if self.bot._vis_props[i][0] == 'msh':
+                if self.bot._vis_props[i].geo_type == 'mesh':
                     newp = newPrimitive(
                         name = self.bot.link_names[i],
-                        file = self.bot._vis_props[i][2][0],
+                        file = self.bot._vis_props[i].file_name,
                         Category = self.name,
-                        Scale = [1.0, 1.0, 1.0]
+                        scale = [1.0, 1.0, 1.0]
                     )
-        for i in range(len(Dims)):
-             self.keys.append(self.name+str(i))
-             newp = newPrimitive(
-                name = self.name + '_link_' + str(i),
-                file = "internal/models/CylGrey.glb",
-                Category = self.name,
-                Scale = [Dims[i,0], Dims[i,1], Dims[i,2]])
-             newj = newPrimitive(
-                name = self.name + '_joint_' + str(i),
-                file = "internal/models/CylRed.glb",
-                Category = self.name,
-                Scale = [self.joint_dia, self.joint_dia, .1])
-             links.append(newp)
-             joints.append(newj)
-             self.bot_data_tms.append(None)
-             self.bot_data_tms.append(None)
+                    links.append(newp)
+                    newj = newPrimitive(
+                        name = self.name + '_joint_' + str(i),
+                        file = "internal/models/CylRed.glb",
+                        Category = self.name,
+                        scale = [0.01, 0.01, .001])
+                    joints.append(newj)
+                    self.bot_data_tms.append(None)
+                    self.bot_data_tms.append(None)
+        else:
+            for i in range(len(Dims)):
+                self.keys.append(self.name+str(i))
+                newp = newPrimitive(
+                    name = self.name + '_link_' + str(i),
+                    file = "internal/models/CylGrey.glb",
+                    Category = self.name,
+                    scale = [Dims[i,0], Dims[i,1], Dims[i,2]])
+                newj = newPrimitive(
+                    name = self.name + '_joint_' + str(i),
+                    file = "internal/models/CylRed.glb",
+                    Category = self.name,
+                    scale = [self.joint_dia, self.joint_dia, .1])
+                links.append(newp)
+                joints.append(newj)
+                self.bot_data_tms.append(None)
+                self.bot_data_tms.append(None)
         arm_data = links
         self.link_end_ind = len(links)
         arm_data.extend(joints)
@@ -746,24 +765,31 @@ class ArmPlot(RobotPlot):
 
     def update(self, send = False):
         """Update visualized robot to match current configuration."""
-        poses = self.bot.getJointTransforms()[1:]
-        self.bot_data_tms[0] = self.c.prepTM(tm(), self.bot_data[0])
-        for i in range(len(poses) -1):
-            if i < len(poses) - 2:
-                Tp = fsr.tmInterpMidpoint(poses[i], poses[i+1])
-                T = fsr.lookAt(Tp, poses[i+1] + tm([0.0000001, 0, 0, 0, 0, 0]))
-                self.bot_data_tms[i+1] = self.c.prepTM(T, self.bot_data[i])
-            if (self.bot.joint_axes[0, i] == 1):
-                joint_tm = poses[i] @ tm([0, 0, 0, 0, np.pi/2, 0])
-            elif (self.bot.joint_axes[1, i] == 1):
-                joint_tm = poses[i] @ tm([0, 0, 0, np.pi/2, 0, 0])
-            elif (self.bot.joint_axes[2, i] == 1):
-                joint_tm = poses[i] @ tm([0, 0, 0, 0, 0, np.pi])
-            else:
-                joint_tm = poses[i].copy()
-                ax = determineAxis(joint_tm, self.bot.joint_axes[0:3,i]) * np.pi/2
-                joint_tm = poses[i] @ tm([0, 0, 0, ax[0], ax[1], ax[2]])
-            self.bot_data_tms[i+self.link_end_ind] = self.c.prepTM(joint_tm, self.bot_data[i+self.link_end_ind])
+        if not self.cyl_type:
+            poses = self.bot.getJointTransforms()
+            for i in range(len(poses) - 1):
+                self.bot_data_tms[i] = self.c.prepTM(poses[i], self.bot_data[i])
+        else:
+            poses = self.bot.getJointTransforms()[1:]
+            self.bot_data_tms[0] = self.c.prepTM(tm(), self.bot_data[0])
+            for i in range(len(poses) -1):
+                if i < len(poses) - 2:
+                    Tp = fsr.tmInterpMidpoint(poses[i], poses[i+1])
+                    T = fsr.lookAt(Tp, poses[i+1] + tm([0.0000001, 0, 0, 0, 0, 0]))
+                    self.bot_data_tms[i+1] = self.c.prepTM(T, self.bot_data[i])
+                elif not self.cyl_type:
+                    self.bot_data_tms[i+1] = self.c.prepTM(poses[i], self.bot_data[i])
+                if (self.bot.joint_axes[0, i] == 1):
+                    joint_tm = poses[i] @ tm([0, 0, 0, 0, np.pi/2, 0])
+                elif (self.bot.joint_axes[1, i] == 1):
+                    joint_tm = poses[i] @ tm([0, 0, 0, np.pi/2, 0, 0])
+                elif (self.bot.joint_axes[2, i] == 1):
+                    joint_tm = poses[i] @ tm([0, 0, 0, 0, 0, np.pi])
+                else:
+                    joint_tm = poses[i].copy()
+                    ax = determineAxis(joint_tm, self.bot.joint_axes[0:3,i]) * np.pi/2
+                    joint_tm = poses[i] @ tm([0, 0, 0, ax[0], ax[1], ax[2]])
+                self.bot_data_tms[i+self.link_end_ind] = self.c.prepTM(joint_tm, self.bot_data[i+self.link_end_ind])
         if send:
             self.c.sendAggregated(self.bot_data_tms)
         else:
@@ -835,11 +861,11 @@ class SPPlot(RobotPlot):
         bottom = newPrimitive(name=self.name + "B",
             file = "internal/models/CylGrey.glb",
             Category = self.name,
-            Scale = [self.bot._outer_bottom_radius*2, self.bot._outer_bottom_radius*2, max(.01, self.bot.bottom_plate_thickness)])
+            scale = [self.bot._outer_bottom_radius*2, self.bot._outer_bottom_radius*2, max(.01, self.bot.bottom_plate_thickness)])
         top = newPrimitive(name=self.name + "T",
             file = "internal/models/CylGrey.glb",
             Category = self.name,
-            Scale = [self.bot._outer_top_radius*2, self.bot._outer_top_radius*2, max(.01, self.bot.top_plate_thickness)])
+            scale = [self.bot._outer_top_radius*2, self.bot._outer_top_radius*2, max(.01, self.bot.top_plate_thickness)])
         self.links[0] = bottom
         self.links[1] = top
         #self.c.sendTM(self.bot.getBottomT() @ tm([0, 0, self.bot.bottom_plate_thickness/2, 0, 0, 0]), bottom)
@@ -849,11 +875,11 @@ class SPPlot(RobotPlot):
             lt = newPrimitive(name = self.name + str(i) + 't',
                 file = "internal/models/CylRed.glb",
                 Category = self.name,
-                Scale = [self.lwidth/2, self.lwidth/2, (self.bot.leg_ext_max - self.bot.leg_ext_min + 0.01)])
+                scale = [self.lwidth/2, self.lwidth/2, (self.bot.leg_ext_max - self.bot.leg_ext_min + 0.01)])
             lb = newPrimitive(name = self.name + str(i) + 'b',
                 file = "internal/models/CylGrey.glb",
                 Category = self.name,
-                Scale = [self.lwidth, self.lwidth, self.bot.leg_ext_min])
+                scale = [self.lwidth, self.lwidth, self.bot.leg_ext_min])
             self.legs.append([lb, lt])
 
     def update(self, send = False):

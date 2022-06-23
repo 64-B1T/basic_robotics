@@ -8,6 +8,8 @@ from os.path import exists
 
 from flask import (Flask, jsonify, make_response,
                    render_template, request, send_file)
+
+from flask_cors import CORS
 from stl import mesh
 
 package_directory = os.path.dirname(os.path.abspath(__file__))
@@ -15,12 +17,13 @@ package_directory = os.path.dirname(os.path.abspath(__file__))
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 app = Flask(__name__)
-
+CORS(app)
 contenttypes = {
     "js":"application/javascript",
     "html":"text/html",
     "jpg":"image/jpeg",
     "dae":"model/vnd.collada+xml",
+    "stl":"model/stl",
     "ico":"image/x-icon",
     "css":"text/css",
     "svg":"image/svg+xml",

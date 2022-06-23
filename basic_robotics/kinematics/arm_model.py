@@ -69,6 +69,7 @@ class Arm(Robot):
         self._end_effector_home = None # Home position of end effector (Global)
         self._end_effector_home_local = None # Home position of the end effector (Local)
         self._original_end_effector_home = None #Default end effector position 
+        self._fixed_base_offset = None
 
         #Mass Information
         self._link_masses = None
@@ -787,7 +788,9 @@ class Arm(Robot):
     def setOrigins(self, prev_joints_to_next_joints : list[tm] = None,
             joint_homes_global : list[tm] = None,
             link_homes_global : list[tm] = None,
-            eef_to_last_joint : tm = None) -> None:
+            eef_to_last_joint : tm = None,
+            base_to_fixed_joint : tm = None
+            ) -> None:
         """
         Set origins of joints and links for the arm.
 
@@ -796,6 +799,7 @@ class Arm(Robot):
             joint_homes_global (list[tm], optional): Joint positions in global space. Defaults to None.
             link_homes_global (list[tm], optional): Link centers in global space. Defaults to None.
             eef_to_last_joint (tm, optional): End effector transform to the last joint. Defaults to None.
+            base_to_fixed_joint (tm, optional): offset from arm base to actual base. Defaults to None.
         """        
         if prev_joints_to_next_joints is not None:
             self._prev_joints_to_next_joints = prev_joints_to_next_joints
@@ -805,6 +809,8 @@ class Arm(Robot):
             self._link_homes_global = link_homes_global
         if eef_to_last_joint is not None:
             self._eef_to_last_joint = eef_to_last_joint
+        if base_to_fixed_joint is not None: 
+            self._fixed_base_offset = base_to_fixed_joint
 
     def setMassProperties(self, link_masses : 'np.ndarray[float]' = None,
             mass_grav_centers : list[tm] = None,
@@ -865,7 +871,10 @@ class Arm(Robot):
             list[tm]: list of each joint location.
         """        
         if return_base:
-            poses = [self._base_pos_global.copy()]
+            if self._fixed_base_offset is not None:
+                poses = [self._base_pos_global.copy() @ self._fixed_base_offset]
+            else:
+                poses = [self._base_pos_global.copy()]
         else:
             poses = []
         for i in range((self.num_dof)):
@@ -1460,7 +1469,7 @@ class URDFLoader:
         self.max_effort = np.inf
         self.max_velocity = np.inf
 
-    def display(self):   # pragma: no cover
+    def __str__(self):   # pragma: no cover
         """Display properties of calculated object."""
         if self.type == 'link':
             print('link: ' + self.name + ' (' + str(self.id) + ')')
@@ -1470,20 +1479,19 @@ class URDFLoader:
             print('\tparent: ' + self.parent.name)
         else:
             print('\tHas no parent')
-        print('\tchildren:')
+        print('\tchildren:' + str(self.num_children))
         for child in self.children:
             print('\t\t' + child.name)
         print('\tOrigin: ' + str(self.xyz_origin))
         if self.type == 'link':
             print('\tMass: ' + str(self.mass))
-            print('\tVisType: ' + self.vis_type)
-            print('\tColType: ' + self.col_type)
             print('\tVisProperties: ' + str(self.vis_properties))
             print('\tColProperties: ' + str(self.col_properties))
         else:
             print('\tJoint Limits: ' + str(self.joint_limits))
             print('\tMax Effort: ' + str(self.max_effort))
             print('\tMax Velocity: ' + str(self.max_velocity))
+        return("")
 
 def load_urdf_spec_file(urdf_fname, package_fname):
     """
@@ -1513,14 +1521,11 @@ def find_package_dir(urdf_fname, package_rel_dir):
         string of the absolute file path
     """
     search_char = '/'
-    if not search_char in urdf_fname:
-        search_char = '\\'
-
-    package_rel_dir = package_rel_dir.replace('/', search_char)
+    urdf_fname = urdf_fname.replace('\\', search_char)
     package_rel_dir = package_rel_dir.replace('\\', search_char)
 
 
-    real_path = os.path.abspath(urdf_fname)
+    real_path = os.path.abspath(urdf_fname).replace('\\', '/')
     real_split_path = real_path.split(search_char)
 
     #print("Package Rel " + package_rel_dir)
@@ -1529,12 +1534,13 @@ def find_package_dir(urdf_fname, package_rel_dir):
     
     found_path = False
     i = len(real_split_path) - 1
+    #print(real_split_path)
     while not found_path and i > 0:
         test_path_prefix = search_char.join(real_split_path[0:i])
         test_path = test_path_prefix + search_char + package_name
         #print(test_path)
         if os.path.isfile(test_path):
-           # print(test_path)
+            #print(test_path)
             return test_path
         i -= 1
     #print("Not found:" + package_name)
@@ -1662,9 +1668,15 @@ def loadArmFromURDF(file_name):
             elif child.tag == 'visual':
                 new_element.vis_properties = \
                         completeGeometryParse(child)
+                if (new_element.vis_properties.geo_type == 'mesh' and 
+                        new_element.vis_properties.file_name is None):
+                    new_element.vis_properties = None
             elif child.tag == 'collision':
                 new_element.col_properties = \
                         completeGeometryParse(child)
+                if (new_element.col_properties.geo_type == 'mesh' and 
+                        new_element.col_properties.file_name is None):
+                    new_element.col_properties = None
 
     def completeJointParse(new_element, parent):
         #print(new_element.name)
@@ -1772,6 +1784,7 @@ def loadArmFromURDF(file_name):
             this_element.num_children += 1
 
     #Account for cases that don't use world
+    
     if world_link.num_children == 0:
         elements.remove(world_link)
         for element in elements:
@@ -1782,6 +1795,9 @@ def loadArmFromURDF(file_name):
                     element.parent is None and element.num_children > 0):
                 world_link = element
                 break
+    home = tm()
+
+
     num_dof = 0
     #Count the number of degrees of freedom along longest kinematic chain
     temp_element = world_link
@@ -1790,7 +1806,7 @@ def loadArmFromURDF(file_name):
             num_dof += 1
         temp_element = mostChildren(temp_element)
 
-    home = tm()
+   
     joint_poses = [home]
     link_poses = []
 
@@ -1845,24 +1861,36 @@ def loadArmFromURDF(file_name):
         temp_element = mostChildren(temp_element)
         arrind+=1
 
-    #disp(joint_poses, 'Joint poses')
-
     #Build the screw list
+    make_none = True
+    for x in vis_props:
+        if x is not None:
+            make_none = False
+    if make_none:
+        vis_props = None
+    make_none = True
+    for x in col_props:
+        if x is not None:
+            make_none = False
+    if make_none:
+        col_props = None   
     screw_list = np.zeros((6, num_dof))
     for i in range(num_dof):
         screw_list[0:6, i] = np.hstack((
             joint_axes[0:3, i],
             np.cross(joint_homes[0:3, i], joint_axes[0:3, i])))
 
+    base_offset = joint_poses[0]
     joint_poses = joint_poses[1:]
     if inertia_props == [] or inertia_props[0] is None:
         inertia_props = None
 
+    
     arm = Arm(tm(), screw_list, joint_poses[-1], joint_homes, joint_axes)
     arm.setNames('Arm', link_names, joint_names)
     arm.setJointProperties(np.array(joint_mins), np.array(joint_maxs),
             np.array(joint_vel_limits), np.array(joint_effort_limits))
-    arm.setOrigins(prev_joints_to_next_joints, joint_poses, link_poses, eef_to_last_joint)
+    arm.setOrigins(prev_joints_to_next_joints, joint_poses, link_poses, eef_to_last_joint, base_offset)
     arm.setMassProperties(np.array(link_masses), link_mass_grav_centers, inertia_props)
     #Set Names
     #arm.link_names = link_names
