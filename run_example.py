@@ -1,4 +1,4 @@
 import sys
 sys.path.append('examples')
-from example_3js_vis import run_example 
+from example_sp_forces import run_example 
 run_example()

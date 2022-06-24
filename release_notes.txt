@@ -1,9 +1,3 @@
-3.38 - Lunch and Learn Release Version 
+Release Beta 0.4.0
 
-Kinematics 
-    arm - improved URDF compatibility
-
-Plotting
-    visualizer
-        -fixed loading of DAE files 
-        - misc fixes
+Misc Bugfixes and Changes

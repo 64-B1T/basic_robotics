@@ -1,3 +1,4 @@
+import random
 from basic_robotics.general import tm
 from basic_robotics.kinematics import loadArmFromURDF
 from basic_robotics.path_planning import RRTStar, PathNode
@@ -16,7 +17,7 @@ def run_example():
     rrt = RRTStar(init)
     rrt.addObstruction([0.5, 0.5, 0.7], [1.2, 1.2, 1.2]) # Add some random obstructions
     rrt.addObstruction([0.5, 0.5, -2], [1, 1, 0.5])
-    DrawArm(arm, ax)
+    
 
     goal = arm.FK(np.array([np.pi/3, np.pi/3, -np.pi/8, np.pi/10, -np.pi/4, np.pi/5]))
     arm.FK(np.zeros(6))
@@ -33,7 +34,8 @@ def run_example():
     goal) # Goal position
 
     DrawRRTPath(traj, ax, 'green') # Draw the finalized path
-   
+    arm.IK(traj[-2])
+    DrawArm(arm, ax)
 
     plt.show() #Show the plot
 

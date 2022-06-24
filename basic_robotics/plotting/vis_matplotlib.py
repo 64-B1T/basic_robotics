@@ -191,7 +191,7 @@ def drawLine(tf1 : tm, tf2 : tm, ax : Axes3D, col : str = 'blue'):  # pragma: no
     """    
     ax.plot3D([tf1[0], tf2[0]], [tf1[1], tf2[1]], [tf1[2], tf2[2]], col)
 
-def drawSP(sp, ax : Axes3D, col : str = 'green', forces : bool = True):  # pragma: no cover
+def drawSP(sp, ax : Axes3D, col : str = 'green', forces : bool = False):  # pragma: no cover
     """
     Draw A Stewart Platform.
 
@@ -228,28 +228,28 @@ def drawSP(sp, ax : Axes3D, col : str = 'green', forces : bool = True):  # pragm
                 sp.getBottomJoints()[2, i],
                 sp.getBottomT()[3],
                 sp.getBottomT()[4],
-                sp.getBottomT()[5]]) @ (-1 * sp._nominal_plate_transform)
+                sp.getBottomT()[5]]) @ tm([0, 0, -1 * sp.bottom_plate_thickness, 0, 0, 0])
             ab = sp._nominal_plate_transform.spawnNew([
                 sp.getBottomJoints()[0,(i+1)%6],
                 sp.getBottomJoints()[1,(i+1)%6],
                 sp.getBottomJoints()[2,(i+1)%6],
                 sp.getBottomT()[3],
                 sp.getBottomT()[4],
-                sp.getBottomT()[5]]) @ (-1 * sp._nominal_plate_transform)
+                sp.getBottomT()[5]]) @ tm([0, 0, -1 * sp.bottom_plate_thickness, 0, 0, 0])
             ba = sp._nominal_plate_transform.spawnNew([
                 sp.getTopJoints()[0, i],
                 sp.getTopJoints()[1, i],
                 sp.getTopJoints()[2, i],
                 sp.getTopT()[3],
                 sp.getTopT()[4],
-                sp.getTopT()[5]]) @ (sp._nominal_plate_transform)
+                sp.getTopT()[5]]) @ tm([0, 0, sp.top_plate_thickness, 0, 0, 0])
             bb = sp._nominal_plate_transform.spawnNew([
                 sp.getTopJoints()[0,(i+1)%6],
                 sp.getTopJoints()[1,(i+1)%6],
                 sp.getTopJoints()[2,(i+1)%6],
                 sp.getTopT()[3],
                 sp.getTopT()[4],
-                sp.getTopT()[5]]) @ (sp._nominal_plate_transform)
+                sp.getTopT()[5]]) @ tm([0, 0, sp.top_plate_thickness, 0, 0, 0])
             ax.plot3D([aa[0], ab[0]],[aa[1], ab[1]],[aa[2], ab[2]], 'blue')
             ax.plot3D([ba[0], bb[0]],[ba[1], bb[1]],[ba[2], bb[2]], 'blue')
             ax.plot3D([sp.getBottomJoints()[0, i], aa[0]],
@@ -580,7 +580,7 @@ def drawWrench(wrench, weight : float, ax : Axes3D):  # pragma: no cover
         ax (Axes3D):  Axes object to plot to.
     """    
     tr = wrench.frame_applied @ wrench.position_applied
-    dir = wrench.force/np.sqrt((wrench.force[0]**2 + wrench.force[1]**2 + wrench.force[2]**2))
+    dir = wrench.getForce()/math.sqrt((wrench.getForce()[0]**2 + wrench.getForce()[1]**2 + wrench.getForce()[2]**2))
     trb = tr.spawnNew([tr[0], tr[1], tr[2], 0, 0, 0])
     other = tr.spawnNew([dir[0], dir[1], dir[2], 0, 0, 0])
     np = trb @ (.4*other)

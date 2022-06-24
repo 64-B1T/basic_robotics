@@ -1,14 +1,15 @@
 import json
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 
 import basic_robotics #Import the General Library
-from basic_robotics.general import tm #Import transformation library
+from basic_robotics.general import tm, fsr
 from basic_robotics.utilities.disp import disp
 # SP Tests
 disp("Beginning SP Test")
 from basic_robotics.kinematics import loadSP
-from basic_robotics.plotting.vis_matplotlib import drawSP
+from basic_robotics.plotting.vis_matplotlib import drawSP, drawWrench
 
 def run_example():
     basic_sp = {
@@ -32,7 +33,26 @@ def run_example():
 
     #Delete file
     os.remove('sp_test_data.json')
-    drawSP(sp_model, ax)
+
+
+    goal_position = tm([0, 0, 1.0, 0, -np.pi/6, 0])
+    sp_model.IK(goal_position)
+
+    #Make a Wrench Acting in Global Space
+    wrench = fsr.makeWrench(sp_model.getTopT(), 5, sp_model.grav)
+    #                       positiona applied,  Kg  [0, 0, -9.81]
+
+    #Ignore masses of the platform itself.
+    tau = sp_model.staticForces(wrench)
+    disp(tau, 'Leg Forces')
+
+    #Include masses of the platform itself.
+    tau = sp_model.carryMassCalc(wrench)[0]
+    disp(tau, 'platform version')
+
+    drawSP(sp_model, ax, forces=True)
+    drawWrench(wrench, 5*9.81, ax)
+    #Plotting will show forces.
     plt.show()
 
 if __name__ == '__main__':

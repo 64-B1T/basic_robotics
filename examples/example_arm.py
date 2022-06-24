@@ -54,13 +54,12 @@ def run_example():
     arm = Arm(Base_T,basic_arm_screw_list,basic_arm_end_effector_home,basic_arm_joint_homes,basic_arm_joint_axes)
 
     #ALTERNATIVELY, JUST LOAD A URDF USING THE 'loadArmFromURDF' function in basic_robotics.kinematics
-    arm.setDynamicsProperties(
-        basic_arm_link_mass_transforms,
-        Tspace,
-        basic_arm_inertia_list,
-        basic_arm_link_box_dims)
-    arm.joint_mins = np.array([np.pi, np.pi, np.pi, np.pi, np.pi, np.pi])* -2
-    arm.joint_maxs= np.array([np.pi, np.pi, np.pi, np.pi, np.pi, np.pi]) * 2
+    arm.setJointProperties(
+            np.array([np.pi, np.pi, np.pi, np.pi, np.pi, np.pi])* -2,
+            np.array([np.pi, np.pi, np.pi, np.pi, np.pi, np.pi]) * 2)
+    arm.setOrigins(link_homes_global = Tspace)
+    arm.setMassProperties(masses, basic_arm_link_mass_transforms, basic_arm_inertia_list)
+    arm.setVisColProperties(link_dimensions = basic_arm_link_box_dims)
 
     #Draw the arm at a couple positions
     #DrawArm(arm, ax, jdia = .3)

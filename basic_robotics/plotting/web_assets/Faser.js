@@ -392,6 +392,7 @@ function handleObject(data) {
           objects[data["Key"]] = {}; // Placeholder to prevent multiple loads
           var newobj;
           var loader = new ColladaLoader();
+          console.log("loading");
           loader.load('http://localhost:5000/' + data["File"], function ( collada ) {
             // This is asynchronous, so without care it might be called repeatedly
             console.log(collada);
