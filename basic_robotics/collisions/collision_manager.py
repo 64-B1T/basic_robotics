@@ -254,13 +254,13 @@ class ColliderArm(ColliderObject):
             if p.geo_type is None:
                 continue
             self.old_transforms.append(tm())
-            if p[0] == 'box':
+            if p.geo_type == 'box':
                 new_obj = createBox(tm(), p.box_size)
-            elif p[0] == 'cyl':
+            elif p.geo_type== 'cyl':
                 new_obj = createCylinder(tm(), p.radius, p.length)
-            elif p[0] == 'spr':
+            elif p.geo_type == 'spr':
                 new_obj = createSphere(tm(), p.radius)
-            elif p[0] == 'msh':
+            elif p.geo_type == 'msh':
                 new_obj = createMesh(p.origin, p.file_name)
             self.addMesh(link_name, new_obj)
         self.update()
