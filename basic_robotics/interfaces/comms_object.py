@@ -1,5 +1,4 @@
 """Base Class for Communications Bridges in Basic-Robotics."""
-from typing import Any
 
 class CommsObject:
     """Base Class for a variety of communications types with standard interfaces."""
@@ -41,7 +40,7 @@ class CommsObject:
         """        
         return self.last_tx_success
 
-    def sendData(self, data : Any) -> bool:   # pragma: no cover
+    def sendData(self, data) -> bool:   # pragma: no cover
         """
         Send data.
 
@@ -52,7 +51,7 @@ class CommsObject:
         """
         return False
 
-    def getData(self) -> tuple[Any, bool]:  # pragma: no cover
+    def getData(self) -> tuple[str, bool]:  # pragma: no cover
         """
         Receive data.
 

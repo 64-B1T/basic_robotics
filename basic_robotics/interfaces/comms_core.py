@@ -9,7 +9,6 @@ from .comms_object import CommsObject
 from .serial_bridge import SerialObject
 from .udp_bridge import UDPObject
 from ast import Str
-from typing import Any
 
 class Comms:
     """Communications wrapper class for multiple communications objects."""
@@ -94,7 +93,7 @@ class Comms:
             return comms_obj.closeCom()
         return False
 
-    def setDataSource(self, output_name : str, input_handle: Any) -> bool:
+    def setDataSource(self, output_name : str, input_handle) -> bool:
         """
         Set a function that produces a compatible data output as an automatic message source.
 
@@ -118,7 +117,7 @@ class Comms:
             self.input_functions[output_name] = [input_handle]
         return True
 
-    def setDataSink(self, input_name : str, output_handle : Any) -> bool:
+    def setDataSink(self, input_name : str, output_handle) -> bool:
         """
         Set an output function for received data to automatically populate.
         

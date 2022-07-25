@@ -1,3 +1,6 @@
-Release Beta 0.4.1
+Version 0.4.2
 
-Hotfix for Collisions
+Update to remove typing-Any to improve backwards compatibility for communications to python 3.8
+
+Collisions:
+    Update to collision checker for better linux compatibility.

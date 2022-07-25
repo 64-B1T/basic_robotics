@@ -7,7 +7,6 @@ It is expected that those who would desire a more tight integration (such as mul
 how to enable such features on their own, and would have no need of this bridging module on its own.
 """
 READY = False
-from typing import Any
 try:
     import rospy
     import std_msgs.msg as r1msg
@@ -25,7 +24,7 @@ except ImportError:
 class ROSPub:
     """Create a new ROS Publisher Instance."""
 
-    def __init__(self, name : str, node_type : Any) -> 'ROSPub':
+    def __init__(self, name : str, node_type) -> 'ROSPub':
         """
         Create a new ROS Publisher Instance.
 
@@ -39,7 +38,7 @@ class ROSPub:
         self.node_type = node_type
         self.name = name
 
-    def send(self, message : Any) -> None:
+    def send(self, message) -> None:
         """
         Send a message.
 
@@ -48,7 +47,7 @@ class ROSPub:
         """ 
         self.publisher.publish(message)
 
-    def __eq__(self, o : Any) -> bool:
+    def __eq__(self, o) -> bool:
         """
         Test for equality between ROSPub instances.
 
@@ -96,7 +95,7 @@ class ROS1Pub(ROSPub):
 class ROS2Pub(ROSPub):
     """Create a new ROS2 Publisher Instance."""
 
-    def __init__(self, name : str, node_type : Any, host_node : 'ROS2Bridge') -> 'ROS2Pub':
+    def __init__(self, name : str, node_type, host_node : 'ROS2Bridge') -> 'ROS2Pub':
         """
         Create a new ROS2 Publisher Instance.
 
@@ -112,7 +111,7 @@ class ROS2Pub(ROSPub):
         self.host_node = host_node
         self.publisher = host_node.create_publisher(node_type, name, host_node.r)
 
-    def send(self, message : Any) -> None:
+    def send(self, message) -> None:
         """
         Send a message.
 
@@ -146,7 +145,7 @@ class ROSSub:
             self.setCallBack(self.call_back_handle)
         self.mostRecent = None
 
-    def setCallBack(self, call_back : Any) -> None:
+    def setCallBack(self, call_back) -> None:
         """
         Set callback function to external handle.
 
@@ -155,7 +154,7 @@ class ROSSub:
         """        
         self.callBack = call_back
 
-    def callBack(self, data : Any) -> None:
+    def callBack(self, data) -> None:
         """
         Execute default callback on most recent data.
 
@@ -164,7 +163,7 @@ class ROSSub:
         """        
         self.mostRecent = data.data
 
-    def getUpdate(self) -> Any:
+    def getUpdate(self):
         """
         Get the most recent data.
 
@@ -173,7 +172,7 @@ class ROSSub:
         """        
         return self.mostRecent
 
-    def __eq__(self, o : Any) -> bool:
+    def __eq__(self, o) -> bool:
         """
         Test for equality between ROSSub instances.
 
@@ -195,7 +194,7 @@ class ROSSub:
 class ROS1Sub(ROSSub):
     """Create a new ROS1 Subscriber Handle."""
 
-    def __init__(self, name : str, node_type : Any, call_back : Any = None) -> 'ROS1Sub':
+    def __init__(self, name : str, node_type, call_back = None) -> 'ROS1Sub':
         """
         Create a new ROS1 Subscriber Handle.
 
@@ -213,8 +212,8 @@ class ROS1Sub(ROSSub):
 class ROS2Sub(ROSSub):
     """Create a new ROS2 Subscriber Handle."""
 
-    def __init__(self, name : str, node_type : Any, 
-            host_node : 'ROS2Bridge', call_back : Any = None) -> 'ROS2Sub':
+    def __init__(self, name : str, node_type, 
+            host_node : 'ROS2Bridge', call_back = None) -> 'ROS2Sub':
         """
         Create a new ROS2 Subscriber Handle.
 
@@ -234,7 +233,7 @@ class ROS2Sub(ROSSub):
 class Uplink:
     """Create a new Uplink from a function to a ROS topic."""
 
-    def __init__(self, pub : ROSPub, call : Any) -> 'Uplink':
+    def __init__(self, pub : ROSPub, call) -> 'Uplink':
         """
         Create a new Uplink from a function to a ROS topic.
 
@@ -256,7 +255,7 @@ class Uplink:
 class Downlink:
     """Create a downlink from a ROS topic to a function."""   
 
-    def __init__(self, sub : ROSSub, call : Any) -> 'Downlink':
+    def __init__(self, sub : ROSSub, call) -> 'Downlink':
         """
         Create a new downlink from a ROS topic to a function.
 
@@ -271,7 +270,7 @@ class Downlink:
         self.call = call
         self.sub.callBack = call
 
-    def update(self) -> Any:
+    def update(self):
         """
         Update the downlink's internal subscriber.
 
@@ -326,7 +325,7 @@ class ROSBridge:
         """     
         pass
 
-    def bindUplink(self, name : str, node_type : Any, func : Any) -> None:
+    def bindUplink(self, name : str, node_type, func) -> None:
         """
         Bind a new uplink to the bridge, pulling data from a function and publishing over ROS.
 
@@ -344,7 +343,7 @@ class ROSBridge:
             new_uplink = Uplink(tpub, func)
         self.updateables.append(new_uplink)
 
-    def bindDownlink(self, name : str, node_type : Any, func : Any) -> None:
+    def bindDownlink(self, name : str, node_type, func) -> None:
         """
         Bind a new downlink to the bridge, pulling data from ROS and calling a function.
 
@@ -379,7 +378,7 @@ try:
             """        
             super().__init__(name, rate)
 
-        def newPub(self, name : str, node_type : Any) -> ROS2Pub:
+        def newPub(self, name : str, node_type) -> ROS2Pub:
             """
             Create a new Publisher handle.
 
@@ -392,7 +391,7 @@ try:
             """ 
             return ROS2Pub(name, node_type, self)
 
-        def newSub(self, name : str, node_type : Any, func : Any) -> ROS2Sub:
+        def newSub(self, name : str, node_type, func) -> ROS2Sub:
             """
             Create a new Subscriber handle.
 
@@ -426,7 +425,7 @@ class ROS1Bridge(ROSBridge):
         """        
         super().__init__(name, rate)
 
-    def newPub(self, name : str, node_type : Any) -> ROS1Pub:
+    def newPub(self, name : str, node_type) -> ROS1Pub:
         """
         Create a new Publisher handle.
 
@@ -439,7 +438,7 @@ class ROS1Bridge(ROSBridge):
         """        
         return ROS1Pub(name, node_type)
     
-    def newSub(self, name : str, node_type : Any, func : Any) -> ROS1Sub:
+    def newSub(self, name : str, node_type, func) -> ROS1Sub:
         """
         Create a new Subscriber handle.
 
@@ -462,7 +461,7 @@ class ROS1Bridge(ROSBridge):
     
 
 def makeROSBridge(node_name : str, 
-        node_rate : int = 10, ros_ver :int = 1, exargs : Any = None) -> ROSBridge:
+        node_rate : int = 10, ros_ver :int = 1, exargs = None) -> ROSBridge:
     """
     Make a new ROS Bridge.
 
