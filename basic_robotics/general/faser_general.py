@@ -12,7 +12,7 @@ from .faser_wrench import Wrench
 
 #Transformation Matrix Group Functions
 def planeFromThreePoints(ref_point_1 : tm, ref_point_2 : tm, 
-        ref_point_3 :tm) -> tuple[float, float, float, float]:
+        ref_point_3 :tm):
     """
     Create the equation of a plane from three points.
 
@@ -40,7 +40,7 @@ def planeFromThreePoints(ref_point_1 : tm, ref_point_2 : tm,
 
     return a, b, c, d
 
-def planePointsFromTransform(ref_point_1 : tm) -> tuple[tm, tm, tm]:
+def planePointsFromTransform(ref_point_1 : tm):
     """
     Create plane TM points from one Transform (using unit vectors).
 
@@ -134,8 +134,8 @@ def tmInterpMidpoint(ref_point_1, ref_point_2):
     taar[3:6] = mr.so3ToVec(mr.MatrixLog3((rmid))).reshape((3, 1))
     return tm(taar)
 
-def getSurfaceNormal(tri : list['np.ndarray[float]'], 
-        object_center : tm = None) -> tuple[tm, 'np.ndarray[float]']:
+def getSurfaceNormal(tri, 
+        object_center : tm = None):
     """
     Return surface normal vector of set of three points.
 

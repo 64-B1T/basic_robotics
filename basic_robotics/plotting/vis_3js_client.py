@@ -41,7 +41,7 @@ def newMaterial(color : hex = 0x3238a8, transparent : bool = True, opacity : flo
     return {"Color" : color, "transparent" : transparent, "opacity" : opacity}
 
 def newPrimitive(name : str = "CubeLet", file : str = "Cube3.glb", Category : str = "Model", 
-        scale : list[float] = [1.0, 1.0, 1.0], color : dict = None) -> dict:
+        scale = [1.0, 1.0, 1.0], color : dict = None) -> dict:
     """
     Create a new primative for the visualizer.
 
@@ -203,7 +203,7 @@ class DrawClient:
             floor_file = package_directory + '\\' + floor_file
         self.sendFile(floor_file)
 
-    def prepAggregated(self, dict_list : list[dict]) -> dict:
+    def prepAggregated(self, dict_list) -> dict:
         """
         Turn a list of dicts into a single dict with named elements.
 
@@ -215,7 +215,7 @@ class DrawClient:
         """        
         return {"Keys" : {k["Key"] : k for k in dict_list if k is not None}}
 
-    def sendAggregated(self, dict_list : list[dict], hostalt : str = None) -> bool:
+    def sendAggregated(self, dict_list, hostalt : str = None) -> bool:
         """
         Send an aggregated list of dicts to the visualizer.
 
@@ -346,9 +346,9 @@ class DrawClient:
         }
         return self.send(params, "PUT", addtime=True)
 
-    def sendLine(self, line_tms : list[tm, tm], host_alt : str = None, 
+    def sendLine(self, line_tms, host_alt : str = None, 
             key : str = None, type : str = "Arrow", 
-            color : list[float] = [0., 1., 0.], linewidth : float = .0025) -> str:
+            color = [0., 1., 0.], linewidth : float = .0025) -> str:
         """Send a line between two transforms to the visualization server.
 
         Args:
@@ -518,7 +518,7 @@ class PrimitivePlot(VisPlot):
     """A Simple Holding Class for Drawing on the 3JS Server. Models a primitive shape."""
 
     def __init__(self, name : str, transform_origin : tm, 
-            dimensions : list[float], client : 'DrawClient' = None, 
+            dimensions, client : 'DrawClient' = None, 
             c : str = 'grey', a : float = 0.1) -> 'PrimitivePlot':
         """
         Generate a new primitive plot instance.
@@ -542,7 +542,7 @@ class PrimitivePlot(VisPlot):
         self.object = None
         self.initialize()
 
-    def setTM(self, transform_origin : tm, send : bool = False) -> list[dict]:
+    def setTM(self, transform_origin : tm, send : bool = False):
         """
         Set a new Transformation for this object.
 
@@ -556,7 +556,7 @@ class PrimitivePlot(VisPlot):
         self.initialize()
         return self.update(send)
 
-    def update(self, send : bool = False) -> list[dict]:
+    def update(self, send : bool = False):
         """
         Update the object in the visualizer.
 
@@ -572,7 +572,7 @@ class PrimitivePlot(VisPlot):
 class CubePlot(PrimitivePlot):
     """A Simple Holding Class for Drawing on the 3JS Server. Models a cubic shape."""
 
-    def __init__(self, transform_origin : tm, dimensions : list[float], 
+    def __init__(self, transform_origin : tm, dimensions, 
             client : 'DrawClient' = None, c : str = 'grey', 
             a : float = 0.1, name : str = None) -> 'CubePlot':
         """

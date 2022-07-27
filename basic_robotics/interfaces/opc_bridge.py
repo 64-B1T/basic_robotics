@@ -14,7 +14,7 @@ SIGN_AND_ENCRYPT = "SignAndEncrypt"
 class OPCUA_Endpoint(CommsObject):
     """Create a new OPCUA Endpoint."""
 
-    def __init__(self, name : str, opc_path : list[str], client_ref : 'Client'):
+    def __init__(self, name : str, opc_path, client_ref : 'Client'):
         """
         Initialize a new OPCUA Endpoint.
 

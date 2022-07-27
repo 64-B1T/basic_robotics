@@ -94,7 +94,7 @@ def SPIKinSpace(bottom_transform, top_transform, bottom_joints,
 def SPFKinSpaceR(leg_lengths : 'np.ndarray[float]',
         top_plate_init : 'np.ndarray[float]', bottom_joints_init : 'np.ndarray[float]',
         top_joints_init : 'np.ndarray[float]', max_iterations : int, 
-        tol_f : float, tol_a : float, leg_ext_min : float) -> tuple['np.ndarray[float]', int]:   # pragma: no cover
+        tol_f : float, tol_a : float, leg_ext_min : float):   # pragma: no cover
     """
     Calculate FK for a stewart platform.
 

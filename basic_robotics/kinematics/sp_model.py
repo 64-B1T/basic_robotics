@@ -385,7 +385,7 @@ class SP(Robot):
             #DeltAnglesB are the Angles from Norm TOp
         return np.hstack((delta_angles_bottom, delta_angles_top))
 
-    def getJointAnglesFromVertical(self) -> tuple['np.ndarray[float]', 'np.ndarray[float]']:
+    def getJointAnglesFromVertical(self):
         """
         Calculate joint angles from vertical at each joint.
 
@@ -989,7 +989,7 @@ class SP(Robot):
 
 
     def _FKRaphson(self, L : 'np.ndarray[float]', 
-            bottom_plate_pos : tm = None, protect : bool = False) -> tuple[tm, tm]:
+            bottom_plate_pos : tm = None, protect : bool = False):
         """
         Solve FK using Newton Raphson method.
 

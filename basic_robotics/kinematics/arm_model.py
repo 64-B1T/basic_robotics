@@ -249,7 +249,7 @@ class Arm(Robot):
     #Converted to python - Liam
     def IK(self, goal_position : tm, theta_init : 'np.ndarray[float]' = None, 
             check : bool = True, level : int = 6, max_iters : int = 30, 
-            protect : bool = False) -> tuple['np.ndarray[float]', bool]: 
+            protect : bool = False): 
         """
         Calculate joint configuration of an arm to reach a desired end effector configuration.
 
@@ -296,7 +296,7 @@ class Arm(Robot):
 
     def constrainedIK(self, goal_position : tm, theta_init : 'np.ndarray[float]' = None,
             check : bool = True, level : int = 6,
-            max_iters : int= 30) -> tuple['np.ndarray[float]', bool]: 
+            max_iters : int= 30): 
         """
         Calculate joint positions of a serial arm, provided rotational constraints on the Joints.
 
@@ -438,7 +438,7 @@ class Arm(Robot):
     #    return t.sol
 
     def IKFree(self, goal_position : tm, theta_init : 'np.ndarray[float]', 
-            inds : list[int]) -> tuple['np.ndarray[float]', bool]:
+            inds):
         """
         Perform IK but only allow 'free_inds' to be varied.
 
@@ -577,7 +577,7 @@ class Arm(Robot):
     """
 
     def lineTrajectory(self, target : tm, initial : tm = None, 
-            execute  : bool = True, delt : float = .01) -> list['np.ndarray[float]']:
+            execute  : bool = True, delt : float = .01):
         """
         Create a trajectory moving the end effector in a straight line torwards the target.
 
@@ -615,7 +615,7 @@ class Arm(Robot):
 
     def visualServoToTarget(self, target : tm, pixel_tol : int = 2, desired_dist : float = 1.0,
             pose_delta : float = 0.1, pose_tol : float = 0.2, max_iter: int = 1000,
-            cam_ind : int = 0) -> tuple['np.ndarray[float]', 'list[np.ndarray[float]]']:
+            cam_ind : int = 0):
         """
         Perform visual servoing to a target using virtual cameras.
 
@@ -719,8 +719,8 @@ class Arm(Robot):
     """
 
     def setNames(self, arm_name : str = None,
-            link_names : list[str]= None,
-            joint_names : list[str]= None) -> None:
+            link_names = None,
+            joint_names = None) -> None:
         """
         Set names for Arm elements.
 
@@ -785,9 +785,9 @@ class Arm(Robot):
         if link_dimensions is not None:
             self._link_dimensions = link_dimensions
 
-    def setOrigins(self, prev_joints_to_next_joints : list[tm] = None,
-            joint_homes_global : list[tm] = None,
-            link_homes_global : list[tm] = None,
+    def setOrigins(self, prev_joints_to_next_joints = None,
+            joint_homes_global = None,
+            link_homes_global = None,
             eef_to_last_joint : tm = None,
             base_to_fixed_joint : tm = None
             ) -> None:
@@ -813,7 +813,7 @@ class Arm(Robot):
             self._fixed_base_offset = base_to_fixed_joint
 
     def setMassProperties(self, link_masses : 'np.ndarray[float]' = None,
-            mass_grav_centers : list[tm] = None,
+            mass_grav_centers = None,
             box_spatial_links : 'np.ndarray[float]' = None) -> None:
         """
         Set mass properties for the arm.
@@ -856,7 +856,7 @@ class Arm(Robot):
         print(self._link_dimensions, title = 'Dimensions')
 
 
-    def getJointTransforms(self, return_base : bool = True) -> list[tm]:
+    def getJointTransforms(self, return_base : bool = True):
         """
         Return joint information for each link in the arm, including the base.
 
@@ -1040,8 +1040,7 @@ class Arm(Robot):
 
     def inverseDynamicsC(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
             theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None,
-            end_effector_wrench : Wrench = Wrench()
-            ) -> tuple['np.ndarray[float]', 'np.ndarray[float]', 'np.ndarray[float]']:
+            end_effector_wrench : Wrench = Wrench()):
         """
         Calculate inverse dynamics according to the algorithm in Lynch 8.4.
 

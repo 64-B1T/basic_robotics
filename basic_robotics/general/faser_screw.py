@@ -143,7 +143,7 @@ class Screw:
         nb = dual_scalar[1] * self.data[0:3] + dual_scalar[0] * self.data[3:6]
         return Screw(np.vstack((nt, nb)), self.frame_applied.copy())
 
-    def reshape(self, new_shape : tuple[int, int]) -> 'np.ndarray[float]':
+    def reshape(self, new_shape) -> 'np.ndarray[float]':
         """
         Reshape the data field for legacy code support.
 

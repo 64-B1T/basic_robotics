@@ -51,7 +51,7 @@ class CommsObject:
         """
         return False
 
-    def getData(self) -> tuple[str, bool]:  # pragma: no cover
+    def getData(self):  # pragma: no cover
         """
         Receive data.
 

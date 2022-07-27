@@ -1,6 +1,1 @@
-Version 0.4.2
-
-Update to remove typing-Any to improve backwards compatibility for communications to python 3.8
-
-Collisions:
-    Update to collision checker for better linux compatibility.
+Removed uses of tuple types and list typehints for compatibility with python 3.8
