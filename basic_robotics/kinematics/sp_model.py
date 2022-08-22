@@ -477,7 +477,7 @@ class SP(Robot):
 
 
     def IK(self, top_plate_pos : tm = None, bottom_plate_pos : tm = None, 
-            protect : bool = False) -> tuple['np.ndarray[float]' , bool]:
+            protect : bool = False):
         """
         Calculate inverse kinematics for given goals.
 
@@ -504,7 +504,7 @@ class SP(Robot):
         return leg_lengths, valid
 
     def FK(self, L, plate_pos = None, reverse = False, 
-            protect = False, fk_mode = None) -> tuple[tm, bool]:
+            protect = False, fk_mode = None):
         """
         Calculate Forward Kinematics for desired leg lengths (joint to joint).
 
@@ -735,7 +735,7 @@ class SP(Robot):
     """
 
     def carryMassCalc(self, twrench : Wrench, 
-            protect : bool = False) -> tuple['np.ndarray[float]', Wrench]:
+            protect : bool = False):
         """
         Calculate the forces on each actuator given actuator masses, plate masses, and a wrench on the end effector in the global frame.
 
@@ -763,7 +763,7 @@ class SP(Robot):
         return tau, wrench
 
     def carryMassCalcBody(self, twrench : Wrench, 
-            protect : bool = False) -> tuple['np.ndarray[float]', Wrench]:
+            protect : bool = False):
         """
         Calculate the forces on each actuator given actuator masses, plate masses, and a wrench in the end effector frame.
 
@@ -789,7 +789,7 @@ class SP(Robot):
         return tau, wrench_local_frame
 
     def componentForces(self, forces : 
-            'np.ndarray[float]' = None) -> tuple['np.ndarray[float]', 'np.ndarray[float]']:
+            'np.ndarray[float]' = None):
         """
         Calculate force components for given leg forces.
 
@@ -871,7 +871,7 @@ class SP(Robot):
     """
 
     """Kinematic Helpers"""
-    def _bottomTopCheck(self, bottom_plate_pos : tm, top_plate_pos :tm) -> tuple[tm, tm]:
+    def _bottomTopCheck(self, bottom_plate_pos : tm, top_plate_pos :tm):
         """
         Ensure bottom and top plate arguments are not null.
 
@@ -905,7 +905,7 @@ class SP(Robot):
 
     
     def _IKHelper(self, top_plate_pos : tm = None, 
-            bottom_plate_pos : tm = None) -> tuple['np.ndarray[float]', tm, tm]:
+            bottom_plate_pos : tm = None):
         """
         Calculate Inverse Kinematics for a single stewart plaform.
 
@@ -942,7 +942,7 @@ class SP(Robot):
         return np.copy(self.lengths), bottom_plate_pos, top_plate_pos
 
     def _FKSolve(self, L : 'np.ndarray[float]', plate_pos : tm = None, 
-            protect : bool = False) -> tuple[tm, tm]:
+            protect : bool = False):
         """
         Solve FK using an older version of python solver, no jacobian used.
         

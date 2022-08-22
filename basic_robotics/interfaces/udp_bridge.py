@@ -44,7 +44,7 @@ class UDPObject(CommsObject):
         self.last_tx_success = True
         return self.last_tx_success
 
-    def getData(self) -> tuple[any, bool]:
+    def getData(self):
         """
         Receive a message.
 

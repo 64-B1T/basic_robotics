@@ -112,7 +112,7 @@ class OPCUA_Client(Comms):
             return self.addEndpoint(name, *args, **kwargs)
         super().newComPort(name, *args, **kwargs)
 
-    def addEndpoint(self, reference_name : str, opc_path : list[str]):
+    def addEndpoint(self, reference_name : str, opc_path):
         """
         Add an OPC Endpoint.
 

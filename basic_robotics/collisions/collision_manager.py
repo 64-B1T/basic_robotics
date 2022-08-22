@@ -155,6 +155,13 @@ class ColliderObject:
         pass
 
     def addMesh(self, name, object):
+        """
+        Add Mesh To Collider Section
+
+        Args:
+            name (str): Name of Mesh
+            object: Mesh
+        """
         self.manager.add_object(name, object)
         self.meshes[name] = object
 

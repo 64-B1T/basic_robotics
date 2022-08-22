@@ -62,7 +62,7 @@ class SerialObject(CommsObject):
             self.last_tx_success = False
         return self.last_tx_success
 
-    def getData(self, sleeptime : float = .2) -> tuple[str, float]:
+    def getData(self, sleeptime : float = .2):
         """
         Receive a Message.
 
