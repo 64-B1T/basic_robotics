@@ -254,7 +254,7 @@ class ColliderArm(ColliderObject):
         for i in range(len(props)):
             link_name = self.arm.link_names[i]
             p = props[i]
-            if p.geo_type is None:
+            if p is None or p.geo_type is None:
                 continue
             self.old_transforms.append(tm())
             if p.geo_type == 'box':
@@ -272,6 +272,8 @@ class ColliderArm(ColliderObject):
         """Update positions of collision meshes to match with the arm current state."""
         joint_transforms = self.arm.getJointTransforms(self.include_base)
         for i in range(self.num_links):
+            if self.arm.link_names[i] not in self.meshes:
+                continue
             self.manager.set_transform(self.arm.link_names[i], joint_transforms[i].gTM())
 
     def checkInternalCollisions(self):

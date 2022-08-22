@@ -1,4 +1,5 @@
 """Holding File for Visual Info."""
+from ..general import tm
 
 class vis_info:
     """Holding Class with better organization than a simple list."""
@@ -7,7 +8,7 @@ class vis_info:
         """Initialize a new VisInfo object."""
         # Universal
         self.geo_type = None
-        self.origin = None
+        self.origin = tm()
 
         #Mesh
         self.scale = 1,0

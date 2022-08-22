@@ -1,5 +1,3 @@
-Version 0.4.6
+Version 0.4.7
 
-Collision Detection 
-    changes in documentation
-    fix for object.manager in collision comparisons.
+Minor changes to collision detection and visual info to fit substandard URDF definition. 
