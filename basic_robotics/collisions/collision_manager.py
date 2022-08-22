@@ -156,7 +156,7 @@ class ColliderObject:
 
     def addMesh(self, name, object):
         """
-        Add Mesh To Collider Section
+        Add Mesh To Collider Section.
 
         Args:
             name (str): Name of Mesh
@@ -181,7 +181,7 @@ class ColliderObject:
                     continue
                 else:
                     collide_bool, collide_names = self.manager.in_collision_other(
-                            other_manager, return_names = True)
+                            other_manager.manager, return_names = True)
                     if collide_bool:
                         colliding = True
                     names.extend(list(collide_names))
@@ -242,9 +242,7 @@ class ColliderArm(ColliderObject):
         self.ignore_ee = False
 
     def deleteEE(self):
-        """
-        Delete the end effector to more effectively remove it from collision checking.
-        """
+        """Delete the end effector to more effectively remove it from collision checking."""
         self.manager.remove_object(self.arm.link_names[self.num_links - 1])
         self.num_links = self.num_links - 1
 
@@ -271,9 +269,7 @@ class ColliderArm(ColliderObject):
         self.update()
 
     def update(self):
-        """
-        Update positions of collision meshes to match with the arm current state.
-        """
+        """Update positions of collision meshes to match with the arm current state."""
         joint_transforms = self.arm.getJointTransforms(self.include_base)
         for i in range(self.num_links):
             self.manager.set_transform(self.arm.link_names[i], joint_transforms[i].gTM())
@@ -327,32 +323,30 @@ class ColliderArm(ColliderObject):
 
 class ColliderSP(ColliderObject):
     """
-    Handler class for Stewart Platform Collision Groups
+    Handler class for Stewart Platform Collision Groups.
 
     Attributes:
         super: Description of parameter `super`.
-
     """
+
     def __init__(self):
-        """
-        Initializes new SP Collider Object
-        """
+        """Initialize a new SP Collider Object."""
         super().__init__()
 
 class ColliderObstacles(ColliderObject):
     """
-    Generic handler in ColliderObject for various workspace obstacles
+    Generic handler in ColliderObject for various workspace obstacles.
 
     Args:
         name: name of this collision group e.g. 'asteroids'
 
     Attributes:
         name: name of this instance
-
     """
+
     def __init__(self, name = 'obstacles'):
         """
-        Initialize new ColliderObstacles object
+        Initialize new ColliderObstacles object.
 
         Args:
             name: name of this instance of ColliderObstacles
@@ -362,7 +356,7 @@ class ColliderObstacles(ColliderObject):
 
     def update_component(self, name, position):
         """
-        Update the position of an obstacle in the group
+        Update the position of an obstacle in the group.
 
         Args:
             name: name of the object to update
