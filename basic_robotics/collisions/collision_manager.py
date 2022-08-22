@@ -170,7 +170,7 @@ class ColliderObject:
         names = []
         if self.super_manager is not None:
             for other_manager in self.super_manager.collision_objects:
-                if other_manager == self.manager:
+                if other_manager == self:
                     continue
                 else:
                     collide_bool, collide_names = self.manager.in_collision_other(
@@ -229,10 +229,10 @@ class ColliderArm(ColliderObject):
         self.name = name
         self.num_links = len(self.arm.link_names)
         self.old_transforms = []
+        self.include_base = True
         self.populateSerialArm()
         self.ignore_connected_links = True
         self.ignore_ee = False
-        self.include_base = True
 
     def deleteEE(self):
         """
@@ -242,9 +242,7 @@ class ColliderArm(ColliderObject):
         self.num_links = self.num_links - 1
 
     def populateSerialArm(self):
-        """
-        Populate ColliderObject with serial arm properties.
-        """
+        """Populate ColliderObject with serial arm properties."""
         props = self.arm._col_props
         if props is None:
             props = self.arm._vis_props
@@ -260,7 +258,7 @@ class ColliderArm(ColliderObject):
                 new_obj = createCylinder(tm(), p.radius, p.length)
             elif p.geo_type == 'spr':
                 new_obj = createSphere(tm(), p.radius)
-            elif p.geo_type == 'msh':
+            elif p.geo_type == 'mesh':
                 new_obj = createMesh(p.origin, p.file_name)
             self.addMesh(link_name, new_obj)
         self.update()

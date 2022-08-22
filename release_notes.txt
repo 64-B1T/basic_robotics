@@ -1,1 +1,3 @@
-Removed uses of tuple types and list typehints for compatibility with python 3.8
+Version 0.4.4
+
+Hotfix to collision management.

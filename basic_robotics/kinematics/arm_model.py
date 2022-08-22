@@ -1628,7 +1628,15 @@ def loadArmFromURDF(file_name):
         for grand_child in child:
             #print(grand_child.tag)
             if grand_child.tag == 'origin':
-                properties.setOrigin(extractOrigin(grand_child))
+                cg_xyz_raw, cg_rpy_raw = extractOrigin(grand_child)
+                cg_origin_xyz = np.array(cg_xyz_raw, dtype=float)
+                cg_origin_rpy = np.array(cg_rpy_raw, dtype=float)
+
+                cg_origin_tm = tm([cg_origin_xyz[0], cg_origin_xyz[1], cg_origin_xyz[2],
+                        cg_origin_rpy[0], cg_origin_rpy[1], cg_origin_rpy[2]])
+
+                new_element.xyz_origin = cg_origin_tm
+                properties.setOrigin(cg_origin_tm)
             elif grand_child.tag == 'geometry':
                 geometry_parent = child.find('geometry')
                 for geometry in geometry_parent:
