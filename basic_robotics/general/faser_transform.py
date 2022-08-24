@@ -36,10 +36,13 @@ class tm:
         init_arr_len = len(initializer_array)
         if isinstance(initializer_array, list):
             #Generates tm from list
-            if init_arr_len == 6:
+            if init_arr_len == 3:
+                # Generate rotation from 3DOF list
+                return self.generateFrom3DOF(initializer_array, rpy)
+            elif init_arr_len == 6:
                 # Generate rotation and translation from 6dof list
-                return self.from6DOF(initializer_array, rpy)
-            elif init_arr_len == 7:
+                return self.generateFrom6DOF(initializer_array, rpy)
+            else:
                 # Generate Rotation and translation from 7dof list (quaternion)
                 return self.from7DOF(initializer_array)
             elif init_arr_len == 3:
@@ -50,15 +53,18 @@ class tm:
                         initializer_array[0][2], initializer_array[1][0], 
                         initializer_array[1][2], initializer_array[1][2]], rpy)
         else:
-            if init_arr_len == 6:
+            if init_arr_len == 3:
+                # Generate rotation from 3dof array
+                return self.generateFrom3DOF(initializer_array.flatten(), rpy)
+            elif init_arr_len == 6:
                 # Generate rotation adn translation from 6dof array
-                return self.from6DOF(initializer_array.flatten(), rpy)
+                return self.generateFrom6DOF(initializer_array.flatten(), rpy)
             elif init_arr_len == 7:
                 # Generate rotation and translation from 7dof array (quaternion)
-                return self.from7DOF(initializer_array.flatten())
-            elif init_arr_len == 3:
-                # Generate rotation from 3dof array
-                return self.from3DOF(initializer_array.flatten(), rpy)
+                self.TAA = initializer_array.reshape((6, 1)).copy()
+                self.TM = np.eye(4)
+                self.setQuat(initializer_array[3:])
+                return
             elif (len(initializer_array) == 1):
                 if isinstance(initializer_array, np.ndarray):
                     if isinstance(initializer_array[0], tm):
@@ -70,6 +76,7 @@ class tm:
                 self.TMtoTAA()
                 return
 
+    @classmethod
     def from3DOF(self, initializer_array, rpy):
         """
         Initialize from a 3DOF array.
@@ -85,14 +92,14 @@ class tm:
             self.TAA = np.array([0, 0, 0,
                     initializer_array[0],
                     initializer_array[1],
-                    initializer_array[2]], dtype=float)
+                    initializer_array[2]])
         else:
-            temp_init =  tm([0, 0, 0, initializer_array[0], 0, 0])
+            temp_init = tm([0, 0, 0, 0, 0, initializer_array[2]])
             temp_init = temp_init @ tm([0, 0, 0, 0, initializer_array[1], 0])
-            self.TAA = (temp_init @ tm([0, 0, 0, 0, 0, initializer_array[2]])).gTAA()
+            self.TAA = (temp_init @ tm([0, 0, 0, initializer_array[0],0, 0])).gTAA()
         self.TAAtoTM()
 
-
+    @classmethod
     def from6DOF(self, initializer_array, rpy):
         """Short summary.
 
@@ -109,41 +116,19 @@ class tm:
                     initializer_array[2],
                     initializer_array[3],
                     initializer_array[4],
-                    initializer_array[5]], dtype=float)
+                    initializer_array[5]])
         else:
-            temp_init =  tm([0, 0, 0, initializer_array[3],0, 0])
-            temp_init = temp_init @ tm([0, 0, 0, 0, initializer_array[4], 0])
-            temp_init = temp_init @ tm([0, 0, 0, 0, 0, initializer_array[5]])
-            #temp_init = temp_init @ tm([0, 0, 0, 0, initializer_array[4], 0])
-            #temp_init = temp_init @ tm([0, 0, 0, initializer_array[3],0, 0])
-            self.TAA = np.array([
-                    initializer_array[0],
+            temp_init = tm([0, 0, 0, 0, 0, initializer_array[2]])
+            temp_init = temp_init @ tm([0, 0, 0, 0, initializer_array[1], 0])
+            temp_init = temp_init @ tm([0, 0, 0, initializer_array[0],0, 0])
+            self.TAA = np.array([initializer_array[0],
                     initializer_array[1],
                     initializer_array[2],
                     temp_init[3],
                     temp_init[4],
-                    temp_init[5]], dtype=float)
+                    temp_init[5]])
         self.TAAtoTM()
         return
-
-    def from7DOF(self, initializer_array):
-        """Short summary.
-
-        Args:
-            initializer_array (type): Description of parameter `initializer_array`.
-
-        Returns:
-            type: Description of returned object.
-
-        """
-        self.TAA = np.array([initializer_array[0],
-                initializer_array[1],
-                initializer_array[2],
-                0,
-                0,
-                0], dtype=float) #Why this? Preseve compatibility with lists
-        self.TAAtoTM()
-        self.setQuat(initializer_array[3:])
 
     def spawnNew(self, init):
         """
@@ -165,7 +150,7 @@ class tm:
         Returns:
             TM: return 4x4 matrix
         """
-        self.TM = np.eye((4), dtype=float)
+        self.TM = np.eye((4))
         for i in range(4):
             for j in range(4):
                 self.TM[i, j] = transform_matrix[i, j]
@@ -200,6 +185,22 @@ class tm:
         if refresh == 1:
             self.TAAtoTM()
 
+    def leftHanded(self):
+        """
+        Converts to left handed representation, for interactions
+        with programs that use this for whatever reason
+        Returns:
+            tm: itself, but left handed
+        """
+        new_tm = tm()
+        new_tm[0:6] = np.array([self.TAA[0],
+            self.TAA[2],
+            self.TAA[1],
+            -self.TAA[3],
+            -self.TAA[5],
+            -self.TAA[4]])
+        return new_tm
+
     def tripleUnit(self, lv=1):
         """
         Return XYZ unit vectors based on current position.
@@ -228,15 +229,20 @@ class tm:
     def TAAtoTM(self):
         """Convert the TAA representation to TM representation to update the object."""
         self.TAA = self.TAA.reshape((6, 1))
+        #self.TAA = self.TAA.reshape((6))
         mres = mr.MatrixExp3(mr.VecToso3(self.TAA[3:6].flatten()))
+        #return mr.RpToTrans(mres, self.TAA[0:3])
+        #self.TAA = self.TAA.reshape((6, 1))
         self.TM = np.vstack((np.hstack((mres, self.TAA[0:3])), np.array([0, 0, 0, 1])))
+        #self.AngleMod()
 
+        #print(tm)
 
     def TMtoTAA(self):
         """Convert the TM representation to TAA representation and updates the object."""
         rotation, transformation =  mr.TransToRp(self.TM)
-        rotationAA = mr.so3ToVec(mr.MatrixLog3(rotation))
-        self.TAA = np.vstack((transformation.reshape((3, 1)), (rotationAA.reshape((3, 1)))))
+        rotation_euler = mr.so3ToVec(mr.MatrixLog3(rotation))
+        self.TAA = np.vstack((transformation.reshape((3, 1)), (rotation_euler.reshape((3, 1)))))
 
     #Modern Robotics Ports
     def adjoint(self):

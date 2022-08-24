@@ -1315,10 +1315,10 @@ def loadSP(fname : str, file_directory : str = "../robot_definitions/",
     Returns:
         SP: SP object
     """
-    #print(fname)
-    #print(file_directory)
+    print(fname)
+    print(file_directory)
     total_name = file_directory + fname
-    #print(total_name)
+    print(total_name)
     with open(total_name, "r") as sp_file:
         sp_data = json.load(sp_file)
     bot_radius = sp_data["BottomPlate"]["JointRadius"] #Radius of Ball Joint Circle in Meters
