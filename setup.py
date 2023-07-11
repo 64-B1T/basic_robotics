@@ -9,7 +9,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='basic_robotics',
-      version='1.0.0',
+      version='1.0.1',
       long_description=README,
       long_description_content_type='text/markdown',
       description="General Purpose Robotics Package featuring forward and inverse kinematics for serial and parallel robots, static analysis, transformations, path planning, and more.",
@@ -20,7 +20,7 @@ setup(name='basic_robotics',
       packages=find_packages(),
       include_package_data=True,
       install_requires=[
-          'numpy <= 1.22.4, >= 1.21',
+          'numpy <= 1.24.4, >= 1.24',
           'pyserial',
           'scipy',
           'numba',
@@ -30,5 +30,7 @@ setup(name='basic_robotics',
           'alphashape',
           'trimesh',
           'rtree',
+          'requests',
+          'sqlalchemy'
       ],
       zip_safe=False)
