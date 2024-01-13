@@ -801,6 +801,7 @@ class SP(Robot):
         """
         if forces is None:
             forces = self._last_tau
+        forces = forces.flatten()
         vertical_components = np.zeros((6))
         horizontal_components = np.zeros((6))
         for i in range(6):
@@ -827,6 +828,7 @@ class SP(Robot):
         """
         if forces is None:
             forces = self._last_tau
+        forces = forces.flatten()
         wrench = fsr.makeWrench(self.getBasePos(), 0, self.grav/fmr.Norm(self.grav))
         for i in range(6):
             unit_vector = fmr.Normalize(self._bottom_joints_space[:, i]-self._top_joints_space[:, i])

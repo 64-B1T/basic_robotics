@@ -130,7 +130,7 @@ class test_general_wrench(unittest.TestCase):
         wrench_d = 2 / wrench_b 
 
         self.matrix_equality_assertion(wrench_c.getData(), wrench_a.getData())
-        self.assertAlmostEqual(wrench_d[5], 2/(-98.1))
+        self.assertAlmostEqual(wrench_d[5], 2.0/(-98.1))
         pass
 
     def test_general_wrench_eq(self):

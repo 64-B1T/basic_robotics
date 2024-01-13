@@ -20,7 +20,7 @@ setup(name='basic_robotics',
       packages=find_packages(),
       include_package_data=True,
       install_requires=[
-          'numpy <= 1.24.4, >= 1.24',
+          'numpy',
           'pyserial',
           'scipy',
           'numba',

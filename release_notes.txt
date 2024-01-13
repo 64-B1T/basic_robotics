@@ -1,3 +1,2 @@
-Version 1.0.0
-
-First Release Version
+Bump Numpy and Numba versions.
+Minor Fixes.

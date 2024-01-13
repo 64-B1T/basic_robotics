@@ -363,7 +363,7 @@ class Screw:
             return Screw(self.data / other_object, self.frame_applied.copy())
         return self.data / other_object
 
-    def __rtruediv__(self, other_object):
+    def __rtruediv__(self, other_object, fill=0):
         """
         Perform elementwise division on the right side.
 
@@ -373,7 +373,13 @@ class Screw:
             t
         """
         if isinstance(other_object, (int, float)):
-            return Screw(other_object/ self.data, self.frame_applied.copy())
+            with np.errstate(divide='ignore', invalid='ignore'):
+                result = other_object / self.data 
+                if np.isscalar( result ):
+                    return Screw(result, self.frame_applied.copy())
+                else:
+                    result[ ~ np.isfinite( result )] = fill
+                    return Screw(result, self.frame_applied.copy())
         return other_object / self.data
 
     
