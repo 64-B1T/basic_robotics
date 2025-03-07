@@ -1,7 +1,8 @@
 import numpy as np
-from basic_robotics.general import tm, fsr
+from basic_robotics.general import tm, fsr, Wrench
 from basic_robotics.kinematics import Arm
 from basic_robotics.plotting.vis_matplotlib import plt, DrawArm
+from basic_robotics.utilities.disp import disp
 
 
 def run_example():
@@ -42,7 +43,14 @@ def run_example():
 
     #Draw the arm at a couple positions
     #DrawArm(arm, ax, jdia = .3)
-    goal = arm.FK(np.array([np.pi/2, np.pi/4, -np.pi/4+.1, 0, 0, 0]))
+    goal = arm.FK(np.array([np.pi/2, np.pi/4, -np.pi/4+.1, -np.pi/6, np.pi/6, np.pi/8]))
+    wrench = Wrench(np.array([3, 5, -40]), arm.getEEPos(), tm())
+    torques = arm.staticForces(wrench)
+    wrench_list = arm.staticForces(wrench)
+
+    disp(torques)
+    disp(wrench_list)
+
     DrawArm(arm, ax, jdia = .3)
     plt.show()
 

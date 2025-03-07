@@ -13,7 +13,7 @@ import scipy.integrate as integrate
 import scipy.linalg as ling
 
 from .robot_model import Robot
-from ..general import fmr, fsr, tm, Wrench
+from ..general import fmr, fsr, tm, Wrench, Twist
 from ..metrology.virtual_vision import Camera
 from ..plotting.vis_matplotlib import DrawArm  # , DrawRectangle
 from ..utilities.disp import disp
@@ -924,6 +924,51 @@ class Arm(Robot):
     """
     Forces and Dynamics
     """
+
+    def staticForcesWithCrossMoments(self, end_effector_wrench : Wrench = Wrench(), 
+            theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
+        """
+        Calculate joint wrenches given an end effector wrench.
+
+        Args:
+            end_effector_wrench (Wrench, optional): End effector wrench. Defaults to None.
+            theta (np.ndarray[float], optional): Joint configuration. Defaults to None.
+
+        Returns:
+            list[wrench] wrenches at each joint
+        """  
+
+        # Given Jacobian matrix (6x6)
+        J = np.random.rand(6, 6)
+
+        # Given end effector wrench (6x1)
+        F = np.random.rand(6, 1)
+
+        # Initialize arrays to store forces and moments at each joint
+        joint_forces = np.zeros((6, 3))
+        joint_moments = np.zeros((6, 3))
+
+        # Initialize total wrench at each joint to zero
+        total_wrench = np.zeros((6, 1))
+
+        # Iterate through joints starting from the base
+        for i in range(6):
+            # Calculate the total wrench at this joint
+            total_wrench[i] = np.dot(J[:, i].T, F).flatten()
+            
+            # Calculate forces and moments at this joint
+            joint_forces[i] = total_wrench[i, :3]
+            joint_moments[i] = total_wrench[i, 3:]
+
+            # Update end effector wrench by subtracting the contribution from this joint
+            F -= np.dot(J[:, i].reshape(6, 1), total_wrench[i].reshape(1, 1))
+
+        # Print forces and moments for each joint
+        for i in range(6):
+            print(f"Joint {i+1} - Forces (X, Y, Z): {joint_forces[i]} - Moments (X, Y, Z): {joint_moments[i]}")
+
+
+
 
     def staticForcesWithLinkMasses(self, end_effector_wrench : Wrench = Wrench(), 
             theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':

@@ -580,9 +580,9 @@ def drawWrench(wrench, weight : float, ax : Axes3D):  # pragma: no cover
         ax (Axes3D):  Axes object to plot to.
     """    
     tr = wrench.frame_applied @ wrench.position_applied
-    dir = wrench.getForce()/math.sqrt((wrench.getForce()[0]**2 + wrench.getForce()[1]**2 + wrench.getForce()[2]**2))
+    direction = wrench.getForce().flatten()/math.sqrt((wrench.getForce()[0]**2 + wrench.getForce()[1]**2 + wrench.getForce()[2]**2))
     trb = tr.spawnNew([tr[0], tr[1], tr[2], 0, 0, 0])
-    other = tr.spawnNew([dir[0], dir[1], dir[2], 0, 0, 0])
+    other = tr.spawnNew([direction[0], direction[1], direction[2], 0, 0, 0])
     np = trb @ (.4*other)
     a = trb @ (.3*other)
     drawRectangle(trb, [.1, .1, .1], ax)

@@ -19,7 +19,3 @@ def run_example():
         arm_vis.update(True)
         
 
-arm = loadArmFromURDF('example.urdf')
-
-import numpy as np
-print(arm.FK(np.array([1, 2, 3, 4, 5, 6])))

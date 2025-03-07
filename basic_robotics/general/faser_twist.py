@@ -17,6 +17,14 @@ class Twist(Screw):
         tms = mr.VecTose3(self.flatten())
         tmr = mr.MatrixExp6(tms)
         return tm(tmr)
+    
+    def twistMatrix(self):
+        data = self.data.flatten()
+        print(data)
+        return np.array([[0, -data[5], data[4], data[0]],
+                         [data[5], 0, -data[3], data[1]],
+                         [-data[4], data[3], 0, data[2]],
+                         [0.0, 0.0, 0.0, 0.0]])
 
     def toScrew(self):
         if (mr.Norm(self.data[0:3])) == 0:
