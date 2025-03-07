@@ -937,38 +937,19 @@ class Arm(Robot):
         Returns:
             list[wrench] wrenches at each joint
         """  
-
-        # Given Jacobian matrix (6x6)
-        J = np.random.rand(6, 6)
-
-        # Given end effector wrench (6x1)
-        F = np.random.rand(6, 1)
-
-        # Initialize arrays to store forces and moments at each joint
-        joint_forces = np.zeros((6, 3))
-        joint_moments = np.zeros((6, 3))
-
-        # Initialize total wrench at each joint to zero
-        total_wrench = np.zeros((6, 1))
-
-        # Iterate through joints starting from the base
-        for i in range(6):
-            # Calculate the total wrench at this joint
-            total_wrench[i] = np.dot(J[:, i].T, F).flatten()
-            
-            # Calculate forces and moments at this joint
-            joint_forces[i] = total_wrench[i, :3]
-            joint_moments[i] = total_wrench[i, 3:]
-
-            # Update end effector wrench by subtracting the contribution from this joint
-            F -= np.dot(J[:, i].reshape(6, 1), total_wrench[i].reshape(1, 1))
-
-        # Print forces and moments for each joint
-        for i in range(6):
-            print(f"Joint {i+1} - Forces (X, Y, Z): {joint_forces[i]} - Moments (X, Y, Z): {joint_moments[i]}")
-
-
-
+        if theta is not None:
+            self.FK(theta)
+        else:
+            theta = self._theta.copy()
+        
+        joint_positions = self.getJointTransforms()
+        wrenches = []
+        for i in range(self.num_dof - 1, -1, -1):
+            wrench_at_joint = joint_positions[i + 1].adjoint().T @ end_effector_wrench
+            wrenches.insert(0, Wrench(wrench_at_joint))
+            #tau_at_joint = np.dot(wrench_at_joint.T, self._joint_homes_global[i].copy().inv().adjoint() @ self.screw_list[:,i])
+            #disp(tau_at_joint, "T=")
+        return wrenches
 
     def staticForcesWithLinkMasses(self, end_effector_wrench : Wrench = Wrench(), 
             theta : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
@@ -1017,8 +998,9 @@ class Arm(Robot):
             grav = self.grav
         # Merged into link_mass_grav_centers
         link_mass_array = np.array([x.gTM() for x in self._link_mass_grav_centers])
-        return fmr.InverseDynamics(theta, theta_dot, theta_dot_dot, grav, end_effector_wrench,
+        tau, wrenches = fmr.InverseDynamics(theta, theta_dot, theta_dot_dot, grav, end_effector_wrench,
             link_mass_array, self._box_spatial_links, self.screw_list)
+        return tau
 
     def inverseDynamics(self, theta : 'np.ndarray[float]', theta_dot : 'np.ndarray[float]',
             theta_dot_dot : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None, 

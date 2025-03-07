@@ -46,10 +46,10 @@ def run_example():
     goal = arm.FK(np.array([np.pi/2, np.pi/4, -np.pi/4+.1, -np.pi/6, np.pi/6, np.pi/8]))
     wrench = Wrench(np.array([3, 5, -40]), arm.getEEPos(), tm())
     torques = arm.staticForces(wrench)
-    wrench_list = arm.staticForces(wrench)
+    wrench_list = arm.staticForcesWithCrossMoments(wrench)
 
-    disp(torques)
-    disp(wrench_list)
+    disp(torques, "torques")
+    disp(wrench_list, "wrench list")
 
     DrawArm(arm, ax, jdia = .3)
     plt.show()
