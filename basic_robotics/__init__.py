@@ -1,3 +1,10 @@
+"""
+Basic Robotics: a toolbox for kinematics, dynamics, path planning, and visualization.
+
+Aggregates the general math, kinematics, collision, metrology, path planning,
+plotting, interfaces, and utilities subpackages under a single namespace.
+"""
+
 # __init__.py
 
 # Version

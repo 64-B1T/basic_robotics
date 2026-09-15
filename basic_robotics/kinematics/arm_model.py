@@ -131,9 +131,8 @@ class Arm(Robot):
             self._joint_homes_global = [tm()]
             for i in range(joint_poses_home.shape[1]):
                 self._joint_homes_global.append(
-                        tm([joint_poses_home[0][i],
-                            joint_poses_home[1][i],
-                            joint_poses_home[2][i], 0, 0, 0]))
+                        tm(list(fsr.transformByVector(
+                            base_pos_global, joint_poses_home[0:3, i])) + [0, 0, 0]))
             self._joint_homes_global = self._joint_homes_global[1:]
         self.original_joint_poses_home = joint_poses_home
         self.joint_poses_home = np.zeros((3, self.num_dof))
@@ -488,89 +487,95 @@ class Arm(Robot):
         return pos
 
 
-    #def reverse(self):
-    #    """
-    #    Flip around the serial arm so that the end effector is not the base and vice versa.
-    #    Keep the same end pose
-    #    """
-    #    	old_thetas = np.copy(self._theta)
-    #    new_theta = np.zeros((len(self._theta)))
-    #    for i in range(self.num_dof):
-    #        new_theta[i] = old_thetas[len(old_thetas) - 1 - i]
-    #    new_screw_list = np.copy(self.original_screw_list)
-    #    new_end_effector_home = self._end_effector_home.copy()
-    #    new_thetas = self.FK(self._theta)
-    #    new_joint_axes = np.copy(self.joint_axes)
-    #    new_joint_poses_home = np.copy(self.original_joint_poses_home)
-    #    for i in range(new_joint_axes.shape[1]):
-    #        new_joint_axes[0:3, i] = self.joint_axes[0:3, new_joint_axes.shape[1] - 1 - i]
-    #    differences = np.zeros((3, new_joint_poses_home.shape[1]-1))
-    #    for i in range(new_joint_poses_home.shape[1]-1):
-    #        differences[0:3, i] = (self.original_joint_poses_home[0:3,(
-    #            self.original_joint_poses_home.shape[1] - 1 - i)] -
-    #            self.original_joint_poses_home[0:3,(
-    #            self.original_joint_poses_home.shape[1] - 2 - i)])
-    #    #print(differences, 'differences')
-    #    for i in range(new_joint_poses_home.shape[1]):
-    #        if i == 0:
-    #            new_joint_poses_home[0:3, i] = (self.original_joint_poses_home[0:3, (
-    #                self.original_joint_poses_home.shape[1] - 1)] - np.sum(differences, axis = 1))
-    #        else:
-    #            new_joint_poses_home[0:3, i] = (new_joint_poses_home[0:3, i -1] +
-    #                differences[0:3, i - 1])
-    #    for i in range(self.num_dof):
-    #        new_screw_list[0:6, i] = np.hstack((new_joint_axes[0:3, i],
-    #            np.cross(new_joint_poses_home[0:3, i], new_joint_axes[0:3, i])))
-    #    new_thetas = (new_thetas @
-    #        tm([0, 0, 0, 0, np.pi, 0]) @ tm([0, 0, 0, 0, 0, np.pi]))
-    #    if np.size(self._link_dimensions) != 1:
-    #        new_link_dimensions = np.zeros((self._link_dimensions.shape))
-    #        for i in range(self._link_dimensions.shape[1]):
-    #            new_link_dimensions[0:3, i] = (
-    #                self._link_dimensions[0:3,(self._link_dimensions.shape[1] - i -1)])
-    #        self._link_dimensions = new_link_dimensions
-    #    if len(self._joint_homes_global) != 1:
-    #        new_joint_homes_global = [None] * len(self._joint_homes_global)
-    #        for i in range(len(new_joint_homes_global)):
-    #            new_joint_homes_global[i] = (
-    #                self._joint_homes_global[len(new_joint_homes_global) - i -1])
-    #        self._joint_homes_global = new_joint_homes_global
-    #    self.screw_list = new_screw_list
-    #    self.original_screw_list = np.copy(new_screw_list)
-    #    #print(self._base_pos_global, '')
-    #    new_end_effector_home = new_thetas @ self._end_effector_home_local
-    #    self._base_pos_global = new_thetas
-    #    self.original_joint_poses_home = new_joint_poses_home
-    #    self.joint_poses_home = np.zeros((3, self.num_dof))
-    #    self.screw_list_body = np.zeros((6, self.num_dof))
-    #    if new_joint_poses_home.size > 1:
-    #        for i in range(0, self.num_dof):
-    #            self.joint_poses_home[0:3, i] = fsr.transformByVector(new_thetas,
-    #                new_joint_poses_home[0:3, i])
-    #            #Convert transformByVector
-    #    for i in range(0, self.num_dof):
-    #        self.screw_list[:, i] = fmr.Adjoint(new_thetas.gTM()) @ new_screw_list[:, i]
-    #        if new_joint_poses_home.size <= 1:
-    #            [w, th, joint_pose_temp, h] = fsr.twistToScrew(self.screw_list[:, i])
-    #            #Convert TwistToScrew
-    #            self.joint_poses_home[0:3, i] = joint_pose_temp; # For plotting purposes
-    #    self._end_effector_home = new_end_effector_home
-    #    self.original_end_effector_home = self._end_effector_home.copy()
-    #    if len(self._joint_homes_global) != 1:
-    #        new_link_mass_grav_centers = [None] * len(self._joint_homes_global) # Merged into link_mass_grav_centers
-    #        new_link_mass_grav_centers[0] = self._joint_homes_global[0] # Merged into link_mass_grav_centers
-    #        for i in range(1, 6):
-    #            new_link_mass_grav_centers[i] = ( # Merged into link_mass_grav_centers
-    #                self._joint_homes_global[i-1].inv() @ self._joint_homes_global[i])
-    #        new_link_mass_grav_centers[len(self._joint_homes_global) -1] = ( # Merged into link_mass_grav_centers
-    #            self._joint_homes_global[5].inv() @ self._end_effector_home)
-    #        self._link_mass_grav_centers = new_link_mass_grav_centers # Merged into link_mass_grav_centers
-    #    self._box_spatial_links = 0
-    #    for i in range(0, self.num_dof):
-    #        self.screw_list_body[:, i] = (
-    #            fmr.Adjoint(self._end_effector_home.inv().gTM()) @ self.screw_list[:, i])
-    #    #print(new_theta)
-    #    self.FK(new_theta)
+    def reverse(self) -> None:
+        """
+        Flip the serial arm end-for-end, swapping the base and end effector.
+
+        Works from any current joint configuration, not just the arm's home
+        (all-zero) pose. The arm's present physical shape is frozen in place
+        as the new home configuration of the reversed chain: the new base is
+        mounted exactly where the end effector currently sits, and the new
+        end effector's home is set to wherever the base has always been
+        mounted (the base does not move as joints are driven, so this holds
+        no matter what configuration reverse() is called from).
+
+        As a direct result:
+            - Immediately after reverse(), self._theta is all zeros and
+              getEEPos() exactly equals the base pose the arm had right
+              before this call - for any starting configuration.
+            - Calling reverse() again immediately afterwards exactly
+              restores the base pose, end effector home, and screw list
+              that were in effect before the first call.
+
+        Only kinematic properties (screw axes, joint homes, theta) are
+        updated. Joint limits/velocity/effort caps are reordered to match
+        the new joint indices but are not otherwise adjusted - they remain
+        relative to each physical joint's own original home, not to the
+        snapshot taken here. Visual/collision and dynamics properties set
+        via setVisColProperties/setMassProperties/setDynamicsProperties
+        describe the old link order and should be reapplied afterwards if
+        still needed.
+        """
+        if not self._reversable:
+            disp('Arm cannot be reversed: joint_axes were not provided at construction.')
+            return
+
+        num_joints = self.num_dof
+        old_theta = np.copy(self._theta)
+        old_base_pos_global = self._base_pos_global.copy()
+        new_base_pos_global = self._end_effector_pos_global.copy()
+
+        # The current (world-frame) screw axis of every joint at the arm's
+        # present configuration is exactly the space Jacobian at that theta -
+        # this is what lets reverse() work from any pose, not just home.
+        current_screw_axes = fmr.JacobianSpace(self.screw_list, old_theta)
+        adjoint_to_new_local = fmr.Adjoint(new_base_pos_global.inv().gTM())
+        new_base_pos_global_inv = new_base_pos_global.inv()
+
+        # Current world position of every joint, captured before anything
+        # below is mutated, so _joint_homes_global can be rebuilt at the
+        # joints' true current locations (not just an equivalent point
+        # along the reversed screw axis).
+        old_joint_world_pos = [self.FKJoint(old_theta, i).gPos().flatten()
+                for i in range(num_joints)]
+
+        new_screw_list = np.zeros((6, num_joints))
+        new_joint_poses_home = np.zeros((3, num_joints))
+        for i in range(num_joints):
+            src = num_joints - 1 - i
+            new_screw_list[0:6, i] = adjoint_to_new_local @ current_screw_axes[0:6, src]
+            new_joint_poses_home[0:3, i] = fsr.transformByVector(
+                    new_base_pos_global_inv, old_joint_world_pos[src])
+        new_joint_axes = new_screw_list[0:3, :].copy()
+
+        # The old base, expressed relative to the new base (the old, current
+        # end effector pose), becomes the new end effector's home pose.
+        new_end_effector_home_local = fsr.globalToLocal(new_base_pos_global, old_base_pos_global)
+
+        if self._link_dimensions is not None and np.size(self._link_dimensions) != 1:
+            self._link_dimensions = self._link_dimensions[:, ::-1].copy()
+
+        self.joint_mins, self.joint_maxs = (
+                self.joint_mins[::-1].copy(), self.joint_maxs[::-1].copy())
+        self.max_vels = self.max_vels[::-1].copy()
+        self.max_effort = self.max_effort[::-1].copy()
+
+        self.joint_axes = new_joint_axes
+        self.original_joint_axes = new_joint_axes.copy()
+        self.reversed = not self.reversed
+
+        # Force _joint_homes_global to be rebuilt from scratch for the new
+        # (reversed) joint order rather than reprojected index-for-index.
+        self._joint_homes_global = None
+        self.initialize(new_base_pos_global, new_screw_list, new_end_effector_home_local,
+                new_joint_poses_home)
+        self.original_screw_list = new_screw_list.copy()
+
+        for i in range(num_joints):
+            self.screw_list_body[:, i] = (
+                    fmr.Adjoint(self._end_effector_home.inv().gTM()) @ self.screw_list[:, i])
+
+        self.FK(np.zeros(num_joints))
 
     """
     Motion Planning
@@ -1539,7 +1544,7 @@ def find_package_dir(urdf_fname, package_rel_dir):
     Attempt to find a directory specified by a ros package macro without ROS.
 
     Args:
-        urdf_fname: urdf file name/path *must be absolute
+        urdf_fname: urdf file name/path - must be absolute
         package_rel_dir: relative package directory
     Returns:
         string of the absolute file path
@@ -1684,6 +1689,16 @@ def loadArmFromURDF(file_name):
 
 
     def completeLinkParse(new_element, parent):
+        """
+        Parse a URDF <link> element's inertial, visual, and collision properties.
+
+        Populates new_element's mass, inertia, origin, and visual/collision
+        properties in place from the children of the given <link> xml element.
+
+        Args:
+            new_element (URDFLoader): Link element being populated.
+            parent (xml.etree.ElementTree.Element): <link> xml element to parse.
+        """
         #print(new_element.name)
         for child in parent:
             if child.tag == 'inertial':
@@ -1711,6 +1726,17 @@ def loadArmFromURDF(file_name):
                     new_element.col_properties = None
 
     def completeJointParse(new_element, parent):
+        """
+        Parse a URDF <joint> element's axis, origin, and limit properties.
+
+        Populates new_element's axis, origin transform, and joint limits
+        (lower/upper, max effort, max velocity) in place from the children of the
+        given <joint> xml element.
+
+        Args:
+            new_element (URDFLoader): Joint element being populated.
+            parent (xml.etree.ElementTree.Element): <joint> xml element to parse.
+        """
         #print(new_element.name)
         for child in parent:
             if child.tag == 'axis':
@@ -1738,6 +1764,19 @@ def loadArmFromURDF(file_name):
                 new_element.max_velocity = child.get('velocity')
 
     def findNamedElement(named_element, element_type='all'):
+        """
+        Look up a previously parsed URDF element (link or joint) by name.
+
+        Searches the enclosing `elements` list built during the first parse pass.
+
+        Args:
+            named_element (str): Name of the link or joint to find.
+            element_type (str, optional): Restrict the search to 'link', 'joint',
+                or 'all'. Defaults to 'all'.
+
+        Returns:
+            URDFLoader: Matching element, or None if no match was found.
+        """
         for element in elements:
             if element.name == named_element:
                 if element_type == 'all':
@@ -1748,6 +1787,16 @@ def loadArmFromURDF(file_name):
                     return element
 
     def totalChildren(element):
+        """
+        Recursively count the total number of descendants of a URDF element.
+
+        Args:
+            element (URDFLoader): Element to count descendants of.
+
+        Returns:
+            int: Total number of descendant elements below (and including) this
+            element's leaves, counted along every branch of the chain.
+        """
         if element.num_children == 0:
             return 1
         else:
@@ -1758,6 +1807,17 @@ def loadArmFromURDF(file_name):
 
 
     def mostChildren(element):
+        """
+        Select the child of a URDF element with the largest number of descendants.
+
+        Used to walk the longest kinematic chain of the parsed URDF tree.
+
+        Args:
+            element (URDFLoader): Element whose children are compared.
+
+        Returns:
+            URDFLoader: Child of `element` with the most total descendants.
+        """
         most_children = totalChildren(element.children[0])
         max_ind = 0
         for i in range(element.num_children):
@@ -1768,6 +1828,16 @@ def loadArmFromURDF(file_name):
         return element.children[max_ind]
 
     def determineAxis(joint_location, axis):
+        """
+        Rotate a joint's local axis vector into the global frame.
+
+        Args:
+            joint_location (tm): Global pose of the joint (only orientation is used).
+            axis (array_like): Joint axis expressed in the joint's local frame.
+
+        Returns:
+            ndarray: Joint axis expressed in the global frame, as a flat 3-vector.
+        """
         joint_rotation = tm([joint_location[3], joint_location[4], joint_location[5]])
         axis_unit = tm([axis[0], axis[1], axis[2], 0, 0, 0])
         axis_new = (joint_rotation @ axis_unit)[0:3]

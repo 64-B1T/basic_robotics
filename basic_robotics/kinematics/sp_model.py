@@ -563,10 +563,12 @@ class SP(Robot):
         Validate the current configuration of the stewart platform.
 
         Perform corrective action if necessary.
+
         Args:
             donothing (Bool): If set to true, even if an invalid configuration is detected,
                 will not attempt to correct it
             validation_limit (Int): number at which to stop validating. For internal use.
+
         Returns:
             Bool: Validity of configuration
         """
@@ -595,6 +597,7 @@ class SP(Robot):
             valid (Bool): whether to start the validator with an assumption of prior validity
             donothing (Bool): If set to true, even if an invalid configuration is detected,
                 will not attempt to correct it
+
         Returns:
             Bool: Validity of configuration
         """
@@ -616,10 +619,12 @@ class SP(Robot):
 
         There is no situation where the top plate should be 'underneath' the bottom.
         Performs corrective action if necessary.
+
         Args:
             valid (Bool): whether to start the validator with an assumption of prior validity
             donothing (Bool): If set to true, even if an invalid configuration is detected,
                 will not attempt to correct it
+
         Returns:
             Bool: Validity of configuration
         """
@@ -640,10 +645,12 @@ class SP(Robot):
         Validate that the interior angles of the legs from normal are within limits.
 
         Perform corrective action if necessary.
+
         Args:
             valid (Bool): whether to start the validator with an assumption of prior validity
             donothing (Bool): If set to true, even if an invalid configuration is detected,
                 will not attempt to correct it
+
         Returns:
             Bool: Validity of configuration
         """
@@ -665,11 +672,13 @@ class SP(Robot):
         """
         Validate that plate rotation is not exceeding bounds.
 
-        Perform corrective action if necessary. 
+        Perform corrective action if necessary.
+
         Args:
             valid (Bool): whether to start the validator with an assumption of prior validity
             donothing (Bool): If set to true, even if an invalid configuration is detected,
                 will not attempt to correct it
+
         Returns:
             Bool: Validity of configuration
         """

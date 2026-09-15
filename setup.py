@@ -30,8 +30,15 @@ setup(name='basic_robotics',
           'descartes>=1.1.0',
           'alphashape>=1.3.1',
           'trimesh>=5.1.0',
+          'python-fcl>=0.7.0.11',
           'rtree>=1.4.1',
           'requests>=2.34.2',
           'sqlalchemy>=2.0.53'
       ],
+      extras_require={
+          'docs': [
+              'sphinx>=9.1.0',
+              'sphinx-rtd-theme>=3.1.0',
+          ],
+      },
       zip_safe=False)

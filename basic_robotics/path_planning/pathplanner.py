@@ -1,3 +1,10 @@
+"""
+RRT*-based path planning over 6-dimensional (position + orientation) configuration spaces.
+
+Provides node and tree/graph data structures (PathNode, Tree6Node, R6Tree, Graph) used
+by the RRTStar planner to build collision-free paths through rectangularly bounded
+obstructions.
+"""
 from ..general import fsr, tm
 import numpy as np
 from rtree import index
@@ -314,6 +321,13 @@ class Tree6Node:
 
 
 class PathNode:
+    """
+    A single node in an RRT*-style search tree.
+
+    Wraps a pose (tm) together with a parent link, an accumulated cost, and a list of
+    children, so that a tree of nodes can be built up and later walked back to the
+    origin to recover a path.
+    """
 
     def __init__(self, position = None, parent = None, mode = 3):
         """
@@ -362,18 +376,23 @@ class PathNode:
 
     def setCost(self):
         """
-        Set the cost of this node
+        Set the cost of this node to its parent's cost plus the distance to its parent.
         """
-        self.cost = self.parent.getCost() +self.getDistance()
+        self.getDistance()
 
     def getDistance(self, other = None):
         """
-        Get distance from this node to another node
+        Get distance from this node to another node.
+
+        If no other node is given, computes the distance from this node to its
+        parent instead, and stores parent cost plus that distance as this node's
+        own cost as a side effect.
+
         Args:
             other (PathNode): Other PathNode to get distance to
 
         Returns:
-            Float: Distance between this and other
+            Float: Distance between this and other (or this and its parent)
 
         """
         if other is not None:
@@ -384,6 +403,10 @@ class PathNode:
         if(self.mode == 3):
             self.cost = (self.parent.getCost() +
                 fsr.Distance(self.position, self.parent.getPosition()))
+        else:
+            self.cost = (self.parent.getCost() +
+                fsr.ArcDistance(self.position, self.parent.getPosition()))
+        return self.cost
 
     def getCost(self):
         """
@@ -429,6 +452,13 @@ class PathNode:
             return False
 
 class Graph:
+    """
+    A simple flat collection of PathNode objects supporting nearest-node lookup.
+
+    Unlike R6Tree/Tree6Node, this stores nodes in a plain list and finds the closest
+    node to a query node with a linear scan; kept as a lightweight alternative graph
+    representation.
+    """
 
     def __init__(self, init = None):
         """

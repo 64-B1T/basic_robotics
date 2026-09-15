@@ -640,6 +640,16 @@ def numericalJacobian(function_handle, x_init, delta):
     x0m[0] = x0m[0] - delta
 
     def ndfdx(x0p, x0m):
+        """
+        Compute a central-difference derivative estimate for one perturbed input pair.
+
+        Args:
+            x0p (np.ndarray): input vector with one element perturbed by +delta.
+            x0m (np.ndarray): input vector with one element perturbed by -delta.
+
+        Returns:
+            ndarray: central-difference approximation of the derivative at that element.
+        """
         return (function_handle(x0p) - function_handle(x0m)) / (2 * delta)
 
     dfdx = ndfdx(x0p, x0m)

@@ -1,3 +1,6 @@
+"""
+Console display helpers for pretty-printing matrices, transforms, and progress bars.
+"""
 import time
 import datetime
 import math
@@ -287,7 +290,8 @@ def progressBar(iteration, total, prefix = '', suffix = '', decimals = 1, length
     """
     Prints a progress bar, can use ETA.
     Adapted from here: https://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console
-    Params:
+
+    Args:
         iteration: current iteration
         total: goal number of iterations
         prefix: Optional- Text to append to the beginning

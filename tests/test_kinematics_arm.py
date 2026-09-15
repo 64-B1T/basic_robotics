@@ -245,9 +245,117 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(end_effector_a.gTM(), end_effector_b.gTM())
         pass
 
-    #def test_kinematics_arm_reverse(self):
-    #    self.arm.reverse()
-    #    self.matrix_equality_assertion(self.arm.getEEPos().gTM(), tm().gTM())
+    def test_kinematics_arm_reverse(self):
+        self.arm.reverse()
+        self.matrix_equality_assertion(self.arm.getEEPos().gTM(), tm().gTM())
+
+    # reverse() must handle any otherwise-valid arm pose, not just the
+    # all-zero home configuration.
+    reverse_test_configs = [
+        np.array([0.2, -0.3, 0.4, 0.1, -0.2, 0.15]),
+        np.array([1.0, 0.5, -0.7, 0.3, 0.9, -0.4]),
+        np.array([-1.2, 0.1, 0.2, -0.6, 0.05, 1.1]),
+        np.array([np.pi / 3, -np.pi / 4, np.pi / 6, -np.pi / 5, np.pi / 8, -np.pi / 7]),
+    ]
+
+    def test_kinematics_arm_reverse_arbitrary_pose(self):
+        for theta0 in self.reverse_test_configs:
+            self.setUp()
+            old_base = self.arm._base_pos_global.gTM().copy()
+
+            self.arm.FK(theta0.copy())
+            self.arm.reverse()
+
+            # Reversing from any pose lands the new end effector exactly
+            # where the base was before reverse() was called...
+            self.matrix_equality_assertion(self.arm.getEEPos().gTM(), old_base)
+            # ...and the arm is left at its new all-zero configuration,
+            # since the prior pose is now baked into the reversed home.
+            self.matrix_equality_assertion(
+                    self.arm._theta, np.zeros(self.arm.num_dof), num_dec=8)
+
+    def test_kinematics_arm_reverse_preserves_joint_positions(self):
+        # Not just the base/tip: every individual joint must land exactly
+        # where its physical counterpart was before reversal, for any pose.
+        for theta0 in self.reverse_test_configs:
+            self.setUp()
+            self.arm.FK(theta0.copy())
+            old_joint_positions = [
+                    self.arm.FKJoint(theta0, i).gPos().copy()
+                    for i in range(self.arm.num_dof)]
+
+            self.arm.reverse()
+            new_theta = np.zeros(self.arm.num_dof)
+            for i in range(self.arm.num_dof):
+                # new joint i is physically the old joint (n - 1 - i)
+                src = self.arm.num_dof - 1 - i
+                new_pos = self.arm.FKJoint(new_theta, i).gPos()
+                self.matrix_equality_assertion(new_pos, old_joint_positions[src])
+
+    def test_kinematics_arm_reverse_round_trip(self):
+        # Reversing twice in a row must exactly restore the arm's prior
+        # physical pose and base location, from any starting pose. (The
+        # internal screw list/end effector home are re-baked at whatever
+        # shape was current at each reverse() call, so - unlike pose and
+        # base - they are not expected to match the pre-bend, theta=0
+        # definition unless theta0 was already zero.)
+        for theta0 in self.reverse_test_configs:
+            self.setUp()
+            self.arm.FK(theta0.copy())
+
+            base_before = self.arm._base_pos_global.gTM().copy()
+            pose_before = self.arm.getEEPos().gTM().copy()
+
+            self.arm.reverse()
+            self.arm.reverse()
+
+            self.matrix_equality_assertion(self.arm._base_pos_global.gTM(), base_before)
+            self.matrix_equality_assertion(self.arm.getEEPos().gTM(), pose_before)
+            self.matrix_equality_assertion(
+                    self.arm._theta, np.zeros(self.arm.num_dof), num_dec=8)
+
+    def test_kinematics_arm_reverse_round_trip_from_home(self):
+        # From the arm's true (all-zero) home configuration specifically,
+        # reversing twice must exactly restore the original screw list and
+        # end effector home too, since nothing was baked in beforehand.
+        screw_before = self.arm.screw_list.copy()
+        eef_before = self.arm._end_effector_home.gTM().copy()
+
+        self.arm.reverse()
+        self.arm.reverse()
+
+        self.matrix_equality_assertion(self.arm.screw_list, screw_before)
+        self.matrix_equality_assertion(self.arm._end_effector_home.gTM(), eef_before)
+
+    def test_kinematics_arm_reverse_nonidentity_base(self):
+        # The arm's mount point need not be the origin either.
+        mounted_base = tm([1.0, -2.0, 0.5, 0.3, -0.2, 0.6])
+        arm = Arm(mounted_base, self.arm.original_screw_list.copy(),
+                self.arm._end_effector_home_local, self.arm.original_joint_poses_home,
+                self.arm.original_joint_axes)
+        theta0 = np.array([0.2, -0.3, 0.4, 0.1, -0.2, 0.15])
+        old_base = arm._base_pos_global.gTM().copy()
+
+        arm.FK(theta0.copy())
+        arm.reverse()
+
+        self.matrix_equality_assertion(arm.getEEPos().gTM(), old_base)
+        self.matrix_equality_assertion(arm._theta, np.zeros(arm.num_dof), num_dec=8)
+
+    def test_kinematics_arm_reverse_not_reversable(self):
+        # An arm built without joint_axes cannot be reversed; reverse()
+        # should refuse gracefully and leave the arm's state untouched.
+        arm = Arm(tm(), self.arm.original_screw_list.copy(),
+                self.arm._end_effector_home_local, self.arm.original_joint_poses_home)
+        base_before = arm._base_pos_global.gTM().copy()
+        eef_before = arm._end_effector_home.gTM().copy()
+        screw_before = arm.screw_list.copy()
+
+        arm.reverse()
+
+        self.matrix_equality_assertion(arm._base_pos_global.gTM(), base_before)
+        self.matrix_equality_assertion(arm._end_effector_home.gTM(), eef_before)
+        self.matrix_equality_assertion(arm.screw_list, screw_before)
 
     # Motion Planning
 

@@ -15,15 +15,16 @@ class tm:
         """
         Initialize a new Transformation object.
 
-        If no initializer_array is supplied, an identity transform is returned
-        initializer_array can be of the following types, with different behaviors
-            1) tm: a copy of the tm object is returned
-            2) len(3) list: a tm object representing an XYZ rotation is returned
-            3) len(3) list with rpy True: a tm representing a ZYX(RPY) rotation is returned
-            3) len(6) list: a tm object representing an XYZ translation and XYZ rotation is returned
-            4) len(6) list with rpy True: a tm object representing an XYZ translation and ZYX(RPY) rotation is returned
-            4) len(7) list: a tm object representing an XYZ translation and a quaternion is returned
-            5) 4x4 transformation matrix: a tm object representing the given transform is returned
+        If no initializer_array is supplied, an identity transform is returned.
+        initializer_array can be of the following types, with different behaviors:
+
+        1. tm: a copy of the tm object is returned
+        2. len(3) list: a tm object representing an XYZ rotation is returned
+        3. len(3) list with rpy True: a tm representing a ZYX(RPY) rotation is returned
+        4. len(6) list: a tm object representing an XYZ translation and XYZ rotation is returned
+        5. len(6) list with rpy True: a tm object representing an XYZ translation and ZYX(RPY) rotation is returned
+        6. len(7) list: a tm object representing an XYZ translation and a quaternion is returned
+        7. 4x4 transformation matrix: a tm object representing the given transform is returned
 
         Args:
             initializer_array: Optional - data to generate new transformation
