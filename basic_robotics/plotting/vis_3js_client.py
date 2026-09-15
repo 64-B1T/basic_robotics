@@ -436,7 +436,7 @@ class DrawClient:
                 q = q + "&"
         q.replace(" ", "%20")
         #print(hosturl + "/api/json" + q)
-        nreq = self.ses.get(url = hosturl + q, headers = self.json_header)
+        nreq = self.ses.get(url = hosturl + q, headers = self.json_header, verify=False)
         data = nreq.json()
 
         if nreq.status_code == 200:

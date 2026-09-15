@@ -13,8 +13,8 @@ def run_example():
         os.path.abspath(
             './tests/test_helpers/ur_description/ur10.urdf'))
     arm_vis = ArmPlot("UR5", arm, c)
-    for i in np.linspace(-np.pi, np.pi, 5000):
-        time.sleep(0.005)
+    for i in np.linspace(-np.pi, np.pi, 6000):
+        time.sleep(0.001)#30FPS
         arm.FK(np.array([i, i, i, i, 0, 0]))
         arm_vis.update(True)
         

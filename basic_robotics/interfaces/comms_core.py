@@ -8,7 +8,6 @@ best off performing their own implementations or extending these classes.
 from .comms_object import CommsObject
 from .serial_bridge import SerialObject
 from .udp_bridge import UDPObject
-from ast import Str
 
 class Comms:
     """Communications wrapper class for multiple communications objects."""

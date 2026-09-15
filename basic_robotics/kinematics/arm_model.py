@@ -53,7 +53,7 @@ class Arm(Robot):
         self.rot_tolerance = 0.00001
         self.joint_mins = np.ones(self.num_dof) * np.pi * -1
         self.joint_maxs = np.ones(self.num_dof) * np.pi
-        self.max_vels = np.ones(self.num_dof) * np.Inf
+        self.max_vels = np.ones(self.num_dof) * np.inf
         self.max_effort = np.ones(self.num_dof) * np.inf
 
         #Visual and Collision
@@ -939,8 +939,6 @@ class Arm(Robot):
         """  
         if theta is not None:
             self.FK(theta)
-        else:
-            theta = self._theta.copy()
         
         joint_positions = self.getJointTransforms()
         wrenches = []
@@ -998,7 +996,7 @@ class Arm(Robot):
             grav = self.grav
         # Merged into link_mass_grav_centers
         link_mass_array = np.array([x.gTM() for x in self._link_mass_grav_centers])
-        tau, wrenches = fmr.InverseDynamics(theta, theta_dot, theta_dot_dot, grav, end_effector_wrench,
+        tau = fmr.InverseDynamics(theta, theta_dot, theta_dot_dot, grav, end_effector_wrench,
             link_mass_array, self._box_spatial_links, self.screw_list)
         return tau
 

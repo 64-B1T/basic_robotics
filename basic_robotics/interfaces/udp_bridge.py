@@ -118,7 +118,6 @@ class UDPObject(CommsObject):
             bool: Success of Closing the Channel
         """
         if self.comm_handle is not None and self.open == True:
-            self.comm_handle.shutdown(socket.SHUT_RDWR)
             self.comm_handle.close()
             self.open = False
             return True 
