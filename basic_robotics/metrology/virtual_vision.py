@@ -73,7 +73,7 @@ class Scene: #The Whole Scene, Cameras and Objects
             for j in range(i, len(self.observed)): #Lists are mirrored, so it's ok
                 if (i == j):
                     continue
-                d = fsr.Distance(self.observed[i].cPos, self.observed[j].cPos)
+                d = fsr.distance(self.observed[i].cPos, self.observed[j].cPos)
                 self.grid[i,j] = d
                 self.grid[j,i] = d
         return self.grid
@@ -188,7 +188,7 @@ class Observed: #A Point That is Viewed
         ts = ts / len(x)
         davg = 0
         for i in range(len(x)):
-            davg+=fsr.Distance(tp, tls[i])
+            davg+=fsr.distance(tp, tls[i])
         davg = davg/len(x)
         return davg, ts
 
@@ -220,7 +220,7 @@ class Observed: #A Point That is Viewed
         p1 = self.camera.CamT
         ps = self.camera.getLocalPos(self.pixpos)
         p2 = p1 @ tm([ps[0], ps[1], 1, 0, 0, 0])
-        gla = np.asarray(fsr.GlobalToLocal(p1, p2)[0:3]).flatten()/fsr.Distance(p1, p2)
+        gla = np.asarray(fsr.globalToLocal(p1, p2)[0:3]).flatten()/fsr.distance(p1, p2)
         gl = tm([gla[0], gla[1], gla[2], 0, 0, 0])
         return gl
 
@@ -240,7 +240,7 @@ class Observed: #A Point That is Viewed
         """
         if(self.camera == other.camera):
             return False
-        res = lambda x : fsr.Distance(self.camera.CamT @ (self.gl * x[0]), other.camera.CamT @ (other.gl * x[1]))
+        res = lambda x : fsr.distance(self.camera.CamT @ (self.gl * x[0]), other.camera.CamT @ (other.gl * x[1]))
         x0 = np.zeros((2,))
         bnds = ((0, None), (0, None))
         xs = sci.optimize.minimize(res, x0, method = "SLSQP", bounds = bnds)
@@ -316,8 +316,8 @@ class SceneObj: #Object within a scene that needs to be reconstructed
         Populates self.rels and self.dists in place.
         """
         for i in range(self.sz-1):
-            self.rels.append(fsr.GlobalToLocal(self.lead, self.objs[i+1]))
-            self.dists.append(fsr.Distance(self.lead, self.objs[i+1]))
+            self.rels.append(fsr.globalToLocal(self.lead, self.objs[i+1]))
+            self.dists.append(fsr.distance(self.lead, self.objs[i+1]))
 
     def adjRot(self, x, y):
         """
@@ -340,7 +340,7 @@ class SceneObj: #Object within a scene that needs to be reconstructed
         temp[5] = x[2]
         sum = 0
         for i in range(self.sz - 1):
-            d = fsr.Distance(fsr.LocalToGlobal(temp, self.rels[i]), self.objs[i+1])
+            d = fsr.distance(fsr.localToGlobal(temp, self.rels[i]), self.objs[i+1])
             sum+=d
         return sum
 
@@ -384,7 +384,7 @@ class SceneObj: #Object within a scene that needs to be reconstructed
                 obs2 = scene.observed[j]
                 if (obs == obs2):
                     continue
-                if (fsr.Distance(obs.cPos, obs2.cPos) < self.tol):
+                if (fsr.distance(obs.cPos, obs2.cPos) < self.tol):
                     found+=1
                     foundL.append(obs.cPos)
                 if found == self.sz:

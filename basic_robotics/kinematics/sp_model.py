@@ -3,7 +3,6 @@ import json
 
 import numpy as np
 import scipy as sci
-from sqlalchemy import true
 
 from ..general import Wrench, fmr, fsr, tm
 from ..plotting.vis_matplotlib import DrawSP
@@ -435,7 +434,7 @@ class SP(Robot):
             self.FK(leg_lengths)
             if (self.validate() == True and 
                     fmr.Norm(self._current_plate_transform_local[3:6]) > min_deviation):
-                done = true
+                done = True
             attempt+=1
         return self.getTopT()
 

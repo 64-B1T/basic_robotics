@@ -7,8 +7,6 @@ from basic_robotics.utilities.disp import disp
 import numpy as np
 import os
 
-from sqlalchemy import true 
-
 package_directory = os.path.dirname(os.path.abspath(__file__))
 
 

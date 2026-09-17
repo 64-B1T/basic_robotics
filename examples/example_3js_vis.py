@@ -17,5 +17,6 @@ def run_example():
         time.sleep(0.001)#30FPS
         arm.FK(np.array([i, i, i, i, 0, 0]))
         arm_vis.update(True)
-        
 
+if __name__ == '__main__':
+    run_example()

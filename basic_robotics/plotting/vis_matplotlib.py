@@ -261,7 +261,7 @@ def drawSP(sp, ax : Axes3D, col : str = 'green', forces : bool = False):  # prag
 
     if forces and sp._last_tau.size > 1:
         for i in range(6):
-            label = '%.1fN' % (sp.getActuatorForces()[i])
+            label = '%.1fN' % sp.getActuatorForces()[i].item()
             if i % 2 == 0:
                 pos = sp.getActuatorLoc(i, 'b')
             else:
@@ -580,10 +580,11 @@ def drawWrench(wrench, weight : float, ax : Axes3D):  # pragma: no cover
         ax (Axes3D):  Axes object to plot to.
     """    
     tr = wrench.frame_applied @ wrench.position_applied
-    direction = wrench.getForce().flatten()/math.sqrt((wrench.getForce()[0]**2 + wrench.getForce()[1]**2 + wrench.getForce()[2]**2))
+    force = wrench.getForce().flatten()
+    direction = force / np.linalg.norm(force)
     trb = tr.spawnNew([tr[0], tr[1], tr[2], 0, 0, 0])
     other = tr.spawnNew([direction[0], direction[1], direction[2], 0, 0, 0])
-    np = trb @ (.4*other)
+    tip = trb @ (.4*other)
     a = trb @ (.3*other)
     drawRectangle(trb, [.1, .1, .1], ax)
     a1 = a @ tr.spawnNew([.05, 0, 0, 0, 0, 0])
@@ -593,11 +594,11 @@ def drawWrench(wrench, weight : float, ax : Axes3D):  # pragma: no cover
     label = '%.1fN' % weight
     ax.text(tr[0], tr[1], tr[2], label)
 
-    ax.plot3D([tr[0], np[0]], [tr[1], np[1]], [tr[2], np[2]], 'b')
-    ax.plot3D([np[0], a1[0]],[np[1], a1[1]],[np[2], a1[2]], 'r')
-    ax.plot3D([np[0], a2[0]],[np[1], a2[1]],[np[2], a2[2]] ,'r')
-    ax.plot3D([np[0], a3[0]],[np[1], a3[1]],[np[2], a3[2]] ,'r')
-    ax.plot3D([np[0], a4[0]],[np[1], a4[1]],[np[2], a4[2]] ,'r')
+    ax.plot3D([tr[0], tip[0]], [tr[1], tip[1]], [tr[2], tip[2]], 'b')
+    ax.plot3D([tip[0], a1[0]],[tip[1], a1[1]],[tip[2], a1[2]], 'r')
+    ax.plot3D([tip[0], a2[0]],[tip[1], a2[1]],[tip[2], a2[2]] ,'r')
+    ax.plot3D([tip[0], a3[0]],[tip[1], a3[1]],[tip[2], a3[2]] ,'r')
+    ax.plot3D([tip[0], a4[0]],[tip[1], a4[1]],[tip[2], a4[2]] ,'r')
 
 def drawTube(T : tm, height : float, r : float, ax : Axes3D, c : str = 'blue', res : int = 12):  # pragma: no cover
     """

@@ -10,7 +10,6 @@ import json
 import os
 from basic_robotics.kinematics import loadSP, makeSP
 from basic_robotics.utilities.disp import disp
-from sqlalchemy import true
 class test_kinematics_sp(unittest.TestCase):
 
     def setUp(self):

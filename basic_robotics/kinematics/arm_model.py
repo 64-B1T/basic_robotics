@@ -54,6 +54,8 @@ class Arm(Robot):
         self.joint_mins = np.ones(self.num_dof) * np.pi * -1
         self.joint_maxs = np.ones(self.num_dof) * np.pi
         self.max_vels = np.ones(self.num_dof) * np.inf
+        self.max_accels = np.ones(self.num_dof) * np.inf
+        self.max_jerks = np.ones(self.num_dof) * np.inf
         self.max_effort = np.ones(self.num_dof) * np.inf
 
         #Visual and Collision
@@ -559,6 +561,8 @@ class Arm(Robot):
         self.joint_mins, self.joint_maxs = (
                 self.joint_mins[::-1].copy(), self.joint_maxs[::-1].copy())
         self.max_vels = self.max_vels[::-1].copy()
+        self.max_accels = self.max_accels[::-1].copy()
+        self.max_jerks = self.max_jerks[::-1].copy()
         self.max_effort = self.max_effort[::-1].copy()
 
         self.joint_axes = new_joint_axes
@@ -753,7 +757,9 @@ class Arm(Robot):
     def setJointProperties(self, joint_mins : 'np.ndarray[float]' = None,
             joint_maxs : 'np.ndarray[float]' = None,
             max_vels : 'np.ndarray[float]'= None,
-            max_effort : 'np.ndarray[float]'= None) -> None:
+            max_effort : 'np.ndarray[float]'= None,
+            max_accels : 'np.ndarray[float]' = None,
+            max_jerks : 'np.ndarray[float]' = None) -> None:
         """
         Set joint properties for the arm.
 
@@ -762,7 +768,11 @@ class Arm(Robot):
             joint_maxs (np.ndarray[float], optional): Joint maximum rotations. Defaults to None.
             max_vels (np.ndarray[float], optional): Joint maximum velocities. Defaults to None.
             max_effort (np.ndarray[float], optional): Joint maximum efforts/torques. Defaults to None.
-        """ 
+            max_accels (np.ndarray[float], optional): Joint maximum accelerations, used by
+                timeParametrizePath(). Defaults to None.
+            max_jerks (np.ndarray[float], optional): Joint maximum jerks, used by
+                timeParametrizePath() for jerk-limited (S-curve) retiming. Defaults to None.
+        """
         if joint_mins is not None:
             self.joint_mins = joint_mins
         if joint_maxs is not None:
@@ -771,6 +781,41 @@ class Arm(Robot):
             self.max_vels = max_vels
         if max_effort is not None:
             self.max_effort = max_effort
+        if max_accels is not None:
+            self.max_accels = max_accels
+        if max_jerks is not None:
+            self.max_jerks = max_jerks
+
+    def timeParametrizePath(self, path, max_vels : 'np.ndarray[float]' = None,
+            max_accels : 'np.ndarray[float]' = None,
+            max_jerks : 'np.ndarray[float]' = None) -> 'JointTrajectory':
+        """
+        Convert a sequence of joint-space waypoints (e.g. from IK solved along an
+        RRTStar path) into a velocity/acceleration-limited (and, if max_jerks is
+        given, jerk-limited) time-parametrized JointTrajectory.
+
+        By default this uses the arm's own max_vels/max_accels/max_jerks (set via
+        setJointProperties or a URDF load); pass any of the three explicitly to
+        override them for this call without changing the arm's configured limits.
+
+        Args:
+            path (list[np.ndarray[float]]): at least two joint-angle waypoints
+            max_vels (np.ndarray[float], optional): overrides self.max_vels
+            max_accels (np.ndarray[float], optional): overrides self.max_accels
+            max_jerks (np.ndarray[float], optional): overrides self.max_jerks. A
+                fully-infinite value (the default when unset) disables jerk
+                limiting rather than raising an error.
+
+        Returns:
+            JointTrajectory: retimed trajectory; see JointTrajectory.sample()
+        """
+        from ..path_planning.trajectory import JointTrajectory
+        v = self.max_vels if max_vels is None else max_vels
+        a = self.max_accels if max_accels is None else max_accels
+        j = self.max_jerks if max_jerks is None else max_jerks
+        if j is not None and np.all(~np.isfinite(np.atleast_1d(j))):
+            j = None
+        return JointTrajectory(path, v, a, j)
 
     def setVisColProperties(self, vis_props : list = None,
             col_props : list = None,

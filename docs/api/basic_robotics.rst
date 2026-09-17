@@ -21,3 +21,4 @@ Subpackages
    basic_robotics.path_planning
    basic_robotics.plotting
    basic_robotics.utilities
+   basic_robotics.workspace

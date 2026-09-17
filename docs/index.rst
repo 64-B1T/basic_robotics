@@ -16,6 +16,7 @@ It is divided into several component libraries:
 - ``basic_robotics.collisions`` - Fast Collision Manager for robotics and obstacles
 - ``basic_robotics.metrology`` - Camera/vision helpers for measurement and localization
 - ``basic_robotics.utilities`` - Terminal Displays and Logging
+- ``basic_robotics.workspace`` - Reachability and manipulability analysis, visualization, and a scriptable command line front end
 
 Installation
 ------------

@@ -3,6 +3,10 @@ import unittest
 
 sys.path.append('tests')
 from test_collisions import test_collisions
+from test_filtering_extended_kalman_filter import test_filtering_extended_kalman_filter
+from test_filtering_kalman_filter import test_filtering_kalman_filter
+from test_filtering_low_pass_filter import test_filtering_low_pass_filter
+from test_filtering_particle_filter import test_filtering_particle_filter
 from test_general_fsr import test_general_fsr
 from test_general_screw import test_general_screw
 from test_general_transform import test_general_tm
@@ -23,12 +27,22 @@ from test_kinematics_visual_info import test_kinematics_visual_info
 from test_metrology import test_metrology
 from test_modern_robotics_numba import test_modern_robotics_numba
 from test_path_planning import test_path_planning
+from test_path_planning_trajectory import (
+    test_trapezoidal_profile, test_scurve_profile, test_time_scale_profile_factory,
+    test_joint_trajectory, test_cartesian_trajectory, test_arm_time_parametrize_path,
+)
 from test_plotting_vis_3js_client import (
     test_plotting_vis_3js_client, test_plotting_vis_3js_client_plots,
 )
 from test_plotting_vis_3js_server import test_plotting_vis_3js_server
 from test_utilities_disp import test_utilities_disp
 from test_utilities_faserlog import test_utilities_faserlog, test_utilities_jsonlog
+from test_workspace_alpha_shape import test_workspace_alpha_shape
+from test_workspace_analyzer import test_workspace_analyzer, test_workspace_optimize_robot_for_goals
+from test_workspace_command_line import test_workspace_command_line
+from test_workspace_helpers import test_workspace_helpers
+from test_workspace_robot_link import test_workspace_robot_link
+from test_workspace_viewer import test_workspace_viewer
 
 if __name__ == '__main__':
     unittest.main()

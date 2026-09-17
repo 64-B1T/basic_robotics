@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "basic_robotics"
+version = "1.0.2"
+description = "General Purpose Robotics Package featuring forward and inverse kinematics for serial and parallel robots, static analysis, transformations, path planning, and more."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "William Chapin", email = "liam@64b1t.com" }]
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "numpy>=2.5.3",
+    "pyserial>=3.5",
+    "scipy>=1.18.1",
+    "numba>=0.67.0",
+    "modern_robotics>=1.1.1",
+    "numpy-stl>=4.0.1",
+    "matplotlib>=3.11.2",
+    "requests>=2.34.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/64-B1T/basic_robotics"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=9.1.0",
+    "sphinx-rtd-theme>=3.1.0",
+]
+test = [
+    "coverage>=7.16.1",
+    "flask>=3.1.3",
+    "flask-cors>=6.0.5",
+]
+dev = [
+    "ruff>=0.14.0",
+]
+# Collision detection (basic_robotics.collisions). Requires OctoMap/python-fcl,
+# which are only readily available on Linux.
+collisions = [
+    "trimesh>=5.1.0",
+    "python-fcl>=0.7.0.11",
+]
+# Workspace reachability analysis (basic_robotics.workspace). Its
+# collision-aware analyzer also needs the collisions extra above.
+workspace = [
+    "alphashape>=1.3.1",
+    "descartes>=1.1.0",
+    "trimesh>=5.1.0",
+    "python-fcl>=0.7.0.11",
+]
+# RRT*-style path planning (basic_robotics.path_planning).
+path_planning = [
+    "rtree>=1.4.1",
+]
+# Everything above, for users who want the full toolbox.
+all = [
+    "trimesh>=5.1.0",
+    "python-fcl>=0.7.0.11",
+    "alphashape>=1.3.1",
+    "descartes>=1.1.0",
+    "rtree>=1.4.1",
+]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["basic_robotics*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401", "F403", "F405"]
