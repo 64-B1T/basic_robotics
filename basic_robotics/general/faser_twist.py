@@ -77,10 +77,10 @@ class Twist(Screw):
             Screw: Screw axis (angular direction and axis point) equivalent to this twist.
         """
         if (mr.Norm(self.data[0:3])) == 0:
-            w = mr.Normalize(self.data[3:6])
+            w = mr.Normalize(self.data[3:6]).reshape((3))
             th = mr.Norm(self.data[3:6])[0]
-            q = np.array([0, 0, 0]).reshape((3, 1))
-            h = np.inf
+            q = np.array([0, 0, 0])
+            h = 0
         else:
             unit_twist = self.data/mr.Norm(self.data[0:3])
             w = unit_twist[0:3].reshape((3))

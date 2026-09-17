@@ -30,6 +30,15 @@ class test_utilities_faserlog(unittest.TestCase):
             contents = f.read()
         self.assertIn("hello world", contents)
 
+    def test_utilities_FaserLog_default_dir_uses_bare_name(self):
+        # With dir left as "Default", dirname is just the timestamped name,
+        # not prefixed with a directory. logging.basicConfig() is already
+        # configured from setUpClass's instance by this point, so this
+        # doesn't actually redirect logging or touch the filesystem.
+        default_log = FaserLog(name="DefaultDirLog")
+        self.assertEqual(default_log.dirname, default_log.name)
+        self.assertNotIn("/", default_log.dirname)
+
     def test_utilities_FaserLog_writeMatrixToLog(self):
         self.log.writeMatrixToLog(np.eye(2), "Identity")
         with open(self.log.dirname) as f:

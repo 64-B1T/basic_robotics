@@ -254,11 +254,11 @@ class Tree6Node:
             Boolean: Success
 
         """
-        ind = self.findChildInd(self, node)
+        ind = self.findChildInd(node)
         if (self.children[ind] == None):
             return False
         if (self.children[ind].getSize() == 1):
-            self.children[ind] == None
+            self.children[ind] = None
             self.size -= 1
             return True
         if self.children[ind].delete(node):

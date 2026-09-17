@@ -58,9 +58,12 @@ class test_general_twist(unittest.TestCase):
         self.assertAlmostEqual(float(np.linalg.norm(w)), 1.0, places=6)
 
     def test_general_twist_toScrew_pure_rotation_case(self):
-        # Zero linear component triggers the pure-rotation branch, which
-        # returns a screw aligned with the angular axis and zero-point.
-        twist = Twist(np.array([0, 0, 1, 0, 0, 0]).reshape((6, 1)))
+        # Twist's own data layout is [v (linear); w (angular)] (see
+        # twistMatrix, which puts data[0:3] in the translation column and
+        # data[3:6] in the angular skew block) - so a zero *linear* part is
+        # what triggers the pure-rotation branch, returning a screw aligned
+        # with the angular axis and a zero-point (axis through the origin).
+        twist = Twist(np.array([0, 0, 0, 0, 0, 1]).reshape((6, 1)))
         screw = twist.toScrew()
 
         np.testing.assert_allclose(screw.data.flatten()[0:3], [0, 0, 1], atol=1e-8)

@@ -391,7 +391,7 @@ class SceneObj: #Object within a scene that needs to be reconstructed
                     break
             if found == self.sz:
                 break
-        x0 = np.zeros((found,))
+        x0 = np.zeros((3,))
         res = lambda x : self.testAll(x, foundL)
         xs = sci.optimize.minimize(res, x0, method = "SLSQP")
         self.cPos = foundL[self.min]
@@ -589,7 +589,7 @@ class Camera:
         Returns:
             ndarray: Pixel offset of the projected target from the image center (1024, 1024).
         """
-        targ = self.checkCoord(target)
+        #targ = self.checkCoord(target)
         self.moveCamera(mat @ fsr.TAAtoTM([0, 0, 0, 0, np.pi/2, 0]))
         img, Q, suc = self.getPhoto(targ)
         img = img - np.array([1024, 1024])

@@ -248,8 +248,89 @@ class test_general_tm(unittest.TestCase):
         tmb = tmb.copy()
         self.assertTrue(tma == tmb)
 
-        
+    def test_general_tm_exp6(self):
+        tma = tm([1, 2, 3, 0, 0, np.pi / 4])
+        exp6_result = tma.exp6()
+        self.assertEqual(exp6_result.shape, (4, 4))
 
+    def test_general_tm_gRot(self):
+        tma = tm([1, 2, 3, 0, 0, 0])
+        rot = tma.gRot()
+        np.testing.assert_allclose(rot, np.eye(3))
+
+    def test_general_tm_dunder_sum(self):
+        tma = tm([1, 2, 3, 0, 0, 0])
+        np.testing.assert_allclose(np.asarray(tma.__sum__()).flatten(), [6.0])
+
+    def test_general_tm_rmatmul_dunder(self):
+        tma = tm([1, 0, 0, 0, 0, 0])
+        tmb = tm([0, 1, 0, 0, 0, 0])
+
+        tm_case = tma.__rmatmul__(tmb)
+        self.assertIsInstance(tm_case, tm)
+        np.testing.assert_allclose(tm_case.TM, tmb.TM @ tma.TM)
+
+        array_case = tma.__rmatmul__(np.eye(4))
+        np.testing.assert_allclose(array_case.TM, tma.TM)
+
+        scalar_case = tma.__rmatmul__(2)
+        np.testing.assert_allclose(scalar_case.TAA.flatten(), (2 * tma.TAA).flatten())
+
+    def test_general_tm_mul_ndarray(self):
+        tma = tm([1, 2, 3, 0, 0, 0])
+        result = tma * np.eye(4)
+        np.testing.assert_allclose(result.TM, tma.TM * np.eye(4))
+
+    def test_general_tm_rmul(self):
+        tma = tm([1, 0, 0, 0, 0, 0])
+        tmb = tm([0, 1, 0, 0, 0, 0])
+
+        tm_case = tma.__rmul__(tmb)
+        np.testing.assert_allclose(tm_case.TM, tmb.TM @ tma.TM)
+
+        array_case = tma.__rmul__(np.eye(4))
+        np.testing.assert_allclose(array_case.TM, np.eye(4) * tma.TM)
+
+    def test_general_tm_gt(self):
+        big = tm([2, 2, 2, 1, 1, 1])
+        small = tm([1, 1, 1, 0, 0, 0])
+
+        self.assertTrue(big > small)
+        self.assertFalse(small > big)
+        self.assertTrue(big > 0)
+        self.assertFalse(small > 10)
+
+    def test_general_tm_lt(self):
+        big = tm([2, 2, 2, 1, 1, 1])
+        small = tm([1, 1, 1, 0, 0, 0])
+
+        self.assertTrue(small < big)
+        self.assertFalse(big < small)
+        self.assertTrue(small < 10)
+        self.assertFalse(big < 0)
+
+    def test_general_tm_le(self):
+        tma = tm([1, 1, 1, 0, 0, 0])
+        tmb = tm([1, 1, 1, 0, 0, 0])
+        tmc = tm([2, 2, 2, 1, 1, 1])
+
+        self.assertTrue(tma <= tmb)
+        self.assertTrue(tma <= tmc)
+        self.assertFalse(tmc <= tma)
+
+    def test_general_tm_ge(self):
+        tma = tm([1, 1, 1, 0, 0, 0])
+        tmb = tm([1, 1, 1, 0, 0, 0])
+        tmc = tm([2, 2, 2, 1, 1, 1])
+
+        self.assertTrue(tma >= tmb)
+        self.assertTrue(tmc >= tma)
+        self.assertFalse(tma >= tmc)
+
+    def test_general_tm_str(self):
+        tma = tm([1, 2, 3, 0, 0, 0])
+        expected = "[ 1.000000, 2.000000, 3.000000, 0.000000, 0.000000, 0.000000 ]"
+        self.assertEqual(str(tma), expected)
 
 
 

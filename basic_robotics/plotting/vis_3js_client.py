@@ -23,7 +23,7 @@ def newFloor(filename : str = 'ChFloor2.glb') -> dict:
         dict: dict representing the floor object.
     """    
     if filename == 'ChFloor2.glb':
-        filename = package_directory + '\\' + filename
+        filename = os.path.join(package_directory, filename)
     return {"Key" : "Floor", "File" : filename, "Category" : "Model"}
 
 def newMaterial(color : hex = 0x3238a8, transparent : bool = True, opacity : float = .5) -> dict:
@@ -105,6 +105,7 @@ class DrawClient:
             str : new name to use
         """
         self.unnamed_registry.append("Object_" + str(self.unnamed_counter))
+        self.unnamed_counter += 1
         return self.unnamed_registry[-1]
 
     def deleteName(self, name : str) -> bool:
@@ -130,7 +131,7 @@ class DrawClient:
         Returns:
             bool: Success of Default.
         """        
-        success = self.delte({"Keys" : self.unnamed_registry})
+        success = self.delete({"Keys" : self.unnamed_registry})
         self.unnamed_registry = [] 
         self.unnamed_counter = 0
         return success
@@ -200,7 +201,7 @@ class DrawClient:
             floor_file (str, optional): optional floor file. Defaults to 'jsons/SceneFloor.json'.
         """
         if floor_file == 'jsons/SceneFloor.json':
-            floor_file = package_directory + '\\' + floor_file
+            floor_file = os.path.join(package_directory, floor_file)
         self.sendFile(floor_file)
 
     def prepAggregated(self, dict_list) -> dict:
@@ -411,7 +412,7 @@ class DrawClient:
 
         q = "?"
         if len(category) > 0:
-            q = q + "Category-" + category + "&"
+            q = q + "Category=" + category + "&"
 
         if kind == "Complete":
             q = q + "Complete=1&"
@@ -420,7 +421,7 @@ class DrawClient:
             q = q + "Latest=1&"
 
         elif len(thekeys) > 0:
-            q = q + "Key"
+            q = q + "Key="
             for keyval in thekeys:
                 q = q + keyval + ","
             q = q[:-1]
@@ -434,7 +435,7 @@ class DrawClient:
                     q = q + str(val) + ","
                 q = q[:-1]
                 q = q + "&"
-        q.replace(" ", "%20")
+        q = q.replace(" ", "%20")
         #print(hosturl + "/api/json" + q)
         nreq = self.ses.get(url = hosturl + q, headers = self.json_header, verify=False)
         data = nreq.json()
@@ -468,9 +469,9 @@ class DrawClient:
              delkey = {"DeleteKey" : thekeys[0]}
              nreq = self.ses.put(hosturl, json.dumps(delkey), headers = self.json_header)
         elif len(thekeys) > 1:
-             delkey = {"DeleteKey" : thekeys}
+             delkey = {"DeleteKeys" : thekeys}
              nreq = self.ses.put(hosturl, json.dumps(delkey), headers = self.json_header)
-        elif len(category) > 1:
+        elif len(category) > 0:
              delcat = {"DeleteCategory" : category}
              nreq = self.ses.put(hosturl, json.dumps(delcat), headers = self.json_header)
 

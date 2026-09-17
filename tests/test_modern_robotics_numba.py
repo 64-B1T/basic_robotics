@@ -220,6 +220,15 @@ class test_modern_robotics_numba(unittest.TestCase):
                         [-0.630,  0.619,  0.472]]))
         self.matrix_equality_assertion(output, expected)
 
+    def test_modern_robotics_numba_ProjectToSO3_negative_determinant(self):
+        # A reflection (det < 0) exercises the correction branch, which
+        # flips the sign of the third column of R.
+        mat = np.diag([1.0, 1.0, -1.0])
+        expected = np.eye(3)
+        output = mr.ProjectToSO3(mat)
+        self.assertAlmostEqual(np.linalg.det(output), 1.0, places=6)
+        self.matrix_equality_assertion(output, expected)
+
     def test_modern_robotics_numba_ProjectToSE3(self):
         expected = np.array([[ 0.67901136,  0.14894516,  0.71885945,  1.2 ],
                   [ 0.37320708,  0.77319584, -0.51272279,  5.4 ],
@@ -582,12 +591,62 @@ class test_modern_robotics_numba(unittest.TestCase):
         self.matrix_equality_assertion(output[1], expected[1])
 
     def test_modern_robotics_numba_InverseDynamicsTrajectory(self):
-        #TODO
-        pass
+        g = np.array([0, 0.0, -9.8])
+        M01 = np.array([[1, 0.0, 0.0, 0],[0, 1, 0.0, 0],[0, 0.0, 1, 0.089159],[0, 0.0, 0.0, 1]])
+        M12 = np.array([[ 0.0, 0.0, 1, 0.28],[ 0.0, 1, 0.0, 0.13585],
+                [-1, 0.0, 0.0, 0],[ 0.0, 0.0, 0.0, 1]])
+        M23 = np.array([[1, 0.0, 0.0, 0],[0, 1, 0.0, -0.1197],[0, 0.0, 1, 0.395],[0, 0.0, 0.0, 1]])
+        M34 = np.array([[1, 0.0, 0.0, 0],[0, 1, 0.0, 0],[0, 0.0, 1, 0.14225],[0, 0.0, 0.0, 1]])
+        G1 = np.diag([0.010267, 0.010267, 0.00666, 3.7, 3.7, 3.7])
+        G2 = np.diag([0.22689, 0.22689, 0.0151074, 8.393, 8.393, 8.393])
+        G3 = np.diag([0.0494433, 0.0494433, 0.004095, 2.275, 2.275, 2.275])
+        Glist = np.array([G1, G2, G3])
+        Mlist = np.array([M01, M12, M23, M34])
+        Slist = np.array([[1, 0.0, 1, 0.0, 1, 0],
+                [0, 1, 0.0, -0.089, 0.0, 0],
+                [0, 1, 0.0, -0.089, 0.0, 0.425]]).T
+        thetamat = np.array([[0.1, 0.1, 0.1], [0.2, 0.2, 0.3]])
+        dthetamat = np.array([[0.1, 0.2, 0.3], [0.2, 0.3, 0.4]])
+        ddthetamat = np.array([[2, 1.5, 1], [2, 1.5, 1]])
+        Ftipmat = np.zeros((2, 6))
+        expected = np.array([[ 73.28661547, -34.92537513,  -4.62298214],
+                [ 93.08272928, -33.58617125,  -4.04120193]])
+        output = mr.InverseDynamicsTrajectory(
+                thetamat, dthetamat, ddthetamat, g, Ftipmat, Mlist, Glist, Slist)
+        self.matrix_equality_assertion(output, expected)
 
     def test_modern_robotics_numba_ForwardDynamicsTrajectory(self):
-        #TODO
-        pass
+        g = np.array([0, 0.0, -9.8])
+        M01 = np.array([[1, 0.0, 0.0, 0],[0, 1, 0.0, 0],[0, 0.0, 1, 0.089159],[0, 0.0, 0.0, 1]])
+        M12 = np.array([[ 0.0, 0.0, 1, 0.28],[ 0.0, 1, 0.0, 0.13585],
+                [-1, 0.0, 0.0, 0],[ 0.0, 0.0, 0.0, 1]])
+        M23 = np.array([[1, 0.0, 0.0, 0],[0, 1, 0.0, -0.1197],[0, 0.0, 1, 0.395],[0, 0.0, 0.0, 1]])
+        M34 = np.array([[1, 0.0, 0.0, 0],[0, 1, 0.0, 0],[0, 0.0, 1, 0.14225],[0, 0.0, 0.0, 1]])
+        G1 = np.diag([0.010267, 0.010267, 0.00666, 3.7, 3.7, 3.7])
+        G2 = np.diag([0.22689, 0.22689, 0.0151074, 8.393, 8.393, 8.393])
+        G3 = np.diag([0.0494433, 0.0494433, 0.004095, 2.275, 2.275, 2.275])
+        Glist = np.array([G1, G2, G3])
+        Mlist = np.array([M01, M12, M23, M34])
+        Slist = np.array([[1, 0.0, 1, 0.0, 1, 0],
+                [0, 1, 0.0, -0.089, 0.0, 0],
+                [0, 1, 0.0, -0.089, 0.0, 0.425]]).T
+        thetalist = np.array([0.1, 0.1, 0.1])
+        dthetalist = np.array([0.1, 0.2, 0.3])
+        N = 3
+        taumat = np.zeros((N, 3))
+        Ftipmat = np.zeros((N, 6))
+        dt = 0.05
+        intRes = 2
+        expected_thetamat = np.array([[0.1, 0.1, 0.1],
+                [0.10441485, 0.12580629, 0.09710252],
+                [0.10637763, 0.21478817, 0.02225124]])
+        expected_dthetamat = np.array([[0.1, 0.2, 0.3],
+                [0.05207469, 1.46410445, -1.13488811],
+                [-0.00036316, 2.72342223, -2.58345364]])
+        output_thetamat, output_dthetamat = mr.ForwardDynamicsTrajectory(
+                thetalist, dthetalist, taumat, g, Ftipmat, Mlist, Glist, Slist, dt, intRes)
+        self.matrix_equality_assertion(output_thetamat, expected_thetamat)
+        self.matrix_equality_assertion(output_dthetamat, expected_dthetamat)
 
     def test_modern_robotics_numba_CubicTimeScaling(self):
         expected = 0.216
@@ -635,6 +694,37 @@ class test_modern_robotics_numba(unittest.TestCase):
          np.array([[0.346, -0.25, 0.904, -0.117],
                    [0.904, 0.346, -0.25,  0.473],
                    [-0.25, 0.904, 0.346,  3.274],
+                   [    0.0,     0.0,     0.0,      1]]),
+         np.array([[0, 0.0, 1, 0.1],
+                   [1, 0.0, 0.0,   0],
+                   [0, 1, 0.0, 4.1],
+                   [0, 0.0, 0.0,   1]])])
+        output = np.array(mr.ScrewTrajectory(Xstart, Xend, tF, N, method))
+        self.matrix_equality_assertion(output, expected)
+
+    def test_modern_robotics_numba_ScrewTrajectory_quintic(self):
+        Xstart = np.array([[1, 0.0, 0.0, 1],
+                           [0, 1, 0.0, 0],
+                           [0, 0.0, 1, 1],
+                           [0, 0.0, 0.0, 1]])
+        Xend = np.array([[0, 0.0, 1, 0.1],
+                         [1, 0.0, 0.0,   0],
+                         [0, 1, 0.0, 4.1],
+                         [0, 0.0, 0.0,   1]])
+        tF = 5
+        N = 4
+        method = 5
+        expected = np.array([np.array([[1, 0.0, 0.0, 1],
+                   [0, 1, 0.0, 0],
+                   [0, 0.0, 1, 1],
+                   [0, 0.0, 0.0, 1]]),
+         np.array([[0.936625, -0.214001, 0.277376, 0.543927],
+                   [0.277376, 0.936625, -0.214001, 0.456969],
+                   [-0.214001, 0.277376, 0.936625, 1.460832],
+                   [    0.0,     0.0,     0.0,     1]]),
+         np.array([[0.277376, -0.214001, 0.936625, -0.107331],
+                   [0.936625, 0.277376, -0.214001,  0.399035],
+                   [-0.214001, 0.936625, 0.277376,  3.446567],
                    [    0.0,     0.0,     0.0,      1]]),
          np.array([[0, 0.0, 1, 0.1],
                    [1, 0.0, 0.0,   0],
@@ -714,6 +804,135 @@ class test_modern_robotics_numba(unittest.TestCase):
         output = np.array(mr.CartesianTrajectory(Xstart, Xend, tF, N, method))
         self.matrix_equality_assertion(output, expected)
 
+    def test_modern_robotics_numba_CartesianTrajectory_cubic(self):
+        Xstart = np.array([[1, 0.0, 0.0, 1],
+                           [0, 1, 0.0, 0],
+                           [0, 0.0, 1, 1],
+                           [0, 0.0, 0.0, 1]])
+        Xend = np.array([[0, 0.0, 1, 0.1],
+                         [1, 0.0, 0.0,   0],
+                         [0, 1, 0.0, 4.1],
+                         [0, 0.0, 0.0,   1]])
+        tF = 5
+        N = 4
+        method = 3
+        expected = np.array([np.array([[1, 0.0, 0.0, 1],
+                   [0, 1, 0.0, 0],
+                   [0, 0.0, 1, 1],
+                   [0, 0.0, 0.0, 1]]),
+         np.array([[ 0.904111, -0.250372,  0.346261, 0.766667],
+                   [ 0.346261,  0.904111, -0.250372,     0],
+                   [-0.250372,  0.346261,  0.904111, 1.803704],
+                   [     0.0,      0.0,      0.0,     1]]),
+         np.array([[ 0.346261, -0.250372,  0.904111, 0.333333],
+                   [ 0.904111,  0.346261, -0.250372,     0],
+                   [-0.250372,  0.904111,  0.346261, 3.296296],
+                   [     0.0,      0.0,      0.0,     1]]),
+         np.array([[0, 0.0, 1, 0.1],
+                   [1, 0.0, 0.0,   0],
+                   [0, 1, 0.0, 4.1],
+                   [0, 0.0, 0.0,   1]])])
+        output = np.array(mr.CartesianTrajectory(Xstart, Xend, tF, N, method))
+        self.matrix_equality_assertion(output, expected)
+
     def test_modern_robotics_numba_SimulateControl(self):
-        #TODO
-        pass
+        import matplotlib
+        matplotlib.use('Agg', force=True)
+
+        g = np.array([0, 0.0, -9.8])
+        M01 = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0.089159],[0, 0, 0, 1]])
+        M12 = np.array([[ 0, 0, 1, 0.28],[ 0, 1, 0, 0.13585],[-1, 0, 0, 0],[ 0, 0, 0, 1]])
+        M23 = np.array([[1, 0, 0, 0],[0, 1, 0, -0.1197],[0, 0, 1, 0.395],[0, 0, 0, 1]])
+        M34 = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0.14225],[0, 0, 0, 1]])
+        G1 = np.diag([0.010267, 0.010267, 0.00666, 3.7, 3.7, 3.7])
+        G2 = np.diag([0.22689, 0.22689, 0.0151074, 8.393, 8.393, 8.393])
+        G3 = np.diag([0.0494433, 0.0494433, 0.004095, 2.275, 2.275, 2.275])
+        Glist = np.array([G1, G2, G3])
+        Mlist = np.array([M01, M12, M23, M34])
+        Slist = np.array([[1, 0, 1, 0, 1, 0],
+                [0, 1, 0, -0.089, 0, 0],
+                [0, 1, 0, -0.089, 0, 0.425]]).T
+
+        thetalist = np.array([0.1, 0.1, 0.1])
+        dthetalist = np.array([0.1, 0.2, 0.3])
+        dt = 0.1
+        thetaend = np.array([np.pi / 2, np.pi, 1.5 * np.pi])
+        Tf = 0.5
+        N = int(Tf / dt) + 1
+        method = 5
+        traj = np.array(mr.JointTrajectory(thetalist, thetaend, Tf, N, method))
+        thetamatd = traj.copy()
+        dthetamatd = np.zeros((N, 3))
+        ddthetamatd = np.zeros((N, 3))
+        for i in range(traj.shape[0] - 1):
+            dthetamatd[i + 1, :] = (thetamatd[i + 1, :] - thetamatd[i, :]) / dt
+            ddthetamatd[i + 1, :] = (dthetamatd[i + 1, :] - dthetamatd[i, :]) / dt
+
+        gtilde = np.array([0.8, 0.2, -8.8])
+        Mhat01 = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0.1],[0, 0, 0, 1]])
+        Mhat12 = np.array([[0, 0, 1, 0.3],[0, 1, 0, 0.2],[-1, 0, 0, 0],[0, 0, 0, 1]])
+        Mhat23 = np.array([[1, 0, 0, 0],[0, 1, 0, -0.2],[0, 0, 1, 0.4],[0, 0, 0, 1]])
+        Mhat34 = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0.2],[0, 0, 0, 1]])
+        Ghat1 = np.diag([0.1, 0.1, 0.1, 4, 4, 4])
+        Ghat2 = np.diag([0.3, 0.3, 0.1, 9, 9, 9])
+        Ghat3 = np.diag([0.1, 0.1, 0.1, 3, 3, 3])
+        Gtildelist = np.array([Ghat1, Ghat2, Ghat3])
+        Mtildelist = np.array([Mhat01, Mhat12, Mhat23, Mhat34])
+        Ftipmat = np.zeros((N, 6))
+        Kp, Ki, Kd = 20, 10, 18
+        intRes = 2
+
+        expected_tau0 = np.array([-14.2640765, -54.06797429, -11.265448])
+        expected_theta0 = np.array([0.10509054, 0.11037865, 0.07562592])
+        taumat, thetamat = mr.SimulateControl(
+                thetalist, dthetalist, g, Ftipmat, Mlist, Glist, Slist,
+                thetamatd, dthetamatd, ddthetamatd, gtilde, Mtildelist, Gtildelist,
+                Kp, Ki, Kd, dt, intRes)
+
+        self.assertEqual(taumat.shape, (N, 3))
+        self.assertEqual(thetamat.shape, (N, 3))
+        self.matrix_equality_assertion(taumat[0], expected_tau0)
+        self.matrix_equality_assertion(thetamat[0], expected_theta0)
+
+    def test_modern_robotics_numba_SimulateControl_without_matplotlib(self):
+        # Exercises the "matplotlib isn't available" fallback branch by
+        # making the function's internal `import matplotlib.pyplot` fail.
+        import sys
+        g = np.array([0, 0.0, -9.8])
+        M01 = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0.089159],[0, 0, 0, 1]])
+        M12 = np.array([[ 0, 0, 1, 0.28],[ 0, 1, 0, 0.13585],[-1, 0, 0, 0],[ 0, 0, 0, 1]])
+        M23 = np.array([[1, 0, 0, 0],[0, 1, 0, -0.1197],[0, 0, 1, 0.395],[0, 0, 0, 1]])
+        M34 = np.array([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0.14225],[0, 0, 0, 1]])
+        G1 = np.diag([0.010267, 0.010267, 0.00666, 3.7, 3.7, 3.7])
+        G2 = np.diag([0.22689, 0.22689, 0.0151074, 8.393, 8.393, 8.393])
+        G3 = np.diag([0.0494433, 0.0494433, 0.004095, 2.275, 2.275, 2.275])
+        Glist = np.array([G1, G2, G3])
+        Mlist = np.array([M01, M12, M23, M34])
+        Slist = np.array([[1, 0, 1, 0, 1, 0],
+                [0, 1, 0, -0.089, 0, 0],
+                [0, 1, 0, -0.089, 0, 0.425]]).T
+        thetalist = np.array([0.1, 0.1, 0.1])
+        dthetalist = np.array([0.1, 0.2, 0.3])
+        N = 2
+        thetamatd = np.array([[0.1, 0.1, 0.1], [0.2, 0.2, 0.2]])
+        dthetamatd = np.zeros((N, 3))
+        ddthetamatd = np.zeros((N, 3))
+        Ftipmat = np.zeros((N, 6))
+        dt, intRes = 0.1, 1
+
+        had_entry = 'matplotlib.pyplot' in sys.modules
+        previous = sys.modules.get('matplotlib.pyplot')
+        sys.modules['matplotlib.pyplot'] = None
+        try:
+            taumat, thetamat = mr.SimulateControl(
+                    thetalist, dthetalist, g, Ftipmat, Mlist, Glist, Slist,
+                    thetamatd, dthetamatd, ddthetamatd, g, Mlist, Glist,
+                    20, 10, 18, dt, intRes)
+        finally:
+            if had_entry:
+                sys.modules['matplotlib.pyplot'] = previous
+            else:
+                del sys.modules['matplotlib.pyplot']
+
+        self.assertEqual(taumat.shape, (N, 3))
+        self.assertEqual(thetamat.shape, (N, 3))

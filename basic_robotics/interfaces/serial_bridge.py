@@ -72,11 +72,11 @@ class SerialObject(CommsObject):
             Any: Message Data
             bool: Message Receive Success
         """ 
-        time.sleep(sleeptime)
-        msg = self.comm_handle.read(self.comm_handle.in_waiting)
         if not self.open:
             self.last_rx_success = False
             return ""
+        time.sleep(sleeptime)
+        msg = self.comm_handle.read(self.comm_handle.in_waiting)
         try:
             msg = msg.decode('utf-8')
         except:

@@ -80,7 +80,7 @@ class ROS1Pub(ROSPub):
         Returns:
             ROS1Pub: New publisher instance.
         """    
-        super().__init__(name, type)
+        super().__init__(name, node_type)
         self.publisher = rospy.Publisher(name, node_type)
     
     def send(self, message):
@@ -120,7 +120,7 @@ class ROS2Pub(ROSPub):
         """        
         new_message = self.node_type()
         new_message.data = message
-        super().publish(new_message)
+        self.publisher.publish(new_message)
     
 class ROSSub:
     """Create a new ROS Subscriber Handle."""
@@ -206,8 +206,8 @@ class ROS1Sub(ROSSub):
         Returns:
             ROS1Sub: New ROS2 Subscriber Handle.
         """
-        super().__init__(name, node_type, call_back)
-        self.subscriber = rospy.Subscriber(name, type, self.callBack)
+        super().__init__(name, node_type, None, call_back)
+        self.subscriber = rospy.Subscriber(name, node_type, self.callBack)
 
 class ROS2Sub(ROSSub):
     """Create a new ROS2 Subscriber Handle."""
@@ -226,7 +226,7 @@ class ROS2Sub(ROSSub):
         Returns:
             ROS2Sub: New ROS2 Subscriber Handle.
         """        
-        super().__init__(name, node_type, call_back)
+        super().__init__(name, node_type, host_node, call_back)
         self.subscriber = host_node.create_subscription(
                 node_type, name, self.callBack, host_node.r)
 
@@ -292,7 +292,7 @@ class ROSBridge:
             name (str, optional): Name of this Bridge Node. Defaults to 'faserNode'.
             rate (int, optional): Updates per second. Defaults to 10.
         """    
-        super().__init__(name)
+        super().__init__()
         self.r = rate
         self.pub_list = []
         self.sub_list = []
@@ -338,7 +338,7 @@ class ROSBridge:
         if name in self.pub_list:
             new_uplink = Uplink(self.pub_list[self.pub_list.index(name)], func)
         else:
-            tpub = self.newPub(name, node_type, self)
+            tpub = self.newPub(name, node_type)
             self.pub_list.append(tpub)
             new_uplink = Uplink(tpub, func)
         self.updateables.append(new_uplink)
@@ -356,7 +356,7 @@ class ROSBridge:
         if name in self.sub_list:
             new_downlink = Downlink(self.sub_list[self.sub_list.index(name)], func)
         else:
-            tsub = self.newSub(name, node_type)
+            tsub = self.newSub(name, node_type, func)
             self.sub_list.append(tsub)
             new_downlink = Downlink(tsub, func)
         self.updateables.append(new_downlink)
@@ -403,7 +403,7 @@ try:
             Returns:
                 ROS2Sub : New Subscriber Node
             """     
-            return ROS2Sub(name, node_type, func)
+            return ROS2Sub(name, node_type, self, func)
 
         def spin(self):
             """Start a continous update cycle."""   

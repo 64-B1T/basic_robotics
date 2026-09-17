@@ -1,12 +1,14 @@
 import numpy as np
-from basic_robotics.general import tm, fsr
+from basic_robotics.general import tm, fsr, Wrench
 from basic_robotics.kinematics import Robot, Arm, loadArmFromURDF
 from basic_robotics.plotting.vis_matplotlib import *
 from basic_robotics.utilities.disp import disp
 from basic_robotics.modern_robotics_numba import mr
 from basic_robotics.metrology import Camera
+import os
 import random
 import unittest
+from unittest.mock import patch
 
 class test_kinematics_arm(unittest.TestCase):
     def matrix_equality_assertion(self, mat_a, mat_b, num_dec = 3):
@@ -87,6 +89,30 @@ class test_kinematics_arm(unittest.TestCase):
         self.arm = arm
 
     #Kinematics
+
+    def test_kinematics_arm_construction_without_joint_poses_home(self):
+        # joint_poses_home can be passed as a size-1 placeholder (rather
+        # than a real 3xN array of positions), in which case each joint's
+        # position is instead derived from its screw axis via twistToScrew().
+        L1, L2, L3, W = 4.5, 3.75, 3.75, 0.1
+        joint_axes = np.array(
+                [[0, 0, 1], [0, 1, 0], [0, 1, 0], [1, 0, 0], [0, 1, 0], [1, 0, 0]]).conj().T
+        joint_homes = np.array(
+                [[0, 0, 0], [0, 0, L1], [L2, 0, L1], [L2+L3, 0, L1],
+                 [L2+L3+W, 0, L1], [L2+L3+2*W, 0, L1]]).conj().T
+        screw_list = np.zeros((6, 6))
+        for i in range(6):
+            screw_list[0:6, i] = np.hstack((
+                    joint_axes[0:3, i], np.cross(joint_homes[0:3, i], joint_axes[0:3, i])))
+        eef_home = np.eye(4)
+        eef_home[0:3, 3] = [L2+L3+3*W, 0, L1]
+
+        arm = Arm(tm(), screw_list, tm(eef_home), np.array([0.0]))
+
+        self.assertEqual(arm.joint_poses_home.shape, (3, 6))
+        ee_pos = arm.FK(np.zeros(6))
+        self.assertAlmostEqual(ee_pos[0], L2+L3+3*W)
+        self.assertAlmostEqual(ee_pos[2], L1)
 
     def test_kinematics_arm_thetaProtector(self):
         test_theta = np.array([2*np.pi + np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10])
@@ -204,6 +230,61 @@ class test_kinematics_arm(unittest.TestCase):
 
         self.assertNotEqual(theta.flatten()[0], ref_theta.flatten()[0])
 
+    def test_kinematics_arm_IK_protect_retries_on_failure_then_succeeds(self):
+        # protect=True uses raw fmr.IKinSpace directly (no constrainedIK
+        # fallback); force its first attempt to fail so the random-restart
+        # retry loop actually runs, then succeed partway through it.
+        goal = self.arm.FK(np.array([0.1, -0.2, 0.1, 0, 0, 0]))
+        good_theta = self.arm._theta.copy()
+        fail = (np.zeros(6), 0)
+        succeed = (good_theta, 1)
+        with patch('basic_robotics.kinematics.arm_model.fmr.IKinSpace',
+                side_effect=[fail, fail, fail, succeed]) as mocked_ik:
+            theta, success = self.arm.IK(goal, protect=True, level=6)
+        self.assertTrue(success)
+        self.assertEqual(mocked_ik.call_count, 4)
+        self.matrix_equality_assertion(goal.TM, self.arm.getEEPos().TM)
+
+    def test_kinematics_arm_IK_protect_retries_exhausted(self):
+        goal = self.arm.FK(np.array([0.1, -0.2, 0.1, 0, 0, 0]))
+        fail = (np.zeros(6), 0)
+        with patch('basic_robotics.kinematics.arm_model.fmr.IKinSpace',
+                return_value=fail) as mocked_ik:
+            theta, success = self.arm.IK(goal, protect=True, level=2)
+        self.assertFalse(success)
+        # 1 initial attempt + `level` retries.
+        self.assertEqual(mocked_ik.call_count, 3)
+
+    def test_kinematics_arm_constrainedIK_retry_exception_fallback_then_succeeds(self):
+        # Exercises constrainedIK's full retry path in one deterministic
+        # sequence: initial attempt fails -> first retry raises (triggering
+        # the except-block fallback to a recursive constrainedIK(check=False)
+        # call, which itself fails and bumps fail_count) -> second retry
+        # succeeds, at which point the outer call reports the accumulated
+        # fail_count via its "Success + N failures" print.
+        goal = self.arm.FK(np.array([0.1, -0.2, 0.1, 0, 0, 0]))
+        good_theta = self.arm._theta.copy()
+        calls = {'n': 0}
+
+        def side_effect(*args, **kwargs):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                return (np.zeros(6), 0)
+            if calls['n'] == 2:
+                raise RuntimeError('forced failure')
+            if calls['n'] == 3:
+                return (np.zeros(6), 0)
+            return (good_theta, 1)
+
+        with patch('basic_robotics.kinematics.arm_model.fmr.IKinSpaceConstrained',
+                side_effect=side_effect) as mocked_ik:
+            theta, success = self.arm.constrainedIK(goal)
+
+        self.assertTrue(success)
+        self.assertEqual(mocked_ik.call_count, 4)
+        self.assertEqual(self.arm.fail_count, 1)
+        self.matrix_equality_assertion(goal.TM, self.arm.getEEPos().TM)
+
     def test_kinematics_arm_constrainedIK(self):
         random.seed(10)
         test_tm = tm([1, 1, 3, 0, 0, 0])
@@ -214,6 +295,10 @@ class test_kinematics_arm(unittest.TestCase):
 
         test_angs = np.array([np.pi/7, np.pi/5, -np.pi/8, np.pi/7, -np.pi/8, np.pi/10])
         test_tm_2 = self.arm.FK(test_angs)
+
+    def test_kinematics_arm_constrainedIK_rejects_non_tm_goal(self):
+        result = self.arm.constrainedIK([1, 1, 3, 0, 0, 0])
+        np.testing.assert_array_equal(result, self.arm._theta)
 
     #def test_kinematics_arm_IKForceOptimal(self):
     #    #TODO
@@ -366,6 +451,18 @@ class test_kinematics_arm(unittest.TestCase):
         traj = self.arm.lineTrajectory(desired)
         self.matrix_equality_assertion(self.arm.getEEPos().gTM(), desired.gTM())
 
+    def test_kinematics_arm_lineTrajectory_no_execute_restores_theta(self):
+        start_theta = np.array([0.1, -0.2, 0.1, 0, 0, 0])
+        self.arm.FK(start_theta.copy())
+        start_pose = self.arm.getEEPos()
+        target = start_pose @ tm([0.2, 0, 0, 0, 0, 0])
+
+        traj = self.arm.lineTrajectory(target, execute=False)
+
+        self.assertGreater(len(traj), 0)
+        np.testing.assert_allclose(self.arm._theta, start_theta, atol=1e-6)
+        self.matrix_equality_assertion(self.arm.getEEPos().gTM(), start_pose.gTM())
+
     def test_kinematics_arm_visualServoToTarget(self):
         tg = self.arm.FK(self.arm._theta) @ tm(np.array([.5, .5, 1, 0, 0, 0]))
         theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01)
@@ -381,6 +478,27 @@ class test_kinematics_arm(unittest.TestCase):
         self.arm.updateCams()
         theta, _ = self.arm.visualServoToTarget(tg, desired_dist=0, pose_tol = 0.02, pose_delta=0.01)
         self.assertTrue(fsr.distance(self.arm.getEEPos(), tg) < 0.02)
+
+    def test_kinematics_arm_visualServoToTarget_retreats_when_too_close(self):
+        # Mock the camera so every frame reports perfect pixel alignment
+        # (bypassing the pixel-convergence logic entirely) and place the
+        # target much closer than desired_dist - this deterministically
+        # exercises the "too close, back away" branch (pose_adjust[2] < 0)
+        # without depending on realistic visual-servo convergence.
+        cam = Camera(200, 200, 1024, 1024, 2048, 2048, 1, tm())
+        self.arm.addCamera(cam, tm())
+        ref_img = self.arm.cameras[0][2]
+
+        target = self.arm.FK(self.arm._theta) @ tm([0, 0, 0.05, 0, 0, 0])
+
+        with patch.object(Camera, 'getPhoto', return_value=(ref_img, np.eye(2), True)):
+            theta, theta_list = self.arm.visualServoToTarget(
+                    target, desired_dist=1.0, pose_tol=0.1, pose_delta=0.1, max_iter=5)
+
+        # Retreating 0.01m/iteration for only 5 iterations isn't enough to
+        # reach desired_dist, so this hits max_iter and gives up - the point
+        # is exercising the retreat branch itself, not full convergence.
+        self.assertEqual(theta_list, [])
 
         #Failed to find solution
         tg = self.arm.FK(self.arm._theta) @ tm(np.array([5, .5, 1, 0, 0, 0]))
@@ -419,6 +537,15 @@ class test_kinematics_arm(unittest.TestCase):
 
     # Get and Set
 
+    def test_kinematics_arm_setNames_updates_custom_name(self):
+        # setNames() only overwrites self.name once it has already moved
+        # away from the class default ("Arm") - so a fresh arm's very first
+        # rename won't take via setNames(); confirm the *second* rename does.
+        self.assertEqual(self.arm.name, "Arm")
+        self.arm.name = "Custom"
+        self.arm.setNames(arm_name="Renamed")
+        self.assertEqual(self.arm.name, "Renamed")
+
     def test_kinematics_arm_setDynamicsProperties(self):
         #TODO
         pass
@@ -426,6 +553,17 @@ class test_kinematics_arm(unittest.TestCase):
     def test_kinematics_arm_setMasses(self):
         #TODO
         pass
+
+    def test_kinematics_arm_setMassProperties_defaults_grav_centers(self):
+        self.arm._link_mass_grav_centers = None
+        self.arm.setMassProperties(link_masses=np.array([1, 2, 3, 4, 5, 6]))
+        self.assertEqual(len(self.arm._link_mass_grav_centers), 6)
+        for center in self.arm._link_mass_grav_centers:
+            self.assertIsInstance(center, tm)
+
+    def test_kinematics_arm_getJointTransforms_without_base(self):
+        joint_transforms = self.arm.getJointTransforms(return_base=False)
+        self.assertEqual(len(joint_transforms), 7)
 
     def test_kinematics_arm_getJointTransforms(self):
         joint_transforms = self.arm.getJointTransforms()
@@ -569,10 +707,21 @@ class test_kinematics_arm(unittest.TestCase):
         tau2 = arm.staticForces(fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5), np.zeros(6))
         self.assertEqual(tau[5], tau2[5])
 
+    def test_kinematics_arm_staticForcesWithLinkMasses_explicit_theta(self):
+        arm = loadArmFromURDF('./tests/test_helpers/ur5.urdf')
+        test_theta = np.array([0.1, 0.1, 0.1, 0, 0, 0])
+        tau = arm.staticForcesWithLinkMasses(
+                fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5.0), test_theta)
+        tau2 = arm.staticForces(fsr.makeWrench(tm(), [0.0, 0.0, -9.81], 5), test_theta)
+        self.assertEqual(tau[5], tau2[5])
 
-    def test_kinematics_arm_inverseDynamics(self):
-        #TODO
-        pass
+    def test_kinematics_arm_staticForcesWithCrossMoments(self):
+        end_effector_wrench = Wrench(np.array([0, 0, 0, 0, 0, -9.81 * 5]))
+        wrenches = self.arm.staticForcesWithCrossMoments(
+                end_effector_wrench, np.array([np.pi/6, 0, 0, 0, 0, 0]))
+        self.assertEqual(len(wrenches), self.arm.num_dof)
+        for w in wrenches:
+            self.assertIsInstance(w, Wrench)
 
     def test_kinematics_arm_inverseDynamicsEMR(self):
             tau = self.arm.inverseDynamicsEMR(
@@ -589,6 +738,17 @@ class test_kinematics_arm(unittest.TestCase):
                  [-1.95700000e+00],
                  [-5.00000000e-03]]).flatten()
             self.matrix_equality_assertion(tau, ref_tau)
+
+            # grav=None defaults to self.arm.grav, and should give the same
+            # result as passing that same vector explicitly, above.
+            tau_default_grav = self.arm.inverseDynamicsEMR(
+                np.zeros(6),
+                np.ones((6)) * -1,
+                np.zeros(6),
+                None,
+                np.zeros(6)
+            )
+            self.matrix_equality_assertion(tau_default_grav, ref_tau)
 
             tau = self.arm.inverseDynamicsEMR(
                 np.array([np.pi/6, np.pi/8, 0, -np.pi/8, 0, np.pi/10]),
@@ -709,6 +869,13 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(vel_dot, v_dot_ref)
         self.matrix_equality_assertion(F, F_ref)
 
+    def test_kinematics_arm_inverseDynamics_default_grav(self):
+        tau_explicit, _, _, _, _ = self.arm.inverseDynamics(
+            np.zeros(6), np.ones((6)) * -1, np.zeros(6), np.array([0, 0, -9.81]), np.zeros(6))
+        tau_default, _, _, _, _ = self.arm.inverseDynamics(
+            np.zeros(6), np.ones((6)) * -1, np.zeros(6), None, np.zeros(6))
+        self.matrix_equality_assertion(tau_default, tau_explicit)
+
     def test_kinematics_arm_inverseDynamicsC(self):
         param_a = np.array([[-0.99592],
                    [1.1955],
@@ -766,6 +933,11 @@ class test_kinematics_arm(unittest.TestCase):
                    [49.2987],
                    [76.2688]])
         self.matrix_equality_assertion(tauc, refTauc, 1)
+
+        # grav=None defaults to self.arm.grav, which is [0, 0, -9.81] -
+        # the same vector passed explicitly as param_d above.
+        tauc_default_grav, _, _ = self.arm.inverseDynamicsC(param_a, param_b, param_c, None, param_e)
+        self.matrix_equality_assertion(tauc_default_grav, refTauc, 1)
 
     def test_kinematics_arm_forwardDynamicsE(self):
         theta_dot_dot, M, h, ee = self.arm.forwardDynamicsE(
@@ -952,6 +1124,7 @@ class test_kinematics_arm(unittest.TestCase):
             [0.99474],
             [0.99737],
             [1]]).flatten()
+        t_series_input = t_ref
         t, thetadotdot = self.arm.integrateForwardDynamics(np.zeros(6), -1*np.ones(6), np.zeros(6), grav=np.zeros((3)), t_series = t_ref)
         t_ref = np.array([[0],
             [5.0238e-05],
@@ -1126,7 +1299,12 @@ class test_kinematics_arm(unittest.TestCase):
         self.matrix_equality_assertion(t, t_ref)
         self.matrix_equality_assertion(thetadotdot, tdot_ref, 1)
 
-        #TODO add another one
+        # grav=None defaults to self.arm.grav.
+        t_default, thetadotdot_default = self.arm.integrateForwardDynamics(
+                np.zeros(6), -1*np.ones(6), np.zeros(6), grav=self.arm.grav, t_series=t_series_input)
+        t_none, thetadotdot_none = self.arm.integrateForwardDynamics(
+                np.zeros(6), -1*np.ones(6), np.zeros(6), grav=None, t_series=t_series_input)
+        self.matrix_equality_assertion(thetadotdot_none, thetadotdot_default)
 
     def test_kinematics_arm_massMatrix(self):
         mmat = self.arm.massMatrix(np.zeros(6))
@@ -1406,6 +1584,56 @@ class test_kinematics_arm(unittest.TestCase):
                 #disp(new_local, 'local test')
                 for j in range(len(joint_poses)):
                     self.matrix_equality_assertion(ref_joint_lists[i][j].gTM(), alt_joint_list[j].gTM())
+
+    def test_kinematics_arm_draw(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        try:
+            self.arm.draw(ax)
+        finally:
+            plt.close(fig)
+
+    def test_kinematics_arm_load_urdf_spec_file(self):
+        from basic_robotics.kinematics.arm_model import load_urdf_spec_file
+        relative = load_urdf_spec_file('/some/urdf.urdf', '../meshes/part.stl')
+        self.assertEqual(relative, os.path.abspath('../meshes/part.stl'))
+        plain = load_urdf_spec_file('/some/urdf.urdf', 'meshes/part.stl')
+        self.assertEqual(plain, 'meshes/part.stl')
+
+    def test_kinematics_arm_loadArmFromURDF_primitive_geometry(self):
+        # Exercises the box/cylinder/sphere <geometry> branches, as opposed
+        # to the <mesh> branch every other test fixture URDF uses.
+        arm = loadArmFromURDF('./tests/test_helpers/primitive_geometry.urdf')
+        self.assertIsNotNone(arm)
+        vis_types = [p.geo_type if p else None for p in arm._vis_props]
+        col_types = [p.geo_type if p else None for p in arm._col_props]
+        self.assertIn('box', vis_types)
+        self.assertIn('spr', vis_types)
+        self.assertIn('cyl', col_types)
+        self.assertIn('spr', col_types)
+
+    def test_kinematics_arm_loadArmFromURDF_branching_tree(self):
+        # base_link branches into a dead-end stub and the real 2-DOF chain;
+        # link2 further branches into two dead-end leaves. Exercises
+        # mostChildren()'s "found a longer branch" update, since neither
+        # branch point's first child is the one with the most descendants.
+        arm = loadArmFromURDF('./tests/test_helpers/branching_geometry.urdf')
+        self.assertIsNotNone(arm)
+        self.assertEqual(arm.num_dof, 2)
+
+    def test_kinematics_arm_loadArmFromURDF_missing_file(self):
+        arm = loadArmFromURDF('./tests/test_helpers/does_not_exist.urdf')
+        self.assertIsNone(arm)
+
+    def test_kinematics_arm_loadArmFromURDF_malformed_file(self):
+        bad_path = './tests/test_helpers/malformed_temp.urdf'
+        with open(bad_path, 'w') as f:
+            f.write('<not valid xml')
+        try:
+            arm = loadArmFromURDF(bad_path)
+        finally:
+            os.remove(bad_path)
+        self.assertIsNone(arm)
 
     def test_kinematics_arm_loadArmFromURDF_UR5(self):
         arm = loadArmFromURDF('./tests/test_helpers/ur5.urdf')

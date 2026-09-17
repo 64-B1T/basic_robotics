@@ -8,12 +8,25 @@ from test_general_screw import test_general_screw
 from test_general_transform import test_general_tm
 from test_general_twist import test_general_twist
 from test_general_wrench import test_general_wrench
+from test_interfaces_comms_object import test_interfaces_comms_object
 from test_interfaces_communications import test_interfaces_communications
+from test_interfaces_opc import test_interfaces_opc_not_ready, test_interfaces_opc_with_fake_opcua
+from test_interfaces_ros import (
+    test_interfaces_ros_base_classes, test_interfaces_ros1_with_fake_rospy,
+    test_interfaces_ros2_with_fake_rclpy,
+)
+from test_interfaces_serial import test_interfaces_serial
 from test_kinematics_arm import test_kinematics_arm
+from test_kinematics_robot_model import test_kinematics_robot_model
 from test_kinematics_sp import test_kinematics_sp
+from test_kinematics_visual_info import test_kinematics_visual_info
 from test_metrology import test_metrology
 from test_modern_robotics_numba import test_modern_robotics_numba
 from test_path_planning import test_path_planning
+from test_plotting_vis_3js_client import (
+    test_plotting_vis_3js_client, test_plotting_vis_3js_client_plots,
+)
+from test_plotting_vis_3js_server import test_plotting_vis_3js_server
 from test_utilities_disp import test_utilities_disp
 from test_utilities_faserlog import test_utilities_faserlog, test_utilities_jsonlog
 

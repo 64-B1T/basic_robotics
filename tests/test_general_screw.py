@@ -114,5 +114,130 @@ class test_general_screw(unittest.TestCase):
                 [     0.000,    0.000,    0.000,    0.000,    2.000]])
         self.matrix_equality_assertion(test_array, ref_array)
 
+    def test_general_screw_reshape(self):
+        screw1 = Screw(np.array([1.0, 2, 3, 4, 5, 6]))
+        reshaped = screw1.reshape((3, 2))
+        self.assertEqual(reshaped.shape, (3, 2))
+        np.testing.assert_allclose(reshaped.flatten(), [1, 2, 3, 4, 5, 6])
 
+    def test_general_screw_dunder_sum(self):
+        test_screw_1 = Screw(np.array([0, 1, 0, 1, 2, 0]))
+        self.assertEqual(test_screw_1.__sum__(), 4.0)
+
+    def test_general_screw_setitem_array(self):
+        screw1 = Screw(np.array([1.0, 2, 3, 4, 5, 6]))
+        screw1[0:3] = np.array([9.0, 8, 7]).reshape((3, 1))
+        np.testing.assert_allclose(screw1.data[0:3, 0], [9, 8, 7])
+
+    def test_general_screw_add(self):
+        screw1 = Screw(np.array([0, 1, 0, 1, 2, 0]))
+
+        screw_plus_array = screw1 + np.array([1, 1, 1, 1, 1, 1])
+        self.assertIsInstance(screw_plus_array, Screw)
+        np.testing.assert_allclose(screw_plus_array.data.flatten(), [1, 2, 1, 2, 3, 1])
+
+        scalar_result = screw1 + 5
+        np.testing.assert_allclose(np.asarray(scalar_result).flatten(), [5, 6, 5, 6, 7, 5])
+
+    def test_general_screw_radd(self):
+        screw1 = Screw(np.array([0, 1, 0, 1, 2, 0]))
+        result = 5 + screw1
+        np.testing.assert_allclose(np.asarray(result).flatten(), [5, 6, 5, 6, 7, 5])
+
+    def test_general_screw_sub(self):
+        screw1 = Screw(np.array([5, 5, 5, 5, 5, 5]))
+        screw2 = Screw(np.array([1, 2, 3, 4, 5, 6]))
+
+        diff = screw1 - screw2
+        self.assertIsInstance(diff, Screw)
+        np.testing.assert_allclose(diff.data.flatten(), [4, 3, 2, 1, 0, -1])
+
+        diff_arr = screw1 - np.array([1, 1, 1, 1, 1, 1])
+        self.assertIsInstance(diff_arr, Screw)
+        np.testing.assert_allclose(diff_arr.data.flatten(), [4, 4, 4, 4, 4, 4])
+
+        diff_scalar = screw1 - 2
+        np.testing.assert_allclose(np.asarray(diff_scalar).flatten(), [3, 3, 3, 3, 3, 3])
+
+    def test_general_screw_rsub(self):
+        screw1 = Screw(np.array([1, 2, 3, 4, 5, 6]))
+        screw2 = Screw(np.array([5, 5, 5, 5, 5, 5]))
+
+        # Both operands being Screws always dispatches through the left
+        # operand's __sub__, so __rsub__'s Screw branch needs a direct call.
+        direct = screw1.__rsub__(screw2)
+        np.testing.assert_allclose(direct.data.flatten(), [4, 3, 2, 1, 0, -1])
+
+        array_result = np.array([5.0, 5, 5, 5, 5, 5]) - screw1
+        self.assertIsInstance(array_result, Screw)
+        np.testing.assert_allclose(array_result.data.flatten(), [4, 3, 2, 1, 0, -1])
+
+        scalar_result = 10 - screw1
+        np.testing.assert_allclose(np.asarray(scalar_result).flatten(), [9, 8, 7, 6, 5, 4])
+
+    def test_general_screw_matmul_fallback(self):
+        screw1 = Screw(np.array([1.0, 2, 3, 4, 5, 6]))
+        result = screw1 @ np.array([[2.0]])
+        np.testing.assert_allclose(result.flatten(), screw1.data.flatten() * 2)
+
+    def test_general_screw_mul_fallback(self):
+        screw1 = Screw(np.array([1.0, 2, 3, 4, 5, 6]))
+        result = screw1 * np.array([1, 1, 1, 1, 1, 1])
+        self.assertEqual(result.shape, (6, 6))
+
+    def test_general_screw_truediv_fallback(self):
+        screw1 = Screw(np.array([2.0, 4, 6, 8, 10, 12]))
+        result = screw1 / np.array([[2.0]])
+        np.testing.assert_allclose(result.flatten(), [1, 2, 3, 4, 5, 6])
+
+    def test_general_screw_rtruediv_fallback(self):
+        screw1 = Screw(np.array([2.0, 2, 2, 2, 2, 2]))
+        result = np.array([4.0, 4, 4, 4, 4, 4]).reshape((6, 1)) / screw1
+        np.testing.assert_allclose(np.asarray(result).flatten(), [2, 2, 2, 2, 2, 2])
+
+    def test_general_screw_floordiv(self):
+        screw1 = Screw(np.array([5.0, 7, 9, 11, 13, 15]))
+
+        int_result = screw1 // 2
+        self.assertIsInstance(int_result, Screw)
+        np.testing.assert_allclose(int_result.data.flatten(), [2, 3, 4, 5, 6, 7])
+
+        array_result = screw1 // np.array([2.0, 2, 2, 2, 2, 2]).reshape((6, 1))
+        np.testing.assert_allclose(
+                np.asarray(array_result).flatten(), screw1.data.flatten() // 2)
+
+    def test_general_screw_rfloordiv(self):
+        screw1 = Screw(np.array([2.0, 2, 2, 2, 2, 2]))
+
+        int_result = screw1.__rfloordiv__(9)
+        self.assertIsInstance(int_result, Screw)
+        np.testing.assert_allclose(int_result.data.flatten(), [4, 4, 4, 4, 4, 4])
+
+        array_result = np.array([9.0, 9, 9, 9, 9, 9]).reshape((6, 1)) // screw1
+        np.testing.assert_allclose(np.asarray(array_result).flatten(), [4, 4, 4, 4, 4, 4])
+
+    def test_general_screw_eq_non_screw(self):
+        screw1 = Screw(np.array([1.0, 2, 3, 4, 5, 6]))
+        self.assertFalse(screw1 == "not a screw")
+
+    def test_general_screw_comparison_operators(self):
+        small = Screw(np.array([1.0, 1, 1, 1, 1, 1]))
+        big = Screw(np.array([2.0, 2, 2, 2, 2, 2]))
+
+        np.testing.assert_array_equal((small > big).flatten(), [False] * 6)
+        np.testing.assert_array_equal((small > 0).flatten(), [True] * 6)
+
+        np.testing.assert_array_equal((small < big).flatten(), [True] * 6)
+        np.testing.assert_array_equal((small < 0).flatten(), [False] * 6)
+
+        np.testing.assert_array_equal((small <= big).flatten(), [True] * 6)
+        np.testing.assert_array_equal((small <= 1).flatten(), [True] * 6)
+
+        np.testing.assert_array_equal((big >= small).flatten(), [True] * 6)
+        np.testing.assert_array_equal((big >= 2).flatten(), [True] * 6)
+
+    def test_general_screw_str(self):
+        screw1 = Screw(np.array([1.0, 2, 3, 4, 5, 6]))
+        expected = "[ 1.000000, 2.000000, 3.000000, 4.000000, 5.000000, 6.000000 ]"
+        self.assertEqual(str(screw1), expected)
 

@@ -256,7 +256,7 @@ class tm:
         Returns:
             Matrix exponential
         """
-        return mr.MatrixExp6(mr.VecTose3(self.TAA))
+        return mr.MatrixExp6(mr.VecTose3(self.TAA.flatten()))
 
     def gRot(self):
         """

@@ -446,6 +446,7 @@ def twistToScrew(input_twist):
     Returns:
         ndarray: Screw representing twist
     """
+    input_twist = np.asarray(input_twist).reshape((6, 1))
     if (mr.Norm(input_twist[0:3])) == 0:
         w = mr.Normalize(input_twist[3:6])
         th = mr.Norm(input_twist[3:6])[0]

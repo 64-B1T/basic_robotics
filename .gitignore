@@ -147,3 +147,4 @@ tests_secret/
 .coveragerc
 
 release_notes.txt
+.venv-work

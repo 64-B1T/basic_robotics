@@ -1,6 +1,10 @@
 import unittest
+from unittest.mock import patch
 import random
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from basic_robotics.general import tm, fsr, fmr
 import json
 import os
@@ -154,6 +158,36 @@ class test_kinematics_sp(unittest.TestCase):
     def test_kinematics_sp_initialization(self):
         lens = self.sp.getLens()
         self.matrix_equality_assertion(lens, np.ones((6,1)) * (self.sp.leg_ext_max + self.sp.leg_ext_min)/2)
+
+    def test_kinematics_sp_setMasses_default_top_plate_mass(self):
+        # With top_plate_mass left at its default (0), it falls back to
+        # plate_mass_general rather than staying 0.
+        self.sp.setMasses(3.5, 0.9, 0.5)
+        self.assertEqual(self.sp._bottom_plate_mass, 3.5)
+        self.assertEqual(self.sp._top_plate_mass, 3.5)
+
+    def test_kinematics_sp_setMaxPlateRotation(self):
+        self.sp.setMaxPlateRotation(0.5)
+        self.assertAlmostEqual(self.sp.plate_rotation_limit, np.cos(0.5))
+        self.sp.setMaxPlateRotation(45, degrees=True)
+        self.assertAlmostEqual(self.sp.plate_rotation_limit, np.cos(fsr.deg2Rad(45)))
+
+    def test_kinematics_sp_getTopJoints(self):
+        top_joints = self.sp.getTopJoints()
+        self.assertEqual(top_joints.shape[1], 6)
+
+    def test_kinematics_sp_getCurrentLocalTransform(self):
+        self.sp.IK(tm([0, 0, 1.2, 0, 0, 0]))
+        local_transform = self.sp.getCurrentLocalTransform()
+        self.assertIsInstance(local_transform, tm)
+
+    def test_kinematics_sp_draw(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        try:
+            self.sp.draw(ax)
+        finally:
+            plt.close(fig)
 
     def test_kinematics_sp_getActuatorLoc(self):
         self.sp.IK(tm([0, 0, 1.2, 0, 0, 0]))
@@ -316,6 +350,73 @@ class test_kinematics_sp(unittest.TestCase):
         self.assertTrue(self.sp._continuousTranslationConstraint())
         #print(self.sp.getTopT())
 
+    def test_kinematics_sp_FK_with_explicit_plate_pos_fixes_upside_down(self):
+        test_tm = tm([0, .1, -.5, 0, np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos=test_tm, protect=True)
+        self.assertFalse(self.sp._continuousTranslationConstraint())
+
+        bottom = self.sp.getBottomT()
+        # The FK solver itself tends to converge on an already-valid
+        # (non-inverted) solution from these leg lengths, which never
+        # actually exercises FK()'s own internal _fixUpsideDown() repair
+        # path. Force that path deterministically by making the very next
+        # constraint check report "inverted" once, regardless of the real
+        # geometry, and confirm FK() calls the repair in response.
+        with patch.object(type(self.sp), '_continuousTranslationConstraint',
+                side_effect=[False, True, True, True]) as mocked_check, \
+                patch.object(type(self.sp), '_fixUpsideDown') as mocked_fix:
+            self.sp.FK(lens, plate_pos=bottom, protect=True)
+            mocked_fix.assert_called_once()
+
+        self.assertTrue(self.sp._continuousTranslationConstraint())
+
+    def test_kinematics_sp_FKRaphson_falls_back_to_FKSolve_on_failure(self):
+        lens = self.sp.getLens()
+        with patch('basic_robotics.kinematics.sp_model.fmr.SPFKinSpaceR',
+                side_effect=RuntimeError('forced failure')):
+            bottom, top = self.sp._FKRaphson(lens, self.sp.getBottomT(), protect=True)
+        self.assertIsInstance(bottom, tm)
+        self.assertIsInstance(top, tm)
+        self.assertGreater(self.sp.fail_count, 0)
+
+    def test_kinematics_sp_lengthCorrectiveAction_boosts_short_legs(self):
+        # min leg (0.7) is below leg_ext_min (0.75), but boosting every leg
+        # by the shortfall keeps the max leg comfortably under leg_ext_max -
+        # this is the "Boost" corrective path (as opposed to Rescale/Subtract).
+        self.sp.lengths = np.array([0.7, 1.0, 1.0, 1.0, 1.0, 1.0])
+        self.sp.validation_error = ""
+
+        self.sp._lengthCorrectiveAction()
+
+        self.assertIn("Boost", self.sp.validation_error)
+        self.assertGreaterEqual(min(self.sp.lengths), self.sp.leg_ext_min)
+
+    def test_kinematics_sp_loadSP_infers_actuator_cog_from_geometry(self):
+        # With InferActuatorCOG set to anything other than 1, loadSP()
+        # derives motor/shaft gravity centers from actuator extension
+        # geometry instead of reading them directly from the json.
+        basic_sp = {
+           "Name": "COG Inference SP", "Type": "SP",
+           "BottomPlate": {"Thickness": 0.1, "JointRadius": 0.9, "JointSpacing": 9, "Mass": 6},
+           "TopPlate": {"Thickness": 0.16, "JointRadius": 0.3, "JointSpacing": 25, "Mass": 1},
+           "Actuators": {"MinExtension": 0.75, "MaxExtension": 1.5, "MotorMass": 0.5,
+               "ShaftMass": 0.9, "ForceLimit": 800, "MotorCOGD": 0.2, "ShaftCOGD": 0.2},
+           "Drawing": {"TopRadius": 1, "BottomRadius": 1, "ShaftRadius": 0.1, "MotorRadius": 0.2},
+           "Settings": {"MaxAngleDev": 55, "GenerateActuators": 0, "IgnoreRestHeight": 1,
+               "UseSpin": 0, "AssignMasses": 1, "InferActuatorCOG": 0},
+           "Params": {"RestHeight": 1.2, "Spin": 30}
+        }
+        with open('sp_test_data_infer_cog.json', 'w') as outfile:
+            json.dump(basic_sp, outfile)
+        try:
+            sp = loadSP('sp_test_data_infer_cog.json', '')
+        finally:
+            os.remove('sp_test_data_infer_cog.json')
+
+        expected_cog = 1/4 * (0.75 + 1.5) / 2
+        self.assertAlmostEqual(sp._act_motor_grav_center, expected_cog)
+        self.assertAlmostEqual(sp._act_shaft_grav_center, expected_cog)
+
     def test_kinematics_sp_validateLegs(self):
         test_tm = tm([0, .1, -.5, 0, np.pi/8, 0])
         lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
@@ -351,6 +452,25 @@ class test_kinematics_sp(unittest.TestCase):
         test_tm = tm([-.1, -.1, .6, 0, 0, np.arccos(self.sp.plate_rotation_limit)-.01])
         lens, valid = self.sp.IK(top_plate_pos = test_tm, protect=True)
         self.assertTrue(self.sp._plateRotationConstraint())
+
+    def test_kinematics_sp_interiorAnglesConstraint_false_on_nan(self):
+        with patch.object(type(self.sp), 'getJointAnglesFromNorm',
+                return_value=np.array([0.1, np.nan, 0.2, 0.1, 0.1, 0.1])):
+            self.assertFalse(self.sp._interiorAnglesConstraint())
+
+    def test_kinematics_sp_validateInteriorAngles(self):
+        self.sp.validation_settings[2] = True
+        test_tm = tm([0, .1, -.5, 0, np.pi/8, 0])
+        lens, valid = self.sp.IK(top_plate_pos=test_tm, protect=True)
+        self.assertFalse(self.sp.validateInteriorAngles(donothing=True))
+        self.assertTrue(self.sp.validateInteriorAngles())
+
+    def test_kinematics_sp_validatePlateRotation(self):
+        self.sp.validation_settings[3] = True
+        test_tm = tm([-.1, -.1, .6, 0, 0, np.arccos(self.sp.plate_rotation_limit)+.01])
+        lens, valid = self.sp.IK(top_plate_pos=test_tm, protect=True)
+        self.assertFalse(self.sp.validatePlateRotation(donothing=True))
+        self.assertTrue(self.sp.validatePlateRotation())
 
     def test_kinematics_sp_inverseJacobianSpace(self):
         invjacref = np.array([[-0.0038071, -0.072643, -0.010357, -0.20747, -0.1274, 0.96991],
@@ -752,6 +872,35 @@ class test_kinematics_sp(unittest.TestCase):
         self.matrix_equality_assertion(spnew.getTopT().gTM(), self.sp2.getTopT().gTM())
         self.matrix_equality_assertion(spnew._bottom_joints_space, self.sp2._bottom_joints_space)
         self.matrix_equality_assertion(spnew._top_joints_space, self.sp2._top_joints_space)
+
+    def test_kinematics_sp_makeSP_inverted_rotation(self):
+        # rot=-1 swaps which set of joint angles is used for the top vs
+        # bottom plate ("creates an invert platform if flipped").
+        spnew, bottom, top = makeSP(0.075, 0.045, 6, tm(), .25, -1, 0)
+        self.assertIsNotNone(spnew)
+        self.assertEqual(spnew._bottom_joints_local.shape, (3, 6))
+
+    def test_kinematics_sp_loadSP_inverted_rotation(self):
+        basic_sp = {
+           "Name": "Inverted SP", "Type": "SP",
+           "BottomPlate": {"Thickness": 0.1, "JointRadius": 0.9, "JointSpacing": 9, "Mass": 6},
+           "TopPlate": {"Thickness": 0.16, "JointRadius": 0.3, "JointSpacing": 25, "Mass": 1},
+           "Actuators": {"MinExtension": 0.75, "MaxExtension": 1.5, "MotorMass": 0.5,
+               "ShaftMass": 0.9, "ForceLimit": 800, "MotorCOGD": 0.2, "ShaftCOGD": 0.2},
+           "Drawing": {"TopRadius": 1, "BottomRadius": 1, "ShaftRadius": 0.1, "MotorRadius": 0.2},
+           "Settings": {"MaxAngleDev": 55, "GenerateActuators": 0, "IgnoreRestHeight": 1,
+               "UseSpin": 0, "AssignMasses": 1, "InferActuatorCOG": 1},
+           "Params": {"RestHeight": 1.2, "Spin": 30}
+        }
+        with open('sp_test_data_inverted.json', 'w') as outfile:
+            json.dump(basic_sp, outfile)
+        try:
+            sp = loadSP('sp_test_data_inverted.json', '', altRot=-1)
+        finally:
+            os.remove('sp_test_data_inverted.json')
+
+        self.assertIsNotNone(sp)
+        self.assertEqual(sp._bottom_joints_local.shape, (3, 6))
 
 
 if __name__ == '__main__':

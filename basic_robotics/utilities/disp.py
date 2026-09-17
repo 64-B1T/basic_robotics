@@ -74,7 +74,7 @@ def dispa(matrix, title = "MATRIX", nd = 3, pdims = True, h="", new = True):
         str1 = (t_tl + "════════════" + " " + title + " BEGIN " + "════════════" + "╗\n")
         strm = ""
         for mat in matrix:
-            if not isinstance(mat, list) and not isinstance(mat, tuple) and hasattr(matrix, 'TM'):
+            if not isinstance(mat, list) and not isinstance(mat, tuple) and hasattr(mat, 'TM'):
                 strm += (str(mat) + "\n")
             else:
                 if pdims:

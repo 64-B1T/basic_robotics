@@ -110,7 +110,7 @@ class OPCUA_Client(Comms):
         """  
         if type == "OPCEndpoint":
             return self.addEndpoint(name, *args, **kwargs)
-        super().newComPort(name, *args, **kwargs)
+        super().newComPort(name, type, *args, **kwargs)
 
     def addEndpoint(self, reference_name : str, opc_path):
         """
@@ -134,6 +134,7 @@ class OPCUA_Client(Comms):
         if name == "OPC":
             self.client_handle.connect()
             self.open = True
+            return True
         else:
             return super().openCom(name)
 
@@ -149,6 +150,7 @@ class OPCUA_Client(Comms):
         if name == "OPC":
             self.client_handle.disconnect()
             self.open = False
+            return True
         else:
             return super().closeCom(name)
 

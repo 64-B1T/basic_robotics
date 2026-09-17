@@ -122,18 +122,6 @@ class Arm(Robot):
         """        
         self.screw_list = screw_list
         self.original_screw_list_body = np.copy(screw_list)
-        if self._joint_homes_global is not None:
-            for i in range((self.num_dof)):
-                base_to_link = fsr.globalToLocal(self._base_pos_global, self._joint_homes_global[i])
-                new_global = fsr.localToGlobal(base_pos_global, base_to_link)
-                self._joint_homes_global[i] = new_global
-        else:
-            self._joint_homes_global = [tm()]
-            for i in range(joint_poses_home.shape[1]):
-                self._joint_homes_global.append(
-                        tm(list(fsr.transformByVector(
-                            base_pos_global, joint_poses_home[0:3, i])) + [0, 0, 0]))
-            self._joint_homes_global = self._joint_homes_global[1:]
         self.original_joint_poses_home = joint_poses_home
         self.joint_poses_home = np.zeros((3, self.num_dof))
         if joint_poses_home.size > 1:
@@ -146,7 +134,20 @@ class Arm(Robot):
             if joint_poses_home.size <= 1:
                 _, _, joint_pose_temp, _ = fsr.twistToScrew(self.screw_list[:, i])
                 #Convert TwistToScrew
-                self.joint_poses_home[0:3, i] = joint_pose_temp # For plotting purposes
+                self.joint_poses_home[0:3, i] = joint_pose_temp.flatten() # For plotting purposes
+        # self.joint_poses_home is now fully populated in global coordinates
+        # (either transformed directly above, or derived from the screw
+        # list), so _joint_homes_global can safely be built/rebuilt from it
+        # regardless of whether joint_poses_home itself was a placeholder.
+        if self._joint_homes_global is not None:
+            for i in range((self.num_dof)):
+                base_to_link = fsr.globalToLocal(self._base_pos_global, self._joint_homes_global[i])
+                new_global = fsr.localToGlobal(base_pos_global, base_to_link)
+                self._joint_homes_global[i] = new_global
+        else:
+            self._joint_homes_global = [
+                    tm(list(self.joint_poses_home[0:3, i]) + [0, 0, 0])
+                    for i in range(self.num_dof)]
         self._end_effector_home_local = end_effector_home
         self._end_effector_home = base_pos_global @ end_effector_home
         self._helper_determine_eef_to_last_joint()

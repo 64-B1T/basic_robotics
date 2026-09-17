@@ -131,9 +131,9 @@ def drawArm(arm, ax : Axes3D, jheight : float = .1, jdia : float = .3,
     for i in range(startind, len(poses[startind:])):
         if poses[i] == None:
             continue
-        p[0, i] = (poses[i].TAA[0])
-        p[1, i] = (poses[i].TAA[1])
-        p[2, i] = (poses[i].TAA[2])
+        p[0, i] = (poses[i][0])
+        p[1, i] = (poses[i][1])
+        p[2, i] = (poses[i][2])
     ax.scatter3D(p[0,:], p[1,:], p[2,:])
     ax.plot3D(p[0,:], p[1,:], p[2,:])
     Dims = np.copy(arm._link_dimensions).T

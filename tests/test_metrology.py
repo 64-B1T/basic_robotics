@@ -215,6 +215,76 @@ class test_metrology(unittest.TestCase):
         # against each other.
         self.assertFalse(obs1.eq(obs2))
 
+    def test_metrology_Observed_AvgWDist_and_CalcAvgCoalated(self):
+        cam1 = make_camera(tm([-2, 0, 0, 0, 0, 0]), id=1)
+        cam2 = make_camera(tm([2, 0, 0, 0, 0, 0]), id=2)
+        point = tm([0, 0, 5, 0, 0, 0])
+
+        img1, Q1, _ = cam1.getPhoto(point)
+        img2, Q2, _ = cam2.getPhoto(point)
+        obs1 = Observed(img1, Q1, cam1, tol=0.01)
+        obs2 = Observed(img2, Q2, cam2, tol=0.01)
+        obs1.eq(obs2)
+        obs1.sync(obs2)
+
+        davg, ts = obs1.AvgWDist(np.array([5.0, 5.0]))
+        self.assertIsInstance(davg, float)
+        self.assertIsInstance(ts, tm)
+
+        coalated = obs1.CalcAvgCoalated()
+        self.assertIsInstance(coalated, tm)
+        np.testing.assert_allclose(
+                coalated.gTAA().flatten()[0:3], point.gTAA().flatten()[0:3], atol=0.5)
+
+    def test_metrology_Scene_drops_points_seen_by_only_one_camera(self):
+        # With only one camera in the scene, every observation is
+        # necessarily inView == 1 (never gets matched/synced against
+        # anything) and so must be discarded as untriangulable.
+        scene = Scene()
+        scene.addCam(make_camera(tm([-2, 0, 0, 0, 0, 0]), id=1))
+        scene.newSceneObj(tm([0, 0, 5, 0, 0, 0]), tol=0.5, name='target')
+
+        result = scene.GetObjPositionsFromPoints()
+
+        self.assertEqual(result, [])
+
+    # -- SceneObj.testAll / getPos --
+
+    def test_metrology_SceneObj_testAll_picks_best_match(self):
+        points = [tm([0, 0, 0, 0, 0, 0]), tm([2, 0, 0, 0, 0, 0])]
+        obj = SceneObj(points, tol=0.1, name='pair')
+
+        # Candidate lead poses: the true match (index 1) and a decoy.
+        candidates = [tm([50, 50, 50, 0, 0, 0]), tm([0, 0, 0, 0, 0, 0])]
+        best_score = obj.testAll([0, 0, 0], candidates)
+
+        self.assertEqual(obj.min, 1)
+        self.assertAlmostEqual(best_score, 0.0, places=3)
+
+    def test_metrology_SceneObj_getPos(self):
+        class FakeObserved:
+            def __init__(self, cPos):
+                self.cPos = cPos
+
+        scene = Scene()
+        duplicate = FakeObserved(tm([0, 0, 0, 0, 0, 0]))
+        # The same object appears twice (index 0 and 1) to exercise the
+        # obs == obs2 self-skip, plus two more closely-spaced points so
+        # getPos()'s pairwise-distance matching still finds self.sz (2)
+        # distinct candidates and runs its orientation search.
+        scene.observed = [
+            duplicate,
+            duplicate,
+            FakeObserved(tm([0.001, 0, 0, 0, 0, 0])),
+            FakeObserved(tm([0.002, 0, 0, 0, 0, 0])),
+        ]
+
+        obj = SceneObj([tm([0, 0, 0, 0, 0, 0]), tm([1, 0, 0, 0, 0, 0])], tol=0.5, name='pair')
+        result = obj.getPos(scene)
+
+        self.assertIsInstance(result, tm)
+        self.assertIs(obj.cPos, result)
+
 
 if __name__ == '__main__':
     unittest.main()

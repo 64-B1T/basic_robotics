@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import patch
 import numpy as np
 from basic_robotics.interfaces.comms_core import Comms
+from basic_robotics.interfaces.udp_bridge import UDPObject
 
 class test_interfaces_communications(unittest.TestCase):
 
@@ -184,9 +186,41 @@ class test_interfaces_communications(unittest.TestCase):
         self.assertTrue(self.com.setDataSource('test_A', dataSource))
         self.assertTrue(self.com.setForwardData('test_B', 'test_C'))
         self.com.setDataSink('test_D', didGetData)
-        
+
 
         self.com.spin(1)
+
+    def test_interfaces_udp_getData_timeout_returns_none(self):
+        obj = UDPObject('timeout_test', ip='127.0.0.1', rx_port=9500, tx_port=9501, timeout=0.05)
+        obj.openCom()
+        try:
+            # Nothing was ever sent to this port, so recvfrom() times out.
+            result = obj.getData()
+            self.assertIsNone(result)
+            self.assertIsNone(obj.last_rx_success)
+        finally:
+            obj.closeCom()
+
+    def test_interfaces_communications_spin_negative_loops_forever(self):
+        # spin(spin_iterations < 0) is an intentional infinite loop (meant
+        # to be run for the lifetime of a comms process) - break out of it
+        # deterministically by having the mocked spin body raise after one
+        # iteration, just to prove the `while True` branch is entered.
+        class _StopSpin(Exception):
+            pass
+
+        with patch.object(Comms, '_single_spin', side_effect=_StopSpin) as mocked:
+            with self.assertRaises(_StopSpin):
+                self.com.spin(-1)
+            self.assertEqual(mocked.call_count, 1)
+
+    def test_interfaces_udp_openCom_twice_returns_false(self):
+        obj = UDPObject('double_open_test', ip='127.0.0.1', rx_port=9502, tx_port=9503)
+        try:
+            self.assertTrue(obj.openCom())
+            self.assertFalse(obj.openCom())
+        finally:
+            obj.closeCom()
 
         
 

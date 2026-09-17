@@ -1,6 +1,10 @@
 import os
 import unittest
+from unittest.mock import MagicMock
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import numpy as np
 import trimesh
 
@@ -49,6 +53,37 @@ def make_test_arm():
     eef_info.geo_type = 'box'
     eef_info.box_size = [W, W, W]
     vis_props.append(eef_info)
+    arm.setVisColProperties(vis_props=vis_props)
+    return arm
+
+
+def make_mixed_geo_test_arm():
+    """Same base arm as make_test_arm(), but with a mix of box/cyl/spr/mesh
+    vis_info entries (plus one None entry) to exercise every branch of
+    ColliderArm.populateSerialArm()."""
+    arm = make_test_arm()
+    vis_props = [
+        None,  # skipped entirely - no geo_type to key off of
+        vis_info(),
+        vis_info(),
+        vis_info(),
+        vis_info(),
+        vis_info(),
+        vis_info(),
+    ]
+    vis_props[1].geo_type = 'cyl'
+    vis_props[1].radius = 0.1
+    vis_props[1].length = 0.5
+    vis_props[2].geo_type = 'spr'
+    vis_props[2].radius = 0.1
+    vis_props[3].geo_type = 'mesh'
+    vis_props[3].origin = tm()
+    vis_props[3].file_name = MESH_FILE
+    vis_props[4].geo_type = 'box'
+    vis_props[4].box_size = [0.1, 0.1, 0.1]
+    vis_props[5].geo_type = None  # also skipped - no usable geometry
+    vis_props[6].geo_type = 'box'
+    vis_props[6].box_size = [0.1, 0.1, 0.1]
     arm.setVisColProperties(vis_props=vis_props)
     return arm
 
@@ -246,6 +281,75 @@ class test_collisions(unittest.TestCase):
         # shared joint - that must not count as a reportable collision.
         result = collider.checkInternalCollisions()
         self.assertIsInstance(result, bool)
+
+    def test_collisions_ColliderArm_checkInternalCollisions_no_collision(self):
+        arm = make_test_arm()
+        collider = ColliderArm(arm, name='test_arm')
+        collider.manager = MagicMock()
+        collider.manager.in_collision_internal.return_value = (False, set())
+        self.assertFalse(collider.checkInternalCollisions())
+
+    def test_collisions_ColliderArm_checkInternalCollisions_ignore_connected_links_false(self):
+        arm = make_test_arm()
+        collider = ColliderArm(arm, name='test_arm')
+        collider.ignore_connected_links = False
+        collider.manager = MagicMock()
+        collider.manager.in_collision_internal.return_value = (True, {('link0', 'link1')})
+        self.assertTrue(collider.checkInternalCollisions())
+
+    def test_collisions_ColliderArm_checkInternalCollisions_ignores_previous_link(self):
+        arm = make_test_arm()
+        collider = ColliderArm(arm, name='test_arm')
+        collider.manager = MagicMock()
+        # link1 colliding with its own *preceding* neighbor link0.
+        collider.manager.in_collision_internal.return_value = (True, {('link1', 'link0')})
+        self.assertFalse(collider.checkInternalCollisions())
+
+    def test_collisions_ColliderArm_checkInternalCollisions_ignores_end_effector(self):
+        arm = make_test_arm()
+        collider = ColliderArm(arm, name='test_arm')
+        collider.ignore_ee = True
+        collider.manager = MagicMock()
+        # Non-adjacent collision, but one side is the end effector, which is
+        # excluded whenever ignore_ee is set.
+        collider.manager.in_collision_internal.return_value = (True, {('link0', 'end_effector')})
+        self.assertFalse(collider.checkInternalCollisions())
+
+    def test_collisions_ColliderArm_checkInternalCollisions_real_nonadjacent_collision(self):
+        arm = make_test_arm()
+        collider = ColliderArm(arm, name='test_arm')
+        collider.manager = MagicMock()
+        # link0 and link3 are neither the same link nor adjacent - a
+        # genuine, reportable collision.
+        collider.manager.in_collision_internal.return_value = (True, {('link0', 'link3')})
+        self.assertTrue(collider.checkInternalCollisions())
+
+    def test_collisions_ColliderArm_populateSerialArm_mixed_geometry(self):
+        arm = make_mixed_geo_test_arm()
+        collider = ColliderArm(arm, name='mixed_arm')
+        # index 0 (None) and index 5 (geo_type None) are skipped entirely;
+        # the rest (cyl, spr, mesh, box, box) get real meshes.
+        self.assertEqual(set(collider.meshes.keys()),
+                {'link1', 'link2', 'link3', 'link4', 'end_effector'})
+        self.assertNotIn('link0', collider.meshes)
+        self.assertNotIn('link5', collider.meshes)
+
+    def test_collisions_ColliderArm_update_skips_links_without_meshes(self):
+        arm = make_mixed_geo_test_arm()
+        collider = ColliderArm(arm, name='mixed_arm')
+        # link0/link5 have no mesh, so update() must skip them rather than
+        # raise a KeyError - just confirm it runs cleanly.
+        collider.update()
+
+    def test_collisions_ColliderArm_drawArmMeshes(self):
+        arm = make_test_arm()
+        collider = ColliderArm(arm, name='test_arm')
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        try:
+            collider.drawArmMeshes(ax)
+        finally:
+            plt.close(fig)
 
 
 if __name__ == '__main__':

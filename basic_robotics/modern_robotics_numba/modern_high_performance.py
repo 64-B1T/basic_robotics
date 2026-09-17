@@ -746,8 +746,7 @@ def ProjectToSO3(mat):
     R = np.dot(U, Vh)
     if np.linalg.det(R) < 0:
     # In this case the result may be far from mat.
-        ind2 = s[2, 2]
-        R[:, s[2, 2]] = -R[:, s[2, 2]]
+        R[:, 2] = -R[:, 2]
     return R
 
 
@@ -1928,9 +1927,9 @@ def ForwardDynamicsTrajectory(thetalist, dthetalist, taumat, g, Ftipmat, \
     """
     taumat = np.array(taumat).T
     Ftipmat = np.array(Ftipmat).T
-    thetamat = taumat.copy().astype(np.float)
+    thetamat = taumat.copy().astype(float)
     thetamat[:, 0] = thetalist
-    dthetamat = taumat.copy().astype(np.float)
+    dthetamat = taumat.copy().astype(float)
     dthetamat[:, 0] = dthetalist
     for i in range(np.array(taumat).shape[1] - 1):
         for j in range(intRes):
@@ -1999,7 +1998,7 @@ def QuinticTimeScaling(Tf, t):   # pragma: no cover
 
 
 @jit(nopython=True)
-def JointTrajectory(thetastart, thetaend, Tf, N, method):
+def JointTrajectory(thetastart, thetaend, Tf, N, method):   # pragma: no cover
     """Computes a straight-line trajectory in joint space.
 
     Args:
@@ -2427,7 +2426,7 @@ def SimulateControl(thetalist, dthetalist, g, Ftipmat, Mlist, Glist, \
         links = np.array(thetamat).shape[0]
         N = np.array(thetamat).shape[1]
         tm= N * dt
-        timestamp = np.linspace(0, Tf, N)
+        timestamp = np.linspace(0, tm, N)
         for i in range(links):
             col = [np.random.uniform(0, 1), np.random.uniform(0, 1),
                    np.random.uniform(0, 1)]

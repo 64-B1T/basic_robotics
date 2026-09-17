@@ -1363,7 +1363,7 @@ def loadSP(fname : str, file_directory : str = "../robot_definitions/",
             shaft_grav_center = sp_data["Actuators"]["ShaftCOGD"]
         else:
             inferred_cog = 1/4 * (actuator_min+actuator_max)/2
-            actuator_shaft_mass = inferred_cog
+            shaft_grav_center = inferred_cog
             motor_grav_center = inferred_cog
     if baseloc == None:
         baseloc = tm()

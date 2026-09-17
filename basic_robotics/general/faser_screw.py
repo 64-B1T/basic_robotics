@@ -269,7 +269,7 @@ class Screw:
                 return Screw(self.data- local_frame_other.data, self.frame_applied.copy())
         if isinstance(other_object, np.ndarray) and len(other_object) == 6:
             return Screw(self.data - other_object.reshape((6,1)), self.frame_applied.copy())
-        return self.data + other_object
+        return self.data - other_object
 
     def __rsub__(self, other_object):
         """
@@ -284,7 +284,7 @@ class Screw:
             return Screw(other_object.data - self.data, self.frame_applied.copy())
         if isinstance(other_object, np.ndarray) and len(other_object) == 6:
             return Screw(other_object.reshape((6,1)) - self.data, self.frame_applied.copy())
-        return self.data + other_object
+        return other_object - self.data
 
     def __matmul__(self, other_object):
         """
@@ -407,7 +407,7 @@ class Screw:
         """
         if isinstance(other_object, (int, float)):
             return Screw(other_object // self.data, self.frame_applied.copy())
-        return self.other_object // self.data
+        return other_object // self.data
 
     def __eq__(self, other_object):
         """

@@ -11,7 +11,7 @@ class vis_info:
         self.origin = tm()
 
         #Mesh
-        self.scale = 1,0
+        self.scale = 1.0
         self.file_name = None
 
         #Cylinder and Sphere

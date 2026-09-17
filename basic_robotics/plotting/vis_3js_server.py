@@ -49,11 +49,10 @@ def json_handler():
             else:
                 ALL_DATA[keyval] = [jdict]
         elif "Keys" in jdict:
-            if keyval in ALL_DATA:
-                for key in jdict["Keys"]:
-                    ALL_DATA[key][0] = jdict[key]
-            else:
-                for key in jdict["Keys"]:
+            for key in jdict["Keys"]:
+                if key in ALL_DATA:
+                    ALL_DATA[key][0] = jdict["Keys"][key]
+                else:
                     ALL_DATA[key] = [jdict["Keys"][key]]
         else:
             return make_response(jsonify(message = 'No Key(s) Specified'), 400)
@@ -69,7 +68,7 @@ def json_handler():
             cat_specific = ALL_DATA
 
         if "Complete" in params:
-            return make_response(jsonify(cat_specific, message='Success'), 200)
+            return make_response(jsonify(cat_specific), 200)
         elif "Latest" in params:
             latest_dict = {}
             for key in cat_specific:
@@ -83,7 +82,7 @@ def json_handler():
                 for key in keys:
                     if key in cat_specific:
                         response_dict[key] = cat_specific[key][index]
-                return make_response(jsonify(response_dict, message='Success'), 200)
+                return make_response(jsonify(response_dict), 200)
             elif "GetRange" in params and "ValueRange" in params:
                 varname = params["GetRange"]
                 valrange = [int(x) for x in params["ValueRange"].split(",")]
@@ -94,7 +93,7 @@ def json_handler():
                 for key in keys:
                     if key in cat_specific:
                         response_dict[key] = cat_specific[key]
-                return make_response(jsonify(response_dict, message='Success'), 200)
+                return make_response(jsonify(response_dict), 200)
 
     elif request.method=='PUT':
         jdict = request.json
@@ -115,10 +114,10 @@ def json_handler():
             return make_response(jsonify(message = 'Data Deleted'), 200)
         elif "DeleteKeys" in jdict:
             for kval in jdict["DeleteKeys"]:
-                del ALL_DATA[jdict["DeleteKey"][kval]]
+                del ALL_DATA[kval]
                 return make_response(jsonify(message = 'Data Deleted'), 200)
         elif "DeleteCategory" in jdict:
-            for trykey in ALL_DATA:
+            for trykey in list(ALL_DATA):
                 if "Category" in ALL_DATA[trykey][0]:
                     if ALL_DATA[trykey][0]["Category"] == jdict["DeleteCategory"]:
                         del ALL_DATA[trykey]
@@ -131,7 +130,7 @@ def json_handler():
 @app.route("/", methods=['GET'])
 def index():
     """Return the index page."""
-    if exists(package_directory + '\\templates\\frame.html'):
+    if exists(os.path.join(package_directory, 'templates', 'frame.html')):
         return render_template('frame.html', title='VisualizerIndex')
     else:
         return make_response(jsonify(message = 'File Not Found'), 404)
@@ -142,8 +141,8 @@ def get_internal_file(file_path):
     if file_path is None or file_path == '':
         return render_template('frame.html', title='Visualizer')
     else:
-        if exists(package_directory + '\\' + file_path):
-            response = send_file(package_directory + '\\' + file_path)
+        if exists(os.path.join(package_directory, file_path)):
+            response = send_file(os.path.join(package_directory, file_path))
             #response = make_response(jsonify(message = data), 200)
             extension = file_path.split('.')
             if extension[1] in contenttypes:
@@ -161,6 +160,9 @@ def get_external_file(file_path):
     if file_path is None or file_path == '':
         return render_template('frame.html', title='Visualizer')
     else:
+        # The <path:...> converter strips the leading slash, so restore it
+        # to get a real absolute path as documented.
+        file_path = '/' + file_path
         if exists(file_path):
             response = send_file(file_path)
             #response = make_response(jsonify(message = data), 200)
@@ -176,14 +178,15 @@ def get_external_file(file_path):
 
 def PruneExpired():
     """Prune expired data."""
-    for key in ALL_DATA:
+    for key in list(ALL_DATA):
         if len(ALL_DATA[key]) == 0:
             continue
         if "TimeToLive" in ALL_DATA[key][0] and "UnixTime" in ALL_DATA[key][0]:
+            keepstart = 0
             for i in range(len(ALL_DATA[key])):
                 if ALL_DATA[key][i]["UnixTime"] + ALL_DATA[key][i]["TimeToLive"] < time.time():
                     keepstart = i+1
-            if keepstart > len(ALL_DATA[key]):
+            if keepstart >= len(ALL_DATA[key]):
                 del ALL_DATA[key]
             else:
                 ALL_DATA[key] = ALL_DATA[key][keepstart:]

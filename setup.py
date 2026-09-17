@@ -40,5 +40,10 @@ setup(name='basic_robotics',
               'sphinx>=9.1.0',
               'sphinx-rtd-theme>=3.1.0',
           ],
+          'test': [
+              'coverage>=7.16.1',
+              'flask>=3.1.3',
+              'flask-cors>=6.0.5',
+          ],
       },
       zip_safe=False)
