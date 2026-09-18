@@ -25,8 +25,16 @@ Installation
 
    pip install basic_robotics
 
-See the project `README <https://github.com/64-B1T/basic_robotics>`_ for
-usage examples covering transforms, serial arms, and Stewart platforms.
+See the :doc:`readme` for a full tour of each component library, and
+:doc:`examples` for runnable scripts covering transforms, serial arms,
+Stewart platforms, path planning, and more.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   readme
+   examples
 
 API Reference
 -------------

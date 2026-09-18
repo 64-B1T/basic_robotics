@@ -3,9 +3,18 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.abspath('..'))
+
+# The project README lives at the repo root (so it renders on GitHub/PyPI);
+# copy it into the source tree on every build so it can be included as a docs
+# page alongside the handwritten .rst content.
+shutil.copyfile(
+    os.path.join(os.path.dirname(__file__), '..', 'README.md'),
+    os.path.join(os.path.dirname(__file__), 'readme.md'),
+)
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -25,7 +34,13 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
+    'myst_parser',
 ]
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 # Google-style (Args:/Returns:) docstrings throughout the codebase are parsed
 # by napoleon; NumPy-style sections are left off since the project doesn't use them.

@@ -77,6 +77,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+# Copied from the repo-root README.md at build time (see docs/conf.py)
+docs/readme.md
 
 # PyBuilder
 target/
