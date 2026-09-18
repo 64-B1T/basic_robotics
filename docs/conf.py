@@ -23,8 +23,8 @@ project = 'basic_robotics'
 copyright = '2026, William Chapin'
 author = 'William Chapin'
 
-version = '1.0.2'
-release = '1.0.2'
+version = '1.1.0'
+release = '1.1.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
