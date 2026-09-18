@@ -77,16 +77,44 @@ def ignore_close_points(seen_points, empty_results, test_point, minimum_dist):
             break
     return continuance, empty_results
 
+def fibonacci_sphere(num_points):
+    """
+    Generate approximately evenly-distributed points on a unit sphere using
+    the Fibonacci lattice method.
+
+    Unlike a latitude/longitude grid (e.g. fsr.unitSphere), which oversamples
+    near the poles, this spreads points with roughly equal surface area per
+    point. For the same point budget this gives more uniform orientation
+    coverage, so fewer samples (and fewer downstream IK solves) are needed
+    to estimate manipulability to a comparable quality.
+
+    Args:
+        num_points: number of points to generate.
+    Returns:
+        np.ndarray[float]: (num_points, 3) array of points on the unit sphere.
+    """
+    indices = np.arange(num_points, dtype=float) + 0.5
+    golden_angle = np.pi * (3.0 - np.sqrt(5.0))
+
+    phi = np.arccos(1 - 2 * indices / num_points)
+    theta = golden_angle * indices
+
+    x = np.sin(phi) * np.cos(theta)
+    y = np.sin(phi) * np.sin(theta)
+    z = np.cos(phi)
+    return np.column_stack((x, y, z))
+
+
 def gen_manip_sphere(manip_resolution):
     """
     Craft a manipulability sphere for use in testing manipulability resolution
     Args:
-        manip_resolution: approximate number of points in sphere
+        manip_resolution: number of points in sphere
     Returns:
         sphere: points in sphere
         true_rez: the true number of points in the sphere
     """
-    sphr = fsr.unitSphere(manip_resolution)
+    sphr = fibonacci_sphere(manip_resolution)
     sphere = np.vstack([sphr, [0, 0, 0]]) * np.pi
     true_rez = len(sphere)
     return sphere, true_rez
@@ -470,6 +498,32 @@ def process_empty(p):
         [p, 0, [], [], []]
     """
     return [p, 0, [], [], []]
+
+
+def _point_in_set(point, candidate_points):
+    """
+    Whether `point` (a length-3 point) is exactly one of the rows of
+    `candidate_points` (an nx3 array).
+
+    This is not the same thing as numpy's `point in candidate_points`: for a
+    1D array checked against a 2D array, Python's `in` falls back to
+    `(candidate_points == point).any()` over the *flattened, broadcast*
+    comparison, which is true as soon as any individual coordinate of
+    `point` matches any individual coordinate anywhere in `candidate_points`
+    - not that `point` appears as one of its rows. On real point clouds with
+    overlapping coordinate ranges that is very often true, so `x in array`
+    silently accepts points that were never actually in the set.
+
+    Args:
+        point: length-3 point to test.
+        candidate_points: nx3 array of points (e.g. the surviving output of
+            inside_alpha_shape); may be empty.
+    Returns:
+        bool: whether `point` exactly matches one row of `candidate_points`.
+    """
+    if candidate_points is None or len(candidate_points) == 0:
+        return False
+    return bool(np.any(np.all(np.asarray(candidate_points) == point, axis=1)))
 
 
 def get_collision_data(collision_manager):
@@ -1149,7 +1203,8 @@ class WorkspaceAnalyzer:
                                     shell_range=4, # Distance from origin in meters to extend shell
                                     num_shells=30, # Number of shells to interpolate in shell range
                                     points_per_shell=1000, # Approximate number of points per shell
-                                    collision_detect=False): # Utilize collision detection
+                                    collision_detect=False, # Utilize collision detection
+                                    bound_shape=None): # Optional prior total-workspace envelope
         """
         Analyze the extent of a work_space that can be reached in a full gamut of 6DOF orientations
         Idealized Proceedure:
@@ -1176,27 +1231,38 @@ class WorkspaceAnalyzer:
             num_shells: number of shells
             points_per_shell: number of points in a shell
             collision_detect: [Optional Bool] detect collisions (Default False)
+            bound_shape: [Optional AlphaShape] a previously computed total-workspace envelope
+                (e.g. from analyze_total_workspace_functional or
+                analyze_total_workspace_exhaustive_point_cloud). Shell points falling outside
+                it are known to be unreachable and are skipped without running the expensive
+                per-point Jacobian optimization/IK - this is the "1A" augmentation described
+                above, which the original implementation of this method never carried out.
         Returns:
             transformation list of successful 6DOF poses.
         """
         shell_radii = np.linspace(0, shell_range, num_shells)
-        shells = ([[[y * rad for y in x]
-                    for x in fsr.unitSphere(points_per_shell)]
-                   for rad in shell_radii])
+        sphere_directions = fibonacci_sphere(points_per_shell)
+        shells = [rad * sphere_directions for rad in shell_radii]
+
         results = []
         i = 0
+        total_points = num_shells * points_per_shell
         collision_manager = None
         if collision_detect:
             collision_manager = setup_collision_manager(self.bot)
         for shell in shells:
+            in_bounds = None
+            if bound_shape is not None:
+                in_bounds = inside_alpha_shape(bound_shape, shell)
             for point in shell:
-                progressBar(i, (num_shells + 2) * points_per_shell,
-                            prefix='Analyzing Reachability')
+                progressBar(i, total_points - 1, prefix='Analyzing Reachability')
                 i += 1
+                if bound_shape is not None and not _point_in_set(point, in_bounds):
+                    results.append(process_empty(point))
+                    continue
                 results.append(process_point(point, None, None, self.bot,
                         True, collision_detect, collision_manager))
         return results
-        #find a way to manipulate here for optimal reachability
 
     def analyze_manipulability_on_object_surface(self,
                                                  object_file_name,
@@ -1278,7 +1344,7 @@ class WorkspaceAnalyzer:
             p = points[i, :]
             #Ignore points we've already filtered out
             if bound_shape is not None:
-                if p not in filtered_points:
+                if not _point_in_set(p, filtered_points):
                     empty_results.append(process_empty(p))
                     continue
             #Ignore points which are too far away

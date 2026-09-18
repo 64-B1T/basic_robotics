@@ -333,9 +333,9 @@ def drawAssembler(spl, ax : Axes3D, col : str = 'green', forces : bool = True): 
         forces (bool, optional): whether to indicate leg forces. Defaults to True.
     """    
     for i in range(spl.numsp):
-        DrawSP(spl.splist[i], ax , col, forces)
+        drawSP(spl.splist[i], ax , col, forces)
         if i + 1 < spl.numsp:
-            DrawInterPlate(spl.splist[i], spl.splist[i+1], ax, col)
+            drawInterPlate(spl.splist[i], spl.splist[i+1], ax, col)
 
 def drawCamera(cam, size : float, ax : Axes3D):  # pragma: no cover
     """
@@ -633,211 +633,81 @@ def drawTube(T : tm, height : float, r : float, ax : Axes3D, c : str = 'blue', r
     ax.plot3D(tres[0,:], tres[1,:], tres[2,:], c)
     ax.plot3D(tres2[0,:], tres2[1,:], tres2[2,:], c)
 
-def DrawManipulability(jacobian_matrix : 'np.ndarray[float]', 
-    transform : tm, len_factor : float, ax : Axes3D) -> None:   # pragma: no cover
-    """
-    Draw Manipulability Ellipsoid based on a Jacobian Matrix.
+# DEPRECATED FUNCTION HANDLES
+# PascalCase aliases kept for backwards compatibility; use the camelCase
+# functions above instead. All internal callers in this package use the
+# camelCase names directly.
+import traceback
 
-    Args:
-        jacobian_matrix (np.ndarray[float]): jacobian matrix
-        transform (tm): position to draw ellipsoid at
-        len_factor (float): scaling
-        ax (Axes3D): axes object to draw on
-    """
-    drawManipulability(jacobian_matrix, transform, len_factor, ax)  
+def _deprecated(old_func, new_func, *args, **kwargs):
+    print(old_func.__name__ + ' is deprecated, use ' + new_func.__name__ + ' instead')
+    traceback.print_stack(limit=2)
+    return new_func(*args, **kwargs)
+
+def DrawManipulability(jacobian_matrix : 'np.ndarray[float]',
+        transform : tm, len_factor : float, ax : Axes3D) -> None:  # pragma: no cover
+    """Deprecated alias for drawManipulability()."""
+    return _deprecated(DrawManipulability, drawManipulability, jacobian_matrix, transform, len_factor, ax)
 
 def DrawSTL(transform : tm, file_name : str, ax : Axes3D, scale : float = 1.0):  # pragma: no cover
-    """
-    Draw an STL file at a set scale.
-
-    Args:
-        transform (tm): transform to draw at
-        file_name (str): filename of the stl
-        ax (Axes3D): Axis to draw on
-        scale (float, optional): scaling factor to apply. Defaults to 1.0.
-    """
-    return drawSTL(transform, file_name, ax, scale)
+    """Deprecated alias for drawSTL()."""
+    return _deprecated(DrawSTL, drawSTL, transform, file_name, ax, scale)
 
 def DrawArm(arm, ax : Axes3D, jheight : float = .1, jdia : float = .3, axes_lens : float = 1.0, c : str = 'grey', forces : 'np.ndarray[float]' = np.zeros((1))):  # pragma: no cover
-    """
-    Draw A Serial Arm.
-
-    Args:
-        arm (Arm): Serial Arm To Draw
-        ax (Axes3D):  Axes object to plot to.
-        jrad (float, optional): joint circle height. Defaults to .1.
-        jdia (float, optional): joint circle diameter. Defaults to .3.
-        axes_lens (float, optional): joint axis marker lengths. Defaults to 1.0.
-        c (str, optional): _description_. Defaults to 'grey'.
-        forces (np.ndarray[float], optional): arm joint torques. Defaults to np.zeros((1)).
-    """  
-    drawArm(arm, ax, jheight, jdia, axes_lens, c, forces)
+    """Deprecated alias for drawArm()."""
+    return _deprecated(DrawArm, drawArm, arm, ax, jheight, jdia, axes_lens, c, forces)
 
 def DrawLine(tf1 : tm, tf2 : tm, ax : Axes3D, col : str = 'blue'):  # pragma: no cover
-    """
-    Draw a line Between Two Points.
-
-    Args:
-        tf1 (tm): Point 1
-        tf2 (tm): Point 2
-        ax (Axes3D):  Axes object to plot to.
-        col (str, optional): color. Defaults to 'blue'.
-    """
+    """Deprecated alias for drawLine()."""
+    return _deprecated(DrawLine, drawLine, tf1, tf2, ax, col)
 
 def DrawSP(sp, ax : Axes3D, col : str = 'green', forces : bool = True):  # pragma: no cover
-    """
-    Draw A Stewart Platform.
-
-    Args:
-        sp (SP): SP model to draw.
-        ax (Axes3D):  Axes object to plot to.
-        col (str, optional): color. Defaults to 'green'.
-        forces (bool, optional): whether or not to indicate leg forces. Defaults to True.
-    """
-    drawSP(sp, ax, col, forces)
+    """Deprecated alias for drawSP()."""
+    return _deprecated(DrawSP, drawSP, sp, ax, col, forces)
 
 def DrawInterPlate(sp1, sp2, ax : Axes3D, col : str = 'green'):  # pragma: no cover
-    """
-    Draw interplate medium between two stacked stewart platforms.
-
-    Congratulations! You found an Easter Egg. ASSEMBLERS aren't included in Basic-Robotics yet. 
-
-    Args:
-        sp1 (SP): SP 1
-        sp2 (SP): SP 2
-        ax (Axes3D):  Axes object to plot to.
-        col (str, optional): color. Defaults to 'green'.
-    """
-    drawInterPlate(sp1, sp2, ax, col)
+    """Deprecated alias for drawInterPlate()."""
+    return _deprecated(DrawInterPlate, drawInterPlate, sp1, sp2, ax, col)
 
 def DrawAssembler(spl, ax : Axes3D, col : str = 'green', forces : bool = True):  # pragma: no cover
-    """
-    Draw an Assembler.
-
-    Congratulations! You found an Easter Egg. ASSEMBLERS aren't included in Basic-Robotics yet. 
-
-    Args:
-        spl (List[SP]): List of SP objects
-        ax (Axes3D):  Axes object to plot to.
-        col (str, optional): color . Defaults to 'green'.
-        forces (bool, optional): whether to indicate leg forces. Defaults to True.
-    """ 
-    drawAssembler(spl, ax, col, forces)
+    """Deprecated alias for drawAssembler()."""
+    return _deprecated(DrawAssembler, drawAssembler, spl, ax, col, forces)
 
 def DrawCamera(cam, size : float, ax : Axes3D):  # pragma: no cover
-    """
-    Draw a Camera.
-
-    Args:
-        cam (Camera): virtual camera
-        size (float): camera screen size
-        ax (Axes3D):  Axes object to plot to.
-    """
-    drawCamera(cam, size, ax)
+    """Deprecated alias for drawCamera()."""
+    return _deprecated(DrawCamera, drawCamera, cam, size, ax)
 
 def DrawAxes(zed : tm, lv : float, ax : Axes3D, makelegend : str = None, zdir : tm = None):  # pragma: no cover
-    """
-    Draw a set of Axes in a frame.
+    """Deprecated alias for drawAxes()."""
+    return _deprecated(DrawAxes, drawAxes, zed, lv, ax, makelegend, zdir)
 
-    Red indicates X
-    Blue indicates Y
-    Green indicates Z
-
-    Args:
-        zed (tm): transform to draw
-        lv (float): axes length scalar
-        ax (Axes3D):  Axes object to plot to.
-        makelegend (str, optional): text to display
-        zdir (tm, optional): offset from zdir to draw text
-    """
-    drawAxes(zed, lv, ax, makelegend, zdir)
-
-def DrawTrussElement(transform : tm, truss_length : float, truss_radius : float, ax : Axes3D, c : str ='blue', 
+def DrawTrussElement(transform : tm, truss_length : float, truss_radius : float, ax : Axes3D, c : str ='blue',
         c2 : str = 'blue', hf : bool = False, delt : float = .5, RB : float = .1):  # pragma: no cover
-    """
-    Draw a Three Segment Truss.
+    """Deprecated alias for drawTrussElement()."""
+    return _deprecated(DrawTrussElement, drawTrussElement,
+            transform, truss_length, truss_radius, ax, c, c2, hf, delt, RB)
 
-    Args:
-        transform (tm): Truss Center and Orientation transform
-        truss_length (float): Length of Truss
-        truss_radius (float): Truss Radius
-        ax (Axes3D):  Axes object to plot to.
-        c (str, optional): Truss Tower Color. Defaults to 'blue'.
-        c2 (str, optional): Truss Crosses Color. Defaults to 'blue'.
-        hf (bool, optional): Draw truss crosses. Defaults to False.
-        delt (float, optional): Distance for truss crossees. Defaults to .5.
-        RB (float, optional): Truss Crosses Radius. Defaults to .1.
-    """
-    drawTrussElement(transform, truss_length, truss_radius, ax, c, c2, hf, delt, RB)
-
-def DrawRectangle(transform : tm, 
+def DrawRectangle(transform : tm,
         dims : '[float]', ax : Axes3D, c : str = 'grey', a : float = 0.1):  # pragma: no cover
-    """
-    Draw a Rectanglular Prism.
-
-    Args:
-        transform (tm): prism origin.
-        dims (List[float]): rectangle dimensions
-        ax (Axes3D):  Axes object to plot to.
-        c (str, optional): color. Defaults to 'grey'.
-        a (float, optional): transparency. Defaults to 0.1.
-    """
-    drawRectangle(transform, dims, ax, c, a)
+    """Deprecated alias for drawRectangle()."""
+    return _deprecated(DrawRectangle, drawRectangle, transform, dims, ax, c, a)
 
 def DrawRRT(listPoints, ax : Axes3D):  # pragma: no cover
-    """
-    Draw A RRT.
-
-    Args:
-        listPoints (RRT Nodes List): RRT Nodes List
-        ax (Axes3D):  Axes object to plot to.
-    """    
-    drawRRT(listPoints, ax)
+    """Deprecated alias for drawRRT()."""
+    return _deprecated(DrawRRT, drawRRT, listPoints, ax)
 
 def DrawRRTPath(listPoints, ax : Axes3D, col : str = 'red'):  # pragma: no cover
-    """
-    Draw a RRT path do destination.
-
-    Args:
-        listPoints (List of RRT Nodes): List of RRT Nodes
-        ax (Axes3D):  Axes object to plot to.
-        col (str, optional): color. Defaults to 'red'.
-    """    
-    drawRRTPath(listPoints, ax, col)
+    """Deprecated alias for drawRRTPath()."""
+    return _deprecated(DrawRRTPath, drawRRTPath, listPoints, ax, col)
 
 def DrawObstructions(listObs, ax : Axes3D, col : str = 'red', a : float = .1):  # pragma: no cover
-    """
-    Draw RRT Obstructions.
-
-    Args:
-        listObs (List[Obstructions]): List of RRT Obstructions
-        ax (Axes3D):  Axes object to plot to.
-        col (str, optional): color. Defaults to 'red'.
-        a (float, optional): transparency. Defaults to .1.
-    """    
-    drawObstructions(listObs, ax, col, a)
+    """Deprecated alias for drawObstructions()."""
+    return _deprecated(DrawObstructions, drawObstructions, listObs, ax, col, a)
 
 def DrawWrench(wrench, weight : float, ax : Axes3D):  # pragma: no cover
-    """
-    Draw a Wrench.
-
-    Args:
-        wrench (Wrench): wrench to draw
-        weight (float): length of wrench vector arrow
-        ax (Axes3D):  Axes object to plot to.
-    """
-    drawWrench(wrench, weight, ax)
+    """Deprecated alias for drawWrench()."""
+    return _deprecated(DrawWrench, drawWrench, wrench, weight, ax)
 
 def DrawTube(T : tm, height : float, r : float, ax : Axes3D, c : str = 'blue', res : int = 12):  # pragma: no cover
-    """
-    Draw a Tube.
-
-    Args:
-        T (tm): Transform of the Tube
-        height (float): Height of the tube
-        r (float): Radius of the Tube
-        ax (Axes3D):  Axes object to plot to.
-        c (str, optional): color. Defaults to 'blue'.
-        res (int, optional): resolution of the tube. Defaults to 12.
-    """
-    drawTube(T, height, r, ax, c, res)
+    """Deprecated alias for drawTube()."""
+    return _deprecated(DrawTube, drawTube, T, height, r, ax, c, res)

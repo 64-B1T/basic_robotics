@@ -10,7 +10,9 @@ from basic_robotics.workspace.alpha_shape import AlphaShape
 from basic_robotics.workspace.robot_link import RobotLink
 from basic_robotics.workspace.analyzer import (
     WorkspaceAnalyzer,
+    _point_in_set,
     calculate_manipulability_score,
+    fibonacci_sphere,
     gen_manip_sphere,
     get_collision_data,
     ignore_close_points,
@@ -101,6 +103,48 @@ class test_workspace_analyzer(unittest.TestCase):
         self.assertEqual(len(sphere), true_rez)
         # The sphere always carries an extra "no rotation" sample at the origin.
         self.assertTrue(np.any(np.all(sphere == 0, axis=1)))
+
+    def test_fibonacci_sphere_returns_unit_length_points(self):
+        points = fibonacci_sphere(200)
+        self.assertEqual(points.shape, (200, 3))
+        norms = np.linalg.norm(points, axis=1)
+        np.testing.assert_allclose(norms, 1.0, atol=1e-9)
+
+    def test_fibonacci_sphere_is_more_uniform_than_a_lat_long_grid(self):
+        # Regression/rationale check for switching away from fsr.unitSphere:
+        # a lat/long grid clusters points near the poles, so nearest-neighbor
+        # angular distances vary far more than a Fibonacci lattice's at the
+        # same point count.
+        n = 300
+
+        def nearest_neighbor_angle_spread(points):
+            dots = np.clip(points @ points.T, -1.0, 1.0)
+            np.fill_diagonal(dots, -1.0)  # exclude self-matches
+            nearest_angles = np.arccos(dots.max(axis=1))
+            return nearest_angles.std()
+
+        fib_points = fibonacci_sphere(n)
+        lat_long_points = fsr.unitSphere(n)
+
+        self.assertLess(
+                nearest_neighbor_angle_spread(fib_points),
+                nearest_neighbor_angle_spread(lat_long_points))
+
+    def test_point_in_set_requires_an_exact_row_match(self):
+        # Regression test: numpy's `point in array_2d` doesn't check row
+        # membership - it's true as soon as ANY coordinate of `point` matches
+        # ANY coordinate anywhere in the array. `_point_in_set` must not have
+        # that false-positive.
+        candidates = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        # These values are individually present in `candidates` but never
+        # together as a row - numpy's `in` would incorrectly say True.
+        tricky_non_member = np.array([1.0, 5.0, 3.0])
+        self.assertIn(tricky_non_member, candidates)  # demonstrates the numpy footgun
+        self.assertFalse(_point_in_set(tricky_non_member, candidates))
+
+        self.assertTrue(_point_in_set(np.array([4.0, 5.0, 6.0]), candidates))
+        self.assertFalse(_point_in_set(np.array([9.0, 9.0, 9.0]), candidates))
+        self.assertFalse(_point_in_set(np.array([1.0, 2.0, 3.0]), np.empty((0, 3))))
 
     def test_moller_trumbore_single_point_hit_and_miss(self):
         triangle = [np.array([0.0, 0.0, 0.0]), np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])]
@@ -266,6 +310,35 @@ class test_workspace_analyzer(unittest.TestCase):
                 shell_range=1.5, num_shells=2, points_per_shell=4)
         self.assertGreater(len(results), 4)
 
+    def test_analyze_6dof_manipulability_with_bound_shape_skips_out_of_reach_points(self):
+        # Regression test for the "1A" augmentation the method's own
+        # docstring promised but never implemented: shell points outside a
+        # known-reachable envelope should be skipped (process_empty, a
+        # 5-element placeholder) instead of run through the expensive
+        # Jacobian optimization/IK (process_point, always 4 elements here
+        # since analyze_6dof_manipulability always uses use_jacobian=True).
+        shell_range = 1.5
+        points_per_shell = 20
+        # Build a tiny reachable envelope around one real point from the
+        # outer shell, so it's guaranteed to be inside the bound while the
+        # entire (unrelated) inner shell at the origin is guaranteed outside.
+        outer_shell_point = fibonacci_sphere(points_per_shell)[0] * shell_range
+        rng = np.random.default_rng(11)
+        tiny_cloud = (rng.random((40, 3)) - 0.5) * 0.02 + outer_shell_point
+        bound_shape = AlphaShape(tiny_cloud, alpha=10.0, mode=1)
+
+        results = self.analyzer.analyze_6dof_manipulability(
+                shell_range=shell_range, num_shells=2, points_per_shell=points_per_shell,
+                bound_shape=bound_shape)
+
+        self.assertEqual(len(results), 2 * points_per_shell)
+        skipped = [r for r in results if len(r) == 5]
+        evaluated = [r for r in results if len(r) == 4]
+        self.assertGreater(len(skipped), 0)
+        self.assertGreater(len(evaluated), 0)
+        for r in skipped:
+            self.assertEqual(r[1], 0)
+
     def test_analyze_manipulability_within_volume_small(self):
         rng = np.random.default_rng(3)
         cloud = rng.random((60, 3)) * 1.0 + np.array([0.5, -0.5, 1.0])
@@ -327,6 +400,34 @@ class test_workspace_analyzer(unittest.TestCase):
         # At least one point should have been close enough to actually be
         # evaluated (as opposed to summarily discarded as out of reach).
         self.assertTrue(any(result[1] > 0 for result in results))
+
+    def test_analyze_manipulability_on_object_surface_bound_shape_filters_points(self):
+        # Regression test: this used `p not in filtered_points` to apply
+        # bound_shape, which is numpy's row-membership footgun (see
+        # test_point_in_set_requires_an_exact_row_match) - it was true for
+        # almost any point on a real point cloud, so the filter was
+        # silently a no-op and every vertex got evaluated regardless of
+        # bound_shape. With the fix, vertices outside the bound are skipped
+        # (5-element process_empty placeholders) instead.
+        from basic_robotics.collisions import createMesh
+
+        object_pose = tm([1.2, 0, 1.5, 0, 0, 0])
+        mesh = createMesh(object_pose, MESH_FILE)
+        target_vertex = mesh.vertices[0]
+
+        rng = np.random.default_rng(5)
+        tiny_cloud = (rng.random((40, 3)) - 0.5) * 0.01 + target_vertex
+        bound_shape = AlphaShape(tiny_cloud, alpha=20.0, mode=1)
+
+        results, _ = self.analyzer.analyze_manipulability_on_object_surface(
+                MESH_FILE, object_scale=1.0, object_pose=object_pose,
+                manip_resolution=9, collision_detect=False, use_jacobian=False,
+                bound_shape=bound_shape)
+
+        skipped = [r for r in results if len(r) == 5]
+        evaluated = [r for r in results if len(r) == 4]
+        self.assertGreater(len(skipped), 0)
+        self.assertGreater(len(evaluated), 0)
 
     def test_analyze_joint_related_to_end_effector_vals(self):
         # Regression test: current Robot/Arm expose `velocityAtEndEffector`,

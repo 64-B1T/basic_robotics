@@ -14,8 +14,7 @@ import scipy.linalg as ling
 
 from .robot_model import Robot
 from ..general import fmr, fsr, tm, Wrench, Twist
-from ..metrology.virtual_vision import Camera
-from ..plotting.vis_matplotlib import DrawArm  # , DrawRectangle
+from ..plotting.vis_matplotlib import drawArm
 from ..utilities.disp import disp
 from .visual_info import vis_info
 
@@ -66,7 +65,6 @@ class Arm(Robot):
         #Origins
         self._link_homes_global = None # Home Positions of Links in Global Space
         self._joint_homes_global = None # Home Positions of Joints in Global Space
-        self._prev_joints_to_next_joints = None # Origins of Joints Relative to Previous Joint
         self._eef_to_last_joint = None # Transform from End Effector to Previous Joint
         self._end_effector_home = None # Home position of end effector (Global)
         self._end_effector_home_local = None # Home position of the end effector (Local)
@@ -89,17 +87,22 @@ class Arm(Robot):
         self._box_spatial_links = 0
         self.grav = np.array([0, 0, -9.81])
 
-        #Other
-        self.cameras = []
-
+        self.reversed = False
         if joint_axes is not None:
             self._reversable = True
-            self.reversed = False
             self.joint_axes = joint_axes
             self.original_joint_axes = joint_axes
     # Initialization
         self.screw_list_body = np.zeros((6, self.num_dof))
         self.initialize(base_pos_global, screw_list, end_effector_home, joint_poses_home)
+
+        if joint_axes is None:
+            # joint_axes wasn't given explicitly (arm isn't reversable), but
+            # drawing code (vis_matplotlib/vis_3js_client) reads arm.joint_axes
+            # unconditionally, so derive it the same way reverse() does: the
+            # angular part of each screw is the joint's global rotation axis.
+            self.joint_axes = self.screw_list[0:3, :].copy()
+            self.original_joint_axes = self.joint_axes.copy()
 
         for i in range(0, self.num_dof):
             self.screw_list_body[:, i] = (
@@ -123,7 +126,6 @@ class Arm(Robot):
             joint_poses_home (list[tm]): Joint poses in the global space. 
         """        
         self.screw_list = screw_list
-        self.original_screw_list_body = np.copy(screw_list)
         self.original_joint_poses_home = joint_poses_home
         self.joint_poses_home = np.zeros((3, self.num_dof))
         if joint_poses_home.size > 1:
@@ -623,72 +625,13 @@ class Arm(Robot):
         return theta_list
 
 
-    def visualServoToTarget(self, target : tm, pixel_tol : int = 2, desired_dist : float = 1.0,
-            pose_delta : float = 0.1, pose_tol : float = 0.2, max_iter: int = 1000,
-            cam_ind : int = 0):
-        """
-        Perform visual servoing to a target using virtual cameras.
+    def _servoStep(self, pose : tm):
+        """Drive the arm to `pose` via IK and return the resulting joint configuration."""
+        return self.IK(pose, self._theta)
 
-        Args:
-            target (tm): Object of interest to move towards.
-            pixel_tol (int, optional): Pixel Tolerance. Defaults to 2.
-            desired_dist (float, optional): Desired distance to object in meters. Defaults to 1.0.
-            pose_delta (float, optional): Distance in meters to record between poses at end effector. Defaults to 0.1.
-            pose_tol (float, optional): Pose tolarance in meters. Defaults to 0.2.
-            max_iter (int, optional): Maximum iterations before giving up. Defaults to 1000.
-            cam_ind (int, optional): Virtual camera to use. Defaults to 0.
-
-        Returns:
-            theta_list (np.ndarray[Float]): final thetas
-            thetas_list (list[np.ndarray[float]]): list of all theta configurations along trajectory.
-        """               
-        if (len(self.cameras) == 0):
-            print('NO CAMERA CONNECTED')
-            return self._theta, []
-        at_target = False
-        done = False
-        start_pos = self.FK(self._theta)
-        theta = 0
-        j = 0
-        theta_list = []
-        while not (at_target and done ):
-            pose_adjust = tm()
-            at_target = True
-            done = True
-            img, _, suc = self.cameras[cam_ind][0].getPhoto(target)
-            if not suc:
-                print('Failed to locate Target')
-                return self._theta, []
-            if img[0] < self.cameras[cam_ind][2][0] - pixel_tol:
-                pose_adjust[0] = -pose_delta
-                at_target = False
-            if img[0] > self.cameras[cam_ind][2][0] + pixel_tol:
-                pose_adjust[0] = pose_delta
-                at_target = False
-            if img[1] < self.cameras[cam_ind][2][1] - pixel_tol:
-                pose_adjust[1] = -pose_delta
-                at_target = False
-            if img[1] > self.cameras[cam_ind][2][1] + pixel_tol:
-                pose_adjust[1] = pose_delta
-                at_target = False
-            if at_target:
-                d = fsr.distance(self._end_effector_pos_global, target)
-                #print(d)
-                if d < desired_dist - pose_tol:
-                    done = False
-                    pose_adjust[2] = -.01
-                if d > desired_dist + pose_tol:
-                    done = False
-                    pose_adjust[2] = .01
-            start_pos =start_pos @ pose_adjust
-            theta = self.IK(start_pos, self._theta)
-            theta_list.append(theta)
-            self.updateCams()
-            j = j + 1
-            if j > max_iter:
-                print('Failed to find solution, max iterations')
-                return self._theta, []
-        return theta, theta_list
+    def _servoNoSolutionState(self):
+        """Return the current joint configuration when visual servoing can't proceed."""
+        return self._theta
 
     def PDControlToGoalEE(self, goal_position : tm, theta : 'np.ndarray[float]' = None,
             prev_theta : 'np.ndarray[float]' = None, p_gain : float = 100.0,
@@ -786,36 +729,10 @@ class Arm(Robot):
         if max_jerks is not None:
             self.max_jerks = max_jerks
 
-    def timeParametrizePath(self, path, max_vels : 'np.ndarray[float]' = None,
-            max_accels : 'np.ndarray[float]' = None,
-            max_jerks : 'np.ndarray[float]' = None) -> 'JointTrajectory':
-        """
-        Convert a sequence of joint-space waypoints (e.g. from IK solved along an
-        RRTStar path) into a velocity/acceleration-limited (and, if max_jerks is
-        given, jerk-limited) time-parametrized JointTrajectory.
-
-        By default this uses the arm's own max_vels/max_accels/max_jerks (set via
-        setJointProperties or a URDF load); pass any of the three explicitly to
-        override them for this call without changing the arm's configured limits.
-
-        Args:
-            path (list[np.ndarray[float]]): at least two joint-angle waypoints
-            max_vels (np.ndarray[float], optional): overrides self.max_vels
-            max_accels (np.ndarray[float], optional): overrides self.max_accels
-            max_jerks (np.ndarray[float], optional): overrides self.max_jerks. A
-                fully-infinite value (the default when unset) disables jerk
-                limiting rather than raising an error.
-
-        Returns:
-            JointTrajectory: retimed trajectory; see JointTrajectory.sample()
-        """
-        from ..path_planning.trajectory import JointTrajectory
-        v = self.max_vels if max_vels is None else max_vels
-        a = self.max_accels if max_accels is None else max_accels
-        j = self.max_jerks if max_jerks is None else max_jerks
-        if j is not None and np.all(~np.isfinite(np.atleast_1d(j))):
-            j = None
-        return JointTrajectory(path, v, a, j)
+    def _motionLimits(self):
+        """Return the arm's configured (max_vels, max_accels, max_jerks), set via
+        setJointProperties or a URDF load; used as defaults by timeParametrizePath()."""
+        return self.max_vels, self.max_accels, self.max_jerks
 
     def setVisColProperties(self, vis_props : list = None,
             col_props : list = None,
@@ -852,8 +769,6 @@ class Arm(Robot):
             eef_to_last_joint (tm, optional): End effector transform to the last joint. Defaults to None.
             base_to_fixed_joint (tm, optional): offset from arm base to actual base. Defaults to None.
         """        
-        if prev_joints_to_next_joints is not None:
-            self._prev_joints_to_next_joints = prev_joints_to_next_joints
         if joint_homes_global is not None:
             self._joint_homes_global = joint_homes_global
         if link_homes_global is not None:
@@ -1434,30 +1349,6 @@ class Arm(Robot):
         return AwEig, AwEigVec, uAw, AvEig, AvEigVec, uAv
 
     """
-    Camera
-    """
-
-
-    def addCamera(self, cam : Camera, end_effector_to_cam : tm) -> None:
-        """
-        Add a camera to the arm.
-
-        Args:
-            cam: camera object
-            end_effector_to_cam: end effector to camera transform
-        """
-        cam.moveCamera(self._end_effector_pos_global @ end_effector_to_cam)
-        img, _, _ = cam.getPhoto(self._end_effector_pos_global @
-            tm([0, 0, 1, 0, 0, 0]))
-        camL = [cam, end_effector_to_cam, img]
-        self.cameras.append(camL)
-
-    def updateCams(self) -> None:
-        """Update camera locations."""
-        for i in range(len(self.cameras)):
-            self.cameras[i][0].moveCamera(self._end_effector_pos_global @ self.cameras[i][1])
-
-    """
     Class Methods
     """
 
@@ -1486,7 +1377,7 @@ class Arm(Robot):
         Args:
             ax: matplotlib axes to plot to.
         """
-        DrawArm(self, ax)
+        drawArm(self, ax)
 
     """
     Helpers to avoid code duplication

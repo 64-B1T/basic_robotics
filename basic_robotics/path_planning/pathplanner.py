@@ -397,15 +397,15 @@ class PathNode:
         """
         if other is not None:
             if(self.mode == 3):
-                return fsr.Distance(self.getPosition(), other.getPosition())
+                return fsr.distance(self.getPosition(), other.getPosition())
             else:
-                return fsr.ArcDistance(self.getPosition(), other.getPosition())
+                return fsr.arcDistance(self.getPosition(), other.getPosition())
         if(self.mode == 3):
             self.cost = (self.parent.getCost() +
-                fsr.Distance(self.position, self.parent.getPosition()))
+                fsr.distance(self.position, self.parent.getPosition()))
         else:
             self.cost = (self.parent.getCost() +
-                fsr.ArcDistance(self.position, self.parent.getPosition()))
+                fsr.arcDistance(self.position, self.parent.getPosition()))
         return self.cost
 
     def getCost(self):

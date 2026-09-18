@@ -10,7 +10,7 @@ import sys
 
 #Other basic_robotics imports
 from ..general import tm
-from ..plotting.vis_matplotlib import DrawRectangle, DrawAxes, drawMesh
+from ..plotting.vis_matplotlib import drawRectangle, drawAxes, drawMesh
 from ..kinematics import loadArmFromURDF
 from ..utilities.disp import disp, progressBar
 
@@ -299,7 +299,7 @@ class CommandExecutor:
                 if min > max(j[1]):
                     min = max(j[1])
             col = score_point(1 - min)
-            DrawRectangle(
+            drawRectangle(
                 tm([r[0][0], r[0][1], r[0][2], 0, 0, 0]),
                 [grid_rez]*3, ax, c=col, a=TRANSPARENCY_CONSTANT)
         plt.show()
@@ -334,7 +334,7 @@ class CommandExecutor:
         for r in results:
             score = r[1]
             col = score_point(score)
-            DrawRectangle(
+            drawRectangle(
                 tm([r[0][0], r[0][1], r[0][2], 0, 0, 0]),
                 [grid_rez]*3, ax, c=col, a=TRANSPARENCY_CONSTANT)
         plt.show()
@@ -536,7 +536,7 @@ class CommandExecutor:
                     continue
                 else:
                     col = score_point(score)
-                    DrawRectangle(tm([r[0][0], r[0][1], r[0][2], 0, 0, 0]),
+                    drawRectangle(tm([r[0][0], r[0][1], r[0][2], 0, 0, 0]),
                         [.25] * 3, ax, c=col, a=TRANSPARENCY_CONSTANT)
             drawMesh(mesh, ax)
             plt.show()
@@ -648,7 +648,7 @@ class CommandExecutor:
             plt.figure()
             ax = plt.axes(projection='3d')
             for r in results:
-                DrawAxes(r[0], r[1] / 2, ax)
+                drawAxes(r[0], r[1] / 2, ax)
                 ax.scatter3D(r[0][0], r[0][1], r[0][2], c=score_point(r[1]), s=25)
             plt.show()
         if save_output:
@@ -857,7 +857,7 @@ class CommandExecutor:
             ax = plt.axes(projection='3d')
             for traj in results:
                 for r in traj[2]:
-                    DrawAxes(r[0], r[1] / 2, ax)
+                    drawAxes(r[0], r[1] / 2, ax)
                     ax.scatter3D(r[0][0], r[0][1], r[0][2], c=score_point(r[1]), s=25)
             plt.show()
         if save_output:

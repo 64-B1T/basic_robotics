@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from basic_robotics.general import tm, fsr, fmr
+from basic_robotics.general import tm, fsr, fmr, Wrench
+from basic_robotics.metrology.virtual_vision import Camera
 import json
 import os
 from basic_robotics.kinematics import loadSP, makeSP
@@ -900,6 +901,170 @@ class test_kinematics_sp(unittest.TestCase):
 
         self.assertIsNotNone(sp)
         self.assertEqual(sp._bottom_joints_local.shape, (3, 6))
+
+
+    # Parity additions: motion/config utilities
+
+    def test_kinematics_sp_setNames(self):
+        self.assertEqual(len(self.sp.leg_names), 6)
+        self.sp.setNames('MySP', ['a', 'b', 'c', 'd', 'e', 'f'])
+        self.assertEqual(self.sp.name, 'MySP')
+        self.assertEqual(self.sp.leg_names, ['a', 'b', 'c', 'd', 'e', 'f'])
+
+    def test_kinematics_sp_setJointProperties(self):
+        self.assertTrue(np.all(np.isinf(self.sp.max_leg_vels)))
+        vels = np.ones(6) * 2
+        accels = np.ones(6) * 3
+        effort = np.ones(6) * 800
+        self.sp.setJointProperties(max_vels = vels, max_effort = effort, max_accels = accels)
+        self.matrix_equality_assertion(self.sp.max_leg_vels, vels)
+        self.matrix_equality_assertion(self.sp.max_leg_accels, accels)
+        self.matrix_equality_assertion(self.sp.max_leg_effort, effort)
+
+    def test_kinematics_sp_timeParametrizePath(self):
+        self.sp.setJointProperties(max_vels = np.ones(6), max_accels = np.ones(6) * 2)
+        path = [np.copy(self.sp.lengths).flatten(), np.copy(self.sp.lengths).flatten() + 0.05]
+        traj = self.sp.timeParametrizePath(path)
+        self.assertGreater(traj.duration, 0)
+        self.matrix_equality_assertion(traj.position(0.0), path[0])
+        self.matrix_equality_assertion(traj.position(traj.duration), path[1])
+
+    def test_kinematics_sp_lineTrajectory(self):
+        target = self.sp.getTopT() @ tm([0.02, -0.01, 0, 0, 0, 0])
+        leg_lengths_list = self.sp.lineTrajectory(target)
+        self.assertGreater(len(leg_lengths_list), 0)
+        self.matrix_equality_assertion(self.sp.getTopT().gTM(), target.gTM())
+
+    def test_kinematics_sp_lineTrajectory_no_execute_restores_lengths(self):
+        start_lengths = np.copy(self.sp.lengths)
+        target = self.sp.getTopT() @ tm([0.02, 0, 0, 0, 0, 0])
+        leg_lengths_list = self.sp.lineTrajectory(target, execute = False)
+        self.assertGreater(len(leg_lengths_list), 0)
+        self.matrix_equality_assertion(self.sp.lengths, start_lengths)
+
+    def test_kinematics_sp_reverse_round_trip(self):
+        bottom_before = self.sp.getBottomT().gTM().copy()
+        top_before = self.sp.getTopT().gTM().copy()
+        motor_mass_before = self.sp._act_motor_mass
+        shaft_mass_before = self.sp._act_shaft_mass
+        motor_cog_before = self.sp._act_motor_grav_center
+        shaft_cog_before = self.sp._act_shaft_grav_center
+
+        self.sp.reverse()
+        # After a single reverse, what used to be the top plate is now fixed.
+        self.matrix_equality_assertion(self.sp.getBottomT().gTM(), top_before)
+        self.matrix_equality_assertion(self.sp.getTopT().gTM(), bottom_before)
+
+        self.sp.reverse()
+        self.matrix_equality_assertion(self.sp.getBottomT().gTM(), bottom_before)
+        self.matrix_equality_assertion(self.sp.getTopT().gTM(), top_before)
+        self.assertAlmostEqual(self.sp._act_motor_mass, motor_mass_before)
+        self.assertAlmostEqual(self.sp._act_shaft_mass, shaft_mass_before)
+        self.assertAlmostEqual(self.sp._act_motor_grav_center, motor_cog_before)
+        self.assertAlmostEqual(self.sp._act_shaft_grav_center, shaft_cog_before)
+
+    def test_kinematics_sp_reverse_swaps_actuator_cog(self):
+        motor_mass_before = self.sp._act_motor_mass
+        shaft_mass_before = self.sp._act_shaft_mass
+        self.sp.reverse()
+        self.assertAlmostEqual(self.sp._act_motor_mass, shaft_mass_before)
+        self.assertAlmostEqual(self.sp._act_shaft_mass, motor_mass_before)
+
+    def test_kinematics_sp_move_stationary(self):
+        top_before = self.sp.getTopT().gTM().copy()
+        new_base = tm([0.3, -0.1, 0.05, 0, 0, 0.1])
+        self.sp.move(new_base, stationary = True)
+        self.matrix_equality_assertion(self.sp.getTopT().gTM(), top_before)
+        self.matrix_equality_assertion(self.sp.getBottomT().gTM(), new_base.gTM())
+
+    # Parity additions: Jacobian extras
+
+    def test_kinematics_sp_getManipulability(self):
+        result = self.sp.getManipulability()
+        self.assertEqual(len(result), 6)
+
+    def test_kinematics_sp_numericalJacobian(self):
+        self.sp.IK(tm([0.02, 0.01, 1.26, 0.05, 0.02, 0.01]))
+        numerical = self.sp.numericalJacobian()
+        analytic = self.sp.inverseJacobian()
+        self.matrix_equality_assertion(numerical, analytic, num_dec = 2)
+
+    # Parity additions: camera / visual servoing
+
+    def test_kinematics_sp_addCamera_and_updateCams(self):
+        cam = Camera(200, 200, 1024, 1024, 2048, 2048, 1, tm())
+        self.sp.addCamera(cam, tm())
+        self.assertEqual(len(self.sp.cameras), 1)
+        self.sp.updateCams()
+
+    def test_kinematics_sp_visualServoToTarget_no_camera(self):
+        lengths, path = self.sp.visualServoToTarget(tm([0, 0, 2, 0, 0, 0]))
+        self.assertEqual(path, [])
+
+    def test_kinematics_sp_visualServoToTarget(self):
+        cam = Camera(200, 200, 1024, 1024, 2048, 2048, 1, tm())
+        self.sp.addCamera(cam, tm())
+        target = self.sp.getTopT() @ tm([0, 0, 1, 0, 0, 0])
+        lengths, path = self.sp.visualServoToTarget(target, max_iter = 50)
+        self.assertGreater(len(path), 0)
+
+    # Parity additions: dynamics
+
+    def test_kinematics_sp_inverseDynamics_matches_static_carryMassCalc(self):
+        # With zero platform acceleration, inverseDynamics must reduce exactly
+        # to the existing quasi-static carryMassCalc actuator forces.
+        wrench = fsr.makeWrench(self.sp.getTopT(), 5.0, self.sp.grav / fmr.Norm(self.sp.grav))
+        tau_static, _ = self.sp.carryMassCalc(wrench)
+        tau_dynamic = self.sp.inverseDynamics(
+                np.zeros(3), np.zeros(3), np.zeros(3), top_plate_wrench = wrench)
+        self.matrix_equality_assertion(
+                np.asarray(tau_static).flatten(), np.asarray(tau_dynamic).flatten())
+
+    def test_kinematics_sp_massMatrix_affine_decomposition(self):
+        # inverseDynamics must be exactly affine in [angular_accel; linear_accel]:
+        # tau == M @ accel + coriolisGravity(w).
+        w = np.array([0.2, -0.1, 0.05])
+        accel = np.array([0.1, -0.2, 0.3, 0.4, -0.1, 0.05])
+        M = self.sp.massMatrix(w)
+        h = np.asarray(self.sp.coriolisGravity(w)).flatten()
+        tau_affine = M @ accel + h
+        tau_direct = np.asarray(
+                self.sp.inverseDynamics(w, accel[0:3], accel[3:6])).flatten()
+        self.matrix_equality_assertion(tau_affine, tau_direct)
+
+    def test_kinematics_sp_forwardDynamics_inverts_inverseDynamics(self):
+        w = np.array([0.1, 0.05, -0.2])
+        accel = np.array([0.05, -0.1, 0.2, 0.3, -0.2, 0.1])
+        tau = np.asarray(self.sp.inverseDynamics(w, accel[0:3], accel[3:6])).flatten()
+        recovered = self.sp.forwardDynamics(tau, w)
+        self.matrix_equality_assertion(recovered, accel, num_dec = 5)
+
+    def test_kinematics_sp_setTopPlateInertia_adds_euler_moment(self):
+        # Isolate the platform's own Euler-equation moment by zeroing leg masses,
+        # which would otherwise also pick up alpha-dependent inertial forces.
+        self.sp.setMasses(self.sp._bottom_plate_mass, 0.0, 0.0,
+                top_plate_mass = self.sp._top_plate_mass)
+        inertia = np.diag([0.01, 0.02, 0.03])
+        self.sp.setTopPlateInertia(inertia)
+        alpha = np.array([1.0, 0, 0])
+        tau0 = np.asarray(self.sp.inverseDynamics(np.zeros(3), np.zeros(3), np.zeros(3))).flatten()
+        tau1 = np.asarray(self.sp.inverseDynamics(np.zeros(3), alpha, np.zeros(3))).flatten()
+        rotation = self.sp.getTopT().gRot()
+        inertia_space = rotation @ inertia @ rotation.T
+        expected_extra = self.sp.jacobian().T @ np.hstack((inertia_space @ alpha, np.zeros(3)))
+        self.matrix_equality_assertion(tau1 - tau0, expected_extra)
+
+    def test_kinematics_sp_integrateForwardDynamics_free_fall(self):
+        # With zero actuator force and no leg masses, the top plate origin
+        # must fall exactly as a point mass under gravity: z(t) = z0 + 0.5*g*t^2.
+        self.sp.setMasses(self.sp._bottom_plate_mass, 0.0, 0.0,
+                top_plate_mass = self.sp._top_plate_mass)
+        z0 = self.sp.getTopT().gPos().flatten()[2]
+        times, poses, angular_vels = self.sp.integrateForwardDynamics(
+                np.zeros(3), np.zeros(6), dt = 0.05, n_steps = 20)
+        z = np.array([p.gPos().flatten()[2] for p in poses])
+        expected_z = z0 + 0.5 * self.sp.grav[2] * times ** 2
+        self.matrix_equality_assertion(z, expected_z, num_dec = 5)
 
 
 if __name__ == '__main__':

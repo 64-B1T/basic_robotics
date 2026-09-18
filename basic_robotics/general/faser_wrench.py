@@ -92,11 +92,17 @@ class Wrench(Screw):
         """
         If a value is a Screw, convert it to a Wrench.
 
-        This function exists in order to reduce code duplication, letting Screw superclass 
+        This function exists in order to reduce code duplication, letting Screw superclass
         Do most of the heavy lifting.
         """
         if isinstance(possible_screw, Screw):
-            return Wrench(possible_screw, self.frame_applied) # It was a screw
+            # Wrench.__init__ takes the screw's own frame_applied and ignores
+            # position_applied when constructing from a Screw, so it must be
+            # carried over explicitly here (the left-hand Wrench's position_applied
+            # takes precedence, matching how frame_applied precedence works above).
+            new_wrench = Wrench(possible_screw)
+            new_wrench.position_applied = self.position_applied.copy()
+            return new_wrench
         return possible_screw # Not a screw
 
     def __abs__(self):

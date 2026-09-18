@@ -395,6 +395,25 @@ class tm:
 
     #FLOOR DIVIDE IS OVERRIDDEN TO PERFORM MATRIX RIGHT DIVISION
 
+    def _deferToOther(self, other_object):
+        """
+        Check whether an arithmetic operator should hand off to `other_object`'s
+        reflected method instead of handling it here.
+
+        Screw/Twist/Wrench set __array_ufunc__ = None specifically so that numpy
+        (and tm, by the same convention) defers to their own __radd__/__rmatmul__/etc
+        rather than trying to broadcast against them. Without this check, tm's
+        operators would fall through to `tm(self.TAA + other_object)`-style wrapping,
+        which silently mishandles or discards results computed by the other object.
+
+        Args:
+            other_object : the right-hand operand of a binary operator
+        Returns:
+            bool: True if this operator should return NotImplemented
+        """
+        return (not isinstance(other_object, tm) and
+                getattr(other_object, '__array_ufunc__', 0) is None)
+
     #OVERLOADED FUNCTIONS
     def __getitem__(self, ind):
         """
@@ -434,6 +453,8 @@ class tm:
         Returns:
             floor (or matrix right division) result
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         if isinstance(other_object, tm):
             return tm(np.linalg.lstsq(other_object.gTM().T,
                 self.gTM().T, rcond=None)[0].T)
@@ -472,6 +493,8 @@ class tm:
         Returns:
             this + a
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         if isinstance(other_object, tm):
             return tm(self.TAA + other_object.TAA)
         else:
@@ -495,6 +518,8 @@ class tm:
         Returns:
             this - a
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         if isinstance(other_object, tm):
             return tm(self.TAA - other_object.TAA)
         else:
@@ -516,6 +541,8 @@ class tm:
         Returns:
             TM * a
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         if isinstance(other_object, tm):
             return tm(self.TM @ other_object.TM)
         else:
@@ -532,6 +559,8 @@ class tm:
         Returns:
             a * TM
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         if isinstance(other_object, tm):
             return tm(other_object.TM @ self.TM)
         else:
@@ -548,6 +577,8 @@ class tm:
         Returns:
             TM * a
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         if isinstance(other_object, tm):
             return tm(self.TM @ other_object.TM)
         else:
@@ -564,6 +595,8 @@ class tm:
         Returns:
             a * TM
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         if isinstance(other_object, tm):
             return tm(other_object.TM @ self.TM)
         else:
@@ -580,6 +613,8 @@ class tm:
         Returns
             tm: new tm with requested division
         """
+        if self._deferToOther(other_object):
+            return NotImplemented
         #Divide Elementwise from TAA
         return tm(self.TAA / other_object)
 

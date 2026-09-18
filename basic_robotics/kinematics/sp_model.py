@@ -5,7 +5,7 @@ import numpy as np
 import scipy as sci
 
 from ..general import Wrench, fmr, fsr, tm
-from ..plotting.vis_matplotlib import DrawSP
+from ..plotting.vis_matplotlib import drawSP
 from ..utilities.disp import disp
 from .robot_model import Robot
 
@@ -42,6 +42,21 @@ class SP(Robot):
         """
         super().__init__(name)
 
+        #Names
+        self.leg_names = []
+        self.setNames()
+
+        #Actuator Motion Limits (see setJointProperties)
+        self.max_leg_vels = np.ones(6) * np.inf
+        self.max_leg_accels = np.ones(6) * np.inf
+        self.max_leg_jerks = np.ones(6) * np.inf
+        self.max_leg_effort = np.ones(6) * np.inf
+
+        #Dynamics: top plate rotational inertia (see setTopPlateInertia).
+        #Defaults to zero (point-mass platform), matching the point-mass
+        #treatment already implicit in carryMassCalc's gravity wrenches.
+        self._top_plate_inertia = np.zeros((3, 3))
+
         #State Variables
         self._bottom_joints_local = np.copy(bottom_joints)
         self._top_joints_local = np.copy(top_joints)
@@ -61,6 +76,10 @@ class SP(Robot):
         #Debug
         self._leg_ext_safety = .001
         self.debug = 0
+
+        #Tolerances used by lineTrajectory()
+        self.pos_tolerance = 0.0001
+        self.rot_tolerance = 0.00001
 
         #Physical Parameters
         self.bottom_plate_thickness = bottom_plate_thickness
@@ -226,6 +245,67 @@ class SP(Robot):
         if degrees:
             max_plate_rotation = fsr.deg2Rad(max_plate_rotation)
         self.plate_rotation_limit = np.cos(max_plate_rotation)
+
+    def setNames(self, sp_name : str = None, leg_names : list = None) -> None:
+        """
+        Set names for SP elements.
+
+        Will use generics if not specified.
+        Args:
+            sp_name (str, optional): SP name. Defaults to None.
+            leg_names (list[str], optional): Names for each leg/actuator. Defaults to None.
+        """
+        if sp_name is not None:
+            self.name = sp_name
+        if leg_names is not None:
+            self.leg_names = leg_names
+        elif self.leg_names == []:
+            for i in range(6):
+                self.leg_names.append('leg' + str(i))
+
+    def setJointProperties(self, max_vels : 'np.ndarray[float]' = None,
+            max_effort : 'np.ndarray[float]' = None,
+            max_accels : 'np.ndarray[float]' = None,
+            max_jerks : 'np.ndarray[float]' = None) -> None:
+        """
+        Set actuator (leg) motion limits for the platform.
+
+        Mirrors Arm.setJointProperties. Leg extension limits (leg_ext_min/leg_ext_max)
+        are set at construction time and are not touched here.
+        Args:
+            max_vels (np.ndarray[float], optional): Leg maximum extension velocities. Defaults to None.
+            max_effort (np.ndarray[float], optional): Leg maximum forces (N). Defaults to None.
+            max_accels (np.ndarray[float], optional): Leg maximum accelerations, used by
+                timeParametrizePath(). Defaults to None.
+            max_jerks (np.ndarray[float], optional): Leg maximum jerks, used by
+                timeParametrizePath() for jerk-limited (S-curve) retiming. Defaults to None.
+        """
+        if max_vels is not None:
+            self.max_leg_vels = max_vels
+        if max_effort is not None:
+            self.max_leg_effort = max_effort
+        if max_accels is not None:
+            self.max_leg_accels = max_accels
+        if max_jerks is not None:
+            self.max_leg_jerks = max_jerks
+
+    def setTopPlateInertia(self, top_plate_inertia : 'np.ndarray[float]') -> None:
+        """
+        Set the rotational inertia tensor of the top (moving) plate, about its own
+        origin/COM, expressed in the top plate's local (body) frame.
+
+        Used by massMatrix/inverseDynamics/forwardDynamics. Defaults to the zero
+        matrix (a point-mass platform with no rotational inertia), matching the
+        point-mass treatment already implicit in carryMassCalc's gravity wrenches.
+        Args:
+            top_plate_inertia (np.ndarray[float]): 3x3 rotational inertia tensor (kg*m^2).
+        """
+        self._top_plate_inertia = np.copy(top_plate_inertia)
+
+    def _motionLimits(self):
+        """Return the platform's configured (max_leg_vels, max_leg_accels, max_leg_jerks),
+        set via setJointProperties; used as defaults by timeParametrizePath()."""
+        return self.max_leg_vels, self.max_leg_accels, self.max_leg_jerks
 
     def getBottomJoints(self) -> 'np.ndarray[float]':
         """
@@ -553,7 +633,103 @@ class SP(Robot):
 
         return top, valid
 
-    """ 
+    def lineTrajectory(self, target : tm, initial : tm = None,
+            execute : bool = True, delt : float = .01):
+        """
+        Create a trajectory moving the top plate in a straight line towards the target.
+
+        Args:
+            target (tm): Target top plate configuration
+            initial (tm, optional): Initial top plate pose. Defaults to None/Current Pose.
+            execute (bool, optional): Execute motion, or remain at current config. Defaults to True.
+            delt (float, optional): Distance of top plate between each pose in meters. Defaults to .01.
+
+        Returns:
+            leg_lengths_list (list[np.ndarray[float]]): List of leg length configurations.
+        """
+        if initial is None:
+            initial = self.getTopT().copy()
+        satisfied = False
+        init_lengths = np.copy(self.lengths)
+        leg_lengths_list = []
+        count = 0
+        while not satisfied and count < 2500:
+            count += 1
+            error = fsr.poseError(target, initial).gTAA().flatten()
+            satisfied = True
+            if (np.any(error[0:3] > self.pos_tolerance) or
+                    np.any(error[3:6] > self.rot_tolerance)):
+                satisfied = False
+            initial = fsr.closeLinearGap(initial, target, delt)
+            leg_lengths_list.append(np.copy(self.lengths))
+            self.IK(top_plate_pos = initial)
+        self.IK(top_plate_pos = target)
+        leg_lengths_list.append(np.copy(self.lengths))
+        if execute == False:
+            self.FK(init_lengths, protect = True)
+        return leg_lengths_list
+
+    def reverse(self) -> None:
+        """
+        Flip the stewart platform, swapping which plate is the fixed base and
+        which is the moving top plate.
+
+        Works from any current configuration, not just the platform's nominal
+        home pose. The platform's present physical shape is frozen in place: the
+        new base is mounted exactly where the top plate currently sits, and the
+        new top plate's pose is set to wherever the base has always been mounted
+        (the base does not move as legs are actuated, so this holds no matter
+        what configuration reverse() is called from).
+
+        Because the "motor" (fixed-side) and "shaft" (moving-side) portions of
+        each actuator swap which physical side they're on, actuator masses and
+        centers of gravity are swapped along with the joint geometry. Drawing
+        parameters and plate masses are swapped correspondingly.
+
+        Calling reverse() again immediately afterwards exactly restores the
+        joint geometry, plate masses/thickness, actuator COG, and drawing
+        parameters that were in effect before the first call.
+
+        Because this is implemented by rerunning the constructor, any other
+        customization (debug, validation_settings, fk_mode, joint_deflection_max,
+        plate_rotation_limit, top plate inertia, cameras, force_limit) is reset
+        to its default and should be reapplied afterwards if still needed.
+        """
+        new_bottom_pose = self.getTopT().copy()
+        new_top_pose = self.getBottomT().copy()
+        new_bottom_joints_local = np.copy(self._top_joints_local)
+        new_top_joints_local = np.copy(self._bottom_joints_local)
+        new_bottom_thickness = self.top_plate_thickness
+        new_top_thickness = self.bottom_plate_thickness
+        new_bottom_mass = self._top_plate_mass
+        new_top_mass = self._bottom_plate_mass
+        new_outer_bottom_radius = self._outer_top_radius
+        new_outer_top_radius = self._outer_bottom_radius
+        new_motor_grav_center = self._act_shaft_grav_center
+        new_shaft_grav_center = self._act_motor_grav_center
+        new_act_shaft_mass = self._act_motor_mass
+        new_act_motor_mass = self._act_shaft_mass
+        new_act_shaft_radius = self._act_motor_radius
+        new_act_motor_radius = self._act_shaft_radius
+        max_leg_vels = self.max_leg_vels.copy()
+        max_leg_accels = self.max_leg_accels.copy()
+        max_leg_jerks = self.max_leg_jerks.copy()
+        max_leg_effort = self.max_leg_effort.copy()
+        grav = self.grav.copy()
+
+        self.__init__(new_bottom_joints_local, new_top_joints_local,
+                new_bottom_pose, new_top_pose,
+                self.leg_ext_min, self.leg_ext_max,
+                new_bottom_thickness, new_top_thickness, self.name)
+
+        self.setMasses(new_bottom_mass, new_act_shaft_mass, new_act_motor_mass,
+                grav, top_plate_mass = new_top_mass)
+        self.setCOG(new_motor_grav_center, new_shaft_grav_center)
+        self.setDrawingParameters(new_outer_top_radius, new_outer_bottom_radius,
+                new_act_shaft_radius, new_act_motor_radius)
+        self.setJointProperties(max_leg_vels, max_leg_effort, max_leg_accels, max_leg_jerks)
+
+    """
     Validation and Corrective Actions
     """
 
@@ -738,7 +914,69 @@ class SP(Robot):
                 bottom_plate_pos = old_bottom_plate_transform, protect = protect)
         return inverse_jacobian
 
-    """ 
+    def numericalJacobian(self, top_plate_pos : tm = None,
+            bottom_plate_pos : tm = None, delta : float = 0.0005) -> 'np.ndarray[float]':
+        """
+        Calculate numerical inverse Jacobian for given configuration, as a sanity
+        check against inverseJacobian().
+
+        Perturbs the top plate pose by a small space-frame twist along each of the
+        6 screw axis directions and observes the resulting change in leg lengths.
+        (TAA components can't be perturbed directly for this purpose, since - unlike
+        a serial arm's joint angles - they aren't independent generalized
+        coordinates: away from the identity pose, a small TAA change is not the
+        same thing as a small twist.)
+        Args:
+            top_plate_pos (tm, optional): top plate transformation in space frame.
+                Defaults to None/current pose.
+            bottom_plate_pos (tm, optional): bottom plate transformation in space frame.
+                Defaults to None/current pose.
+            delta (float, optional): finite-difference twist step size. Defaults to 0.0005.
+        Returns:
+            ndarray(Float): Numerical Inverse Jacobian for current configuration
+        """
+        bottom_plate_pos, top_plate_pos = self._bottomTopCheck(bottom_plate_pos, top_plate_pos)
+        old_bottom = self.getBottomT()
+        old_top = self.getTopT()
+
+        numerical_jacobian = np.zeros((6, 6))
+        for i in range(6):
+            twist = np.zeros(6)
+            twist[i] = delta
+            pose_plus = tm(fmr.MatrixExp6(fmr.VecTose3(twist)) @ top_plate_pos.gTM())
+            pose_minus = tm(fmr.MatrixExp6(fmr.VecTose3(-twist)) @ top_plate_pos.gTM())
+            lens_plus, _ = self.IK(
+                    top_plate_pos = pose_plus, bottom_plate_pos = bottom_plate_pos, protect = True)
+            lens_minus, _ = self.IK(
+                    top_plate_pos = pose_minus, bottom_plate_pos = bottom_plate_pos, protect = True)
+            numerical_jacobian[:, i] = (lens_plus.flatten() - lens_minus.flatten()) / (2 * delta)
+
+        self.IK(top_plate_pos = old_top, bottom_plate_pos = old_bottom, protect = True)
+        return numerical_jacobian
+
+    def getManipulability(self):
+        """
+        Calculate Manipulability at the current configuration.
+
+        Returns:
+            Manipulability parameters
+        """
+        Jb = self.jacobianBody()
+        Jw = Jb[0:3, :] #Angular
+        Jv = Jb[3:6, :] #Linear
+
+        Aw = Jw @ Jw.T
+        Av = Jv @ Jv.T
+
+        AwEig, AwEigVec = np.linalg.eig(Aw)
+        AvEig, AvEigVec = np.linalg.eig(Av)
+
+        uAw = 1/(np.sqrt(max(AwEig))/np.sqrt(min(AwEig)))
+        uAv = 1/(np.sqrt(max(AvEig))/np.sqrt(min(AvEig)))
+
+        return AwEig, AwEigVec, uAw, AvEig, AvEigVec, uAv
+
+    """
     Force Calculations
     """
 
@@ -844,21 +1082,276 @@ class SP(Robot):
         #wrench = fsr.transformWrenchFrame(wrench, tm(), self.getTopT())
         return wrench
 
-    
+    """
+    Dynamics
+
+    Extends the quasi-static force model above (carryMassCalc) with genuine
+    acceleration-dependent (D'Alembert) dynamics for the moving top plate and
+    each leg's shaft mass. Modeling assumptions, matching/extending the
+    existing static model's own simplifications:
+        - The bottom plate and base are stationary (not accelerating).
+        - Each point mass (top plate, each leg's shaft) is lumped at the
+          location already used for its weight in carryMassCalc, and its
+          acceleration is that of the platform rigid body at that point.
+        - The "motor" (fixed-side) actuator mass is treated as effectively
+          non-accelerating, exactly as in carryMassCalc, so it does not
+          contribute to actuator force (only to the reported base wrench,
+          via carryMassCalc/sumActuatorWrenches).
+        - The top plate's own rotational inertia defaults to zero (a point
+          mass); set a real tensor via setTopPlateInertia() for a more
+          faithful platform-only Euler-equation moment contribution. Leg/
+          actuator rotational inertia is neglected entirely.
+    These methods operate on the CURRENT top/bottom plate pose (call IK/FK
+    first to set the configuration to evaluate), mirroring carryMassCalc.
+
+    Because the top plate's own linear velocity has no effect on the wrench
+    required to produce a given acceleration (only its angular velocity,
+    through centripetal/Euler terms, and the requested accelerations do),
+    these methods take the top plate's angular velocity directly rather than
+    a full 6-dof twist.
+    """
+
+    def _topPointAcceleration(self, r : 'np.ndarray[float]', angular_vel : 'np.ndarray[float]',
+            angular_accel : 'np.ndarray[float]', linear_accel : 'np.ndarray[float]'
+            ) -> 'np.ndarray[float]':
+        """
+        Calculate the space-frame linear acceleration of a point rigidly attached to
+        the top plate, given the plate's own motion and the point's offset from the
+        top plate's origin.
+
+        Meant to be called internally only.
+        Args:
+            r (ndarray(Float)): offset of the point from the top plate origin (space frame)
+            angular_vel (ndarray(Float)): top plate angular velocity (space frame)
+            angular_accel (ndarray(Float)): top plate angular acceleration (space frame)
+            linear_accel (ndarray(Float)): linear acceleration of the top plate origin (space frame)
+        Returns:
+            ndarray(Float): linear acceleration of the point (space frame)
+        """
+        return (linear_accel + np.cross(angular_accel, r) +
+                np.cross(angular_vel, np.cross(angular_vel, r)))
+
+    def inverseDynamics(self, angular_vel : 'np.ndarray[float]', angular_accel : 'np.ndarray[float]',
+            linear_accel : 'np.ndarray[float]', grav : 'np.ndarray[float]' = None,
+            top_plate_wrench : Wrench = Wrench()) -> 'np.ndarray[float]':
+        """
+        Calculate actuator forces required to produce a given top plate motion.
+
+        Uses the current top/bottom plate pose - call IK/FK first to set the
+        configuration to evaluate. See the "Dynamics" section docstring above for
+        the modeling assumptions.
+        Args:
+            angular_vel (ndarray(Float)): top plate angular velocity, space frame (rad/s)
+            angular_accel (ndarray(Float)): top plate angular acceleration, space frame (rad/s^2)
+            linear_accel (ndarray(Float)): linear acceleration of the top plate origin,
+                space frame (m/s^2)
+            grav (ndarray(Float), optional): gravity vector. Defaults to self.grav.
+            top_plate_wrench (Wrench, optional): additional externally applied wrench at
+                the top plate (e.g. a payload load). Defaults to zero.
+        Returns:
+            ndarray(Float): actuator forces (N) required at each leg
+        """
+        if grav is None:
+            grav = self.grav
+        angular_vel = np.asarray(angular_vel, dtype=float).flatten()
+        angular_accel = np.asarray(angular_accel, dtype=float).flatten()
+        linear_accel = np.asarray(linear_accel, dtype=float).flatten()
+
+        top_origin = self.getTopT().gPos().flatten()
+
+        wrench = top_plate_wrench.copy()
+
+        a_top_plate = self._topPointAcceleration(
+                np.zeros(3), angular_vel, angular_accel, linear_accel)
+        wrench = wrench + fsr.makeWrench(self.getTopT(), self._top_plate_mass, grav - a_top_plate)
+
+        if np.any(self._top_plate_inertia):
+            r_top = self.getTopT().gRot()
+            inertia_space = r_top @ self._top_plate_inertia @ r_top.T
+            euler_moment = (inertia_space @ angular_accel +
+                    np.cross(angular_vel, inertia_space @ angular_vel))
+            wrench = wrench + Wrench(np.hstack((euler_moment, np.zeros(3))))
+
+        for i in range(6):
+            r_i = self._top_joints_space[:, i] - top_origin
+            a_top_i = self._topPointAcceleration(r_i, angular_vel, angular_accel, linear_accel)
+            wrench = wrench + fsr.makeWrench(
+                    self.getActuatorLoc(i, 't'), self._act_shaft_mass, grav - a_top_i)
+
+        tau = self.staticForces(wrench)
+        return tau
+
+    def coriolisGravity(self, angular_vel : 'np.ndarray[float]' = None,
+            grav : 'np.ndarray[float]' = None,
+            top_plate_wrench : Wrench = Wrench()) -> 'np.ndarray[float]':
+        """
+        Calculate the velocity-dependent (centripetal) and gravity/load contribution
+        to actuator forces, i.e. inverseDynamics() with zero platform acceleration.
+
+        Uses the current top/bottom plate pose - call IK/FK first to set the
+        configuration to evaluate.
+        Args:
+            angular_vel (ndarray(Float), optional): top plate angular velocity, space
+                frame (rad/s). Defaults to zero.
+            grav (ndarray(Float), optional): gravity vector. Defaults to self.grav.
+            top_plate_wrench (Wrench, optional): additional externally applied wrench at
+                the top plate. Defaults to zero.
+        Returns:
+            ndarray(Float): actuator forces (N)
+        """
+        if angular_vel is None:
+            angular_vel = np.zeros(3)
+        return self.inverseDynamics(
+                angular_vel, np.zeros(3), np.zeros(3), grav, top_plate_wrench)
+
+    def massMatrix(self, angular_vel : 'np.ndarray[float]' = None) -> 'np.ndarray[float]':
+        """
+        Generate the platform's actuator-space mass matrix M, such that
+
+            tau = M @ [angular_accel; linear_accel] + coriolisGravity(angular_vel)
+
+        at the current top/bottom plate pose.
+        Args:
+            angular_vel (ndarray(Float), optional): top plate angular velocity, space
+                frame (rad/s). Defaults to zero.
+        Returns:
+            ndarray(Float): 6x6 mass matrix
+        """
+        if angular_vel is None:
+            angular_vel = np.zeros(3)
+        h = np.asarray(self.coriolisGravity(angular_vel)).flatten()
+        M = np.zeros((6, 6))
+        for i in range(6):
+            accel = np.zeros(6)
+            accel[i] = 1.0
+            tau_i = np.asarray(self.inverseDynamics(
+                    angular_vel, accel[0:3], accel[3:6])).flatten()
+            M[:, i] = tau_i - h
+        return M
+
+    def forwardDynamics(self, tau : 'np.ndarray[float]', angular_vel : 'np.ndarray[float]' = None,
+            grav : 'np.ndarray[float]' = None,
+            top_plate_wrench : Wrench = Wrench()) -> 'np.ndarray[float]':
+        """
+        Calculate the top plate's resulting acceleration given actuator forces.
+
+        Uses the current top/bottom plate pose - call IK/FK first to set the
+        configuration to evaluate.
+        Args:
+            tau (ndarray(Float)): actuator forces (N)
+            angular_vel (ndarray(Float), optional): top plate angular velocity, space
+                frame (rad/s). Defaults to zero.
+            grav (ndarray(Float), optional): gravity vector. Defaults to self.grav.
+            top_plate_wrench (Wrench, optional): additional externally applied wrench at
+                the top plate. Defaults to zero.
+        Returns:
+            ndarray(Float): [angular_accel (3,); linear_accel (3,)] of the top plate
+        """
+        if angular_vel is None:
+            angular_vel = np.zeros(3)
+        M = self.massMatrix(angular_vel)
+        h = np.asarray(self.coriolisGravity(angular_vel, grav, top_plate_wrench)).flatten()
+        tau = np.asarray(tau, dtype=float).flatten()
+        accel = np.linalg.pinv(M) @ (tau - h)
+        return accel
+
+    def integrateForwardDynamics(self, angular_vel0 : 'np.ndarray[float]',
+            tau : 'np.ndarray[float]', dt : float = 1.0, n_steps : int = 100,
+            grav : 'np.ndarray[float]' = None, top_plate_wrench : Wrench = Wrench()):
+        """
+        Integrate the top plate's rigid-body motion forward under a constant
+        actuator force vector, starting from the current top/bottom plate pose.
+
+        Uses a simple fixed-step integrator with an exact (matrix-exponential)
+        rotation update per step, since naive component-wise integration of a
+        rotation is not physically meaningful.
+        Args:
+            angular_vel0 (ndarray(Float)): initial top plate angular velocity, space
+                frame (rad/s)
+            tau (ndarray(Float)): (constant) actuator forces (N) applied throughout
+            dt (float, optional): total duration to integrate over. Defaults to 1.0.
+            n_steps (int, optional): number of fixed integration steps. Defaults to 100.
+            grav (ndarray(Float), optional): gravity vector. Defaults to self.grav.
+            top_plate_wrench (Wrench, optional): additional externally applied wrench at
+                the top plate, held constant throughout. Defaults to zero.
+
+        Returns:
+            t (ndarray(Float)): time samples, shape (n_steps+1,)
+            poses (list[tm]): top plate pose at each time sample
+            angular_vels (ndarray(Float)): top plate angular velocity at each time
+                sample, shape (n_steps+1, 3)
+        """
+        h_dt = dt / n_steps
+        angular_vel = np.asarray(angular_vel0, dtype=float).flatten().copy()
+        linear_vel = np.zeros(3)
+        bottom_pos = self.getBottomT().copy()
+
+        poses = [self.getTopT().copy()]
+        angular_vels = [angular_vel.copy()]
+        times = [0.0]
+
+        for step in range(n_steps):
+            accel = self.forwardDynamics(tau, angular_vel, grav, top_plate_wrench)
+            angular_accel = accel[0:3]
+            linear_accel = accel[3:6]
+
+            top_pos = self.getTopT()
+            position = top_pos.gPos().flatten()
+            rotation = top_pos.gRot()
+
+            new_position = position + linear_vel * h_dt + 0.5 * linear_accel * h_dt ** 2
+            new_rotation = fmr.MatrixExp3(fmr.VecToso3(angular_vel * h_dt)) @ rotation
+            linear_vel = linear_vel + linear_accel * h_dt
+            angular_vel = angular_vel + angular_accel * h_dt
+
+            new_transform = np.eye(4)
+            new_transform[0:3, 0:3] = new_rotation
+            new_transform[0:3, 3] = new_position
+            new_top_pos = tm(new_transform)
+
+            self.IK(top_plate_pos = new_top_pos, bottom_plate_pos = bottom_pos, protect = True)
+
+            poses.append(new_top_pos.copy())
+            angular_vels.append(angular_vel.copy())
+            times.append((step + 1) * h_dt)
+
+        return np.array(times), poses, np.array(angular_vels)
+
+    """
+    Camera
+    """
+
+    def _servoStep(self, pose : tm):
+        """Drive the top plate to `pose` via IK and return the resulting leg lengths."""
+        self.IK(top_plate_pos = pose)
+        return np.copy(self.lengths)
+
+    def _servoNoSolutionState(self):
+        """Return the current leg lengths when visual servoing can't proceed."""
+        return self.lengths
+
     """
     Public Helper Functions
     """
 
-    def move(self, new_pos : tm, protect : bool = False) -> None:
+    def move(self, new_pos : tm, protect : bool = False, stationary : bool = False) -> None:
         """
-        Move entire stewart platform to another location and orientation.
+        Move the base of the stewart platform to a new location.
 
         Args:
             new_pos (tm): New base transform to move to
             protect (Bool): Boolean to bypass error detection and correction. Bypass if True
+            stationary (bool, optional): If True, keep the top plate fixed in global space
+                while only the bottom (base) plate moves to new_pos - mirrors
+                Arm.move(stationary=True). Defaults to False (top plate moves rigidly
+                with the base, preserving their relative pose).
         """
         #Moves the base of the stewart platform to a new location
-
+        if stationary:
+            old_top_pos = self.getTopT()
+            self._base_pos_global = new_pos.copy()
+            self.IK(top_plate_pos = old_top_pos, bottom_plate_pos = new_pos, protect = protect)
+            return
 
         self._current_plate_transform_local = fsr.globalToLocal(self.getBottomT(), self.getTopT())
         self._base_pos_global = new_pos.copy()
@@ -874,7 +1367,7 @@ class SP(Robot):
         Args:
             ax: axis object
         """
-        DrawSP(self, ax)
+        drawSP(self, ax, forces=True)
 
     """
     Internal Functions, Grouped by Type
